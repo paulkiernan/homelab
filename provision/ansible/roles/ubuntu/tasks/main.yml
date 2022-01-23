@@ -18,3 +18,7 @@
 - include: user.yml
   tags:
     - user
+
+- include: settings.yml
+  tags:
+    - settings
