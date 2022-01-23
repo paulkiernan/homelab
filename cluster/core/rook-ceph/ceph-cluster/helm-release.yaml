@@ -25,5 +25,5 @@ spec:
     ingress:
       dashboard:
         host:
-          name: "rook-ceph.${SECRET_DOMAIN}"
+          name: "rook.${SECRET_DOMAIN}"
           path: "/"
