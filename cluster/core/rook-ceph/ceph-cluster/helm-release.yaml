@@ -5,16 +5,15 @@ metadata:
   name: rook-ceph-cluster
   namespace: rook-ceph
 spec:
-  interval: 15m
+  interval: 5m
   chart:
     spec:
       # renovate: registryUrl=https://charts.rook.io/release
       chart: rook-ceph-cluster
-      version: 1.8.3
       sourceRef:
         kind: HelmRepository
-        name: rook-ceph-charts
-        namespace: flux-system
+        name: rook-release
+        namespace: rook-ceph
       interval: 1m
   values:
     operatorNamespace: rook-ceph
@@ -24,6 +23,17 @@ spec:
       enabled: true
     ingress:
       dashboard:
-        host:
-          name: "rook.${SECRET_DOMAIN}"
-          path: "/"
+        annotations:
+          cert-manager.io/cluster-issuer: "letsencrypt-production"
+          hajimari.io/enable: "true"
+          hajimari.io/icon: "weather-sunset"
+          traefik.ingress.kubernetes.io/router.entrypoints: "websecure"
+        hosts:
+          - host: "rook-ceph.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                pathType: Prefix
+        tls:
+          - hosts:
+              - "hajimari.${SECRET_DOMAIN}"
+            secretName: "hajimari-tls"

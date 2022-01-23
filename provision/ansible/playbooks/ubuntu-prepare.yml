@@ -11,6 +11,8 @@
         seconds: 5
   roles:
     - ubuntu
+    - devsec.hardening.ssh_hardening
+    - devsec.hardening.os_hardening
   post_tasks:
     - name: Reboot
       reboot:
