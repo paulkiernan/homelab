@@ -1,11 +1,7 @@
 ---
 version: "3"
 
-env:
-  KUBECONFIG: "{{.PROJECT_DIR}}/provision/kubeconfig"
-
 tasks:
-
   sync:
     desc: Sync flux-system with the Git Repository
     cmds:
