@@ -31,7 +31,7 @@ pyparsing==3.0.7
 pyrsistent==0.18.0
 python-dotenv==0.19.2
 PyYAML==6.0
-requests==2.26.0
+requests==2.27.1
 resolvelib==0.8.1
 six==1.16.0
 texttable==1.6.4
