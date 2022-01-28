@@ -1,0 +1,50 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: paulynomial
+  namespace: paulynomial-index
+  labels:
+    kubernetes.io/ingress.class: traefik
+  annotations:
+    hajimari.io/appName: "paulynomial-index"
+    hajimari.io/enable: "true"
+    hajimari.io/icon: "web"
+spec:
+  rules:
+    - host: paulynomial.com
+      http:
+        paths:
+          - backend:
+              name: paulynomial-index
+              port:
+                name: http
+            path: /
+            pathType: Prefix
+    - host: www.paulynomial.com
+      http:
+        paths:
+          - backend:
+              name: paulynomial-index
+              port:
+                name: http
+            path: /
+            pathType: Prefix
+    - host: paul.bonjourinc.com
+      http:
+        paths:
+          - backend:
+              name: paulynomial-index
+              port:
+                name: http
+            path: /
+            pathType: Prefix
+    - host: "paul.${SECRET_DOMAIN}"
+      http:
+        paths:
+          - backend:
+              name: paulynomial-index
+              port:
+                name: http
+            path: /
+            pathType: Prefix
