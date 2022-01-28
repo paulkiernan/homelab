@@ -15,7 +15,7 @@ docker-compose==1.29.2
 dockerpty==0.4.1
 docopt==0.6.2
 filelock==3.0.12
-identify==2.2.13
+identify==2.4.6
 idna==3.3
 Jinja2==3.0.1
 jsonschema==3.2.0
