@@ -32,7 +32,7 @@ pyrsistent==0.18.0
 python-dotenv==0.19.2
 PyYAML==5.4.1
 requests==2.26.0
-resolvelib==0.5.4
+resolvelib==0.8.1
 six==1.16.0
 texttable==1.6.4
 toml==0.10.2
