@@ -58,8 +58,8 @@ spec:
       - "traefik.${SECRET_DOMAIN}"
       - "paul.${SECRET_DOMAIN}"
     podAnnotations:
-      prometheus.io/port: '9617'
-      prometheus.io/scrape: 'true'
+      prometheus.io/port: "9617"
+      prometheus.io/scrape: "true"
     monitoring:
       sidecar:
         enabled: true
