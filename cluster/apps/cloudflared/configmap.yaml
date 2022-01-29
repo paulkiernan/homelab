@@ -1,0 +1,29 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflared
+  namespace: cloudflared
+data:
+  config.yaml: |
+    tunnel: bonjourinc
+    credentials-file: /etc/cloudflared/creds/credentials.json
+    metrics: 0.0.0.0:2000
+    ingress:
+    - hostname: paulynomial.com
+      service: http://traefik.networking.svc.cluster.local:80
+    - hostname: "*.paulynomial.com"
+      service: http://traefik.networking.svc.cluster.local:80
+    - hostname: paulinomial.com
+      service: http://traefik.networking.svc.cluster.local:80
+    - hostname: "*.paulinomial.com"
+      service: http://traefik.networking.svc.cluster.local:80
+    - hostname: paul-kiernan.com
+      service: http://traefik.networking.svc.cluster.local:80
+    - hostname: "*.paul-kiernan.com"
+      service: http://traefik.networking.svc.cluster.local:80
+    - hostname: bonjourinc.com
+      service: http://traefik.networking.svc.cluster.local:80
+    - hostname: "*.bonjourinc.com"
+      service: http://traefik.networking.svc.cluster.local:80
+    - service: http_status:404

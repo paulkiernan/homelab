@@ -8,3 +8,4 @@ resources:
   - monitoring
   - pihole
   - paulynomial-index
+  - cloudflared
