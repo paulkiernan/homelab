@@ -1,0 +1,14 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: gibson-webgl-service
+  namespace: gibson
+spec:
+  selector:
+    app: gibson-webgl
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: 8080

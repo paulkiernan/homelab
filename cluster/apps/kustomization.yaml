@@ -9,3 +9,4 @@ resources:
   - pihole
   - paulynomial-index
   - cloudflared
+  - gibson

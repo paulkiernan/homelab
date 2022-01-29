@@ -52,6 +52,7 @@ spec:
         - "address=/pihole.${SECRET_DOMAIN}/${METALLB_TRAEFIK_ADDR}"
         - "address=/rook.${SECRET_DOMAIN}/${METALLB_TRAEFIK_ADDR}"
         - "address=/paul.${SECRET_DOMAIN}/${METALLB_TRAEFIK_ADDR}"
+        - "address=/gibson.${SECRET_DOMAIN}/${METALLB_TRAEFIK_ADDR}"
     whitelist:
       - "${SECRET_DOMAIN}"
       - "grafana.${SECRET_DOMAIN}"
@@ -60,6 +61,7 @@ spec:
       - "rook.${SECRET_DOMAIN}"
       - "traefik.${SECRET_DOMAIN}"
       - "paul.${SECRET_DOMAIN}"
+      - "gibson.${SECRET_DOMAIN}"
     podAnnotations:
       prometheus.io/port: "9617"
       prometheus.io/scrape: "true"

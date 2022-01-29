@@ -1,0 +1,34 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gibson-webgl-ingress
+  namespace: gibson
+  labels:
+    kubernetes.io/ingress.class: traefik
+  annotations:
+    hajimari.io/appName: "gibson"
+    hajimari.io/enable: "true"
+    hajimari.io/icon: "brain"
+spec:
+  rules:
+    - host: gibson.paulynomial.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gibson-webgl-service
+                port:
+                  name: http
+    - host: "gibson.${SECRET_DOMAIN}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gibson-webgl-service
+                port:
+                  name: http
