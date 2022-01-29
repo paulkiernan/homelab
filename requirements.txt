@@ -17,7 +17,7 @@ docopt==0.6.2
 filelock==3.0.12
 identify==2.4.6
 idna==3.3
-Jinja2==3.0.1
+Jinja2==3.0.3
 jsonschema==4.4.0
 MarkupSafe==2.0.1
 nodeenv==1.6.0
