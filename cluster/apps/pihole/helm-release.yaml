@@ -53,6 +53,7 @@ spec:
         - "address=/rook.${SECRET_DOMAIN}/${METALLB_TRAEFIK_ADDR}"
         - "address=/paul.${SECRET_DOMAIN}/${METALLB_TRAEFIK_ADDR}"
         - "address=/gibson.${SECRET_DOMAIN}/${METALLB_TRAEFIK_ADDR}"
+        - "address=/bonjour.${SECRET_DOMAIN}/${METALLB_TRAEFIK_ADDR}"
     whitelist:
       - "${SECRET_DOMAIN}"
       - "grafana.${SECRET_DOMAIN}"
@@ -62,6 +63,7 @@ spec:
       - "traefik.${SECRET_DOMAIN}"
       - "paul.${SECRET_DOMAIN}"
       - "gibson.${SECRET_DOMAIN}"
+      - "bonjour.${SECRET_DOMAIN}"
     podAnnotations:
       prometheus.io/port: "9617"
       prometheus.io/scrape: "true"

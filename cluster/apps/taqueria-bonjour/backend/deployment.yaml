@@ -1,0 +1,64 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: taqueria-bonjour
+  labels:
+    app: taqueria-bonjour
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: taqueria-bonjour
+  template:
+    metadata:
+      labels:
+        app: taqueria-bonjour
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/paulkiernan/taqueria-bonjour-backend:1.2.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: FLASK_APP
+              value: taqueria_bonjour:main
+            - name: DATABASE_URL
+              value: sqlite:////mnt/taqueria-bonjour/taco.db
+            - name: TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef:
+                  name: taqueria-bonjour-twilio
+                  key: account_sid
+            - name: TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: taqueria-bonjour-twilio
+                  key: auth_token
+            - name: TWILIO_ORIGIN_NUMBER
+              valueFrom:
+                secretKeyRef:
+                  name: taqueria-bonjour-twilio
+                  key: origin_number
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 3
+          volumeMounts:
+            - name: sqlite-vol
+              mountPath: /mnt/taqueria-bonjour
+      volumes:
+        - name: sqlite-vol
+          persistentVolumeClaim:
+            claimName: sqlite-pvc

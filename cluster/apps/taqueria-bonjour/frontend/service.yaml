@@ -1,0 +1,16 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: frontend
+  namespace: taqueria-bonjour
+  labels:
+    app: taqueria-bonjour
+spec:
+  selector:
+    app: taqueria-bonjour
+  ports:
+    - name: http-frontend
+      protocol: TCP
+      port: 80
+      targetPort: 80

@@ -1,0 +1,16 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: backend
+  namespace: taqueria-bonjour
+  labels:
+    app: taqueria-bonjour
+spec:
+  selector:
+    app: taqueria-bonjour
+  ports:
+    - name: http-backend
+      protocol: TCP
+      port: 8080
+      targetPort: 8080

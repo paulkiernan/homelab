@@ -1,0 +1,54 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend
+  namespace: taqueria-bonjour
+  labels:
+    kubernetes.io/ingress.class: traefik
+  annotations:
+    hajimari.io/appName: "taqueria-bonjour"
+    hajimari.io/enable: "true"
+    hajimari.io/icon: "taco"
+spec:
+  rules:
+    - host: bonjourinc.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  name: http-frontend
+    - host: bonjour.bonjourinc.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  name: http-frontend
+    - host: bonjour.paulynomial.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  name: http-frontend
+    - host: "bonjour.${SECRET_DOMAIN}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  name: http-frontend
