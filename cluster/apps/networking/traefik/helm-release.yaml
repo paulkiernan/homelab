@@ -44,7 +44,11 @@ spec:
       fallbackApiVersion: v1
     ingressRoute:
       dashboard:
-        enabled: false
+        enabled: true
+      annotations:
+        hajimari.io/appName: "traefik dashboard"
+        hajimari.io/enable: "true"
+        hajimari.io/icon: "traffic-light"
     globalArguments:
       - "--api.insecure=true"
       - "--serverstransport.insecureskipverify=true"

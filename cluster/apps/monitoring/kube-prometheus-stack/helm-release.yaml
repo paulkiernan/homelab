@@ -8,6 +8,7 @@ spec:
   interval: 5m
   chart:
     spec:
+      # renovate: registryUrl=https://prometheus-community.github.io/helm-charts
       chart: kube-prometheus-stack
       sourceRef:
         kind: HelmRepository
@@ -27,8 +28,11 @@ spec:
           searchNamespace: ALL
       ingress:
         enabled: true
+        ingressClassName: traefik
         annotations:
-          kubernetes.io/ingress.class: traefik
+          hajimari.io/appName: "monitoring"
+          hajimari.io/enable: "true"
+          hajimari.io/icon: "chart-areaspline"
         path: /
         hosts:
           - "grafana.${SECRET_DOMAIN}"

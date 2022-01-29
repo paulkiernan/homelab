@@ -9,7 +9,7 @@ metadata:
   annotations:
     hajimari.io/appName: "paulynomial-index"
     hajimari.io/enable: "true"
-    hajimari.io/icon: "web"
+    hajimari.io/icon: "account-network"
 spec:
   rules:
     - host: paulynomial.com

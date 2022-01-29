@@ -37,8 +37,11 @@ spec:
       strict: true
     ingress:
       enabled: true
+      ingressClassName: traefik
       annotations:
-        kubernetes.io/ingress.class: traefik
+        hajimari.io/appName: "pihole"
+        hajimari.io/enable: "true"
+        hajimari.io/icon: "pi-hole"
       path: /
       hosts:
         - "pihole.${SECRET_DOMAIN}"
