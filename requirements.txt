@@ -36,6 +36,6 @@ resolvelib==0.8.1
 six==1.16.0
 texttable==1.6.4
 toml==0.10.2
-urllib3==1.26.7
+urllib3==1.26.8
 virtualenv==20.13.0
 websocket-client==1.2.3
