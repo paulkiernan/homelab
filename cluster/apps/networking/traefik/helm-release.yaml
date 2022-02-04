@@ -33,22 +33,18 @@ spec:
         externalTrafficPolicy: Local
     logs:
       general:
-        format: json
+        format: common
         level: DEBUG
       access:
         enabled: true
-        format: json
+        format: common
     ingressClass:
       enabled: true
       isDefaultClass: true
       fallbackApiVersion: v1
     ingressRoute:
       dashboard:
-        enabled: true
-      annotations:
-        hajimari.io/appName: "traefik dashboard"
-        hajimari.io/enable: "true"
-        hajimari.io/icon: "traffic-light"
+        enabled: false
     globalArguments:
       - "--api.insecure=true"
       - "--serverstransport.insecureskipverify=true"
@@ -63,12 +59,11 @@ spec:
     ports:
       traefik:
         expose: true
-      #web:
-      #redirectTo: websecure
+      web:
+        expose: true
       websecure:
         tls:
-          enabled: true
-          options: "default"
+          enabled: false
       metrics:
         port: 8082
         expose: true
