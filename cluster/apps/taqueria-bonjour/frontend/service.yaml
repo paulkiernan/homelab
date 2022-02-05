@@ -5,10 +5,10 @@ metadata:
   name: frontend
   namespace: taqueria-bonjour
   labels:
-    app: taqueria-bonjour
+    app: taqueria-bonjour-frontend
 spec:
   selector:
-    app: taqueria-bonjour
+    app: taqueria-bonjour-frontend
   ports:
     - name: http-frontend
       protocol: TCP
