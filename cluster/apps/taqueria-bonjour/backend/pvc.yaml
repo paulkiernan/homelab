@@ -5,7 +5,7 @@ metadata:
   name: sqlite-pvc
   namespace: taqueria-bonjour
   labels:
-    app: taqueria-bonjour
+    app: taqueria-bonjour-backend
 spec:
   accessModes:
     - ReadWriteMany

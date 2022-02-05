@@ -5,17 +5,17 @@ metadata:
   name: frontend
   namespace: taqueria-bonjour
   labels:
-    app: taqueria-bonjour
+    app: taqueria-bonjour-frontend
 spec:
   replicas: 2
   revisionHistoryLimit: 5
   selector:
     matchLabels:
-      app: taqueria-bonjour
+      app: taqueria-bonjour-frontend
   template:
     metadata:
       labels:
-        app: taqueria-bonjour
+        app: taqueria-bonjour-frontend
     spec:
       containers:
         - name: frontend

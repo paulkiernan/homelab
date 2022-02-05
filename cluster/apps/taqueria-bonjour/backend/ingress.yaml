@@ -1,46 +1,85 @@
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: backend-stripprefix
+  namespace: taqueria-bonjour
+spec:
+  stripPrefix:
+    prefixes:
+      - /api
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
 metadata:
   name: backend
   namespace: taqueria-bonjour
   labels:
-    app: taqueria-bonjour
-    kubernetes.io/ingress.class: traefik
+    app: taqueria-bonjour-backend
   annotations:
     hajimari.io/appName: "taqueria-bonjour-api"
-    hajimari.io/enable: "false"
+    hajimari.io/enable: "true"
     hajimari.io/icon: "taco"
     traefik.ingress.kubernetes.io/rewrite-target: /$2
 spec:
-  rules:
-    - host: bonjourinc.com
-      http:
-        paths:
-          - path: /api(/|$)(.*)
-            pathType: Prefix
-            backend:
-              service:
-                name: backend
-                port:
-                  name: http-backend
-    - host: bonjour.bonjourinc.com
-      http:
-        paths:
-          - path: /api(/|$)(.*)
-            pathType: Prefix
-            backend:
-              service:
-                name: backend
-                port:
-                  name: http-backend
-    - host: "bonjour.${SECRET_DOMAIN}"
-      http:
-        paths:
-          - path: /api(/|$)(.*)
-            pathType: Prefix
-            backend:
-              service:
-                name: backend
-                port:
-                  name: http-backend
+  entryPoints:
+    - web
+    - websecure
+  routes:
+  - kind: Rule
+    match: "Host(`bonjourinc.com`) && PathPrefix(`/api`)"
+    priority: 0
+    middlewares:
+    - name: backend-stripprefix
+      namespace: taqueria-bonjour
+    services:
+    - kind: Service
+      name: backend
+      namespace: taqueria-bonjour
+      passHostHeader: true
+      port: http-backend
+      strategy: RoundRobin
+      weight: 10
+  - kind: Rule
+    match: "Host(`bonjour.bonjourinc.com`) && PathPrefix(`/api`)"
+    priority: 0
+    middlewares:
+    - name: backend-stripprefix
+      namespace: taqueria-bonjour
+    services:
+    - kind: Service
+      name: backend
+      namespace: taqueria-bonjour
+      passHostHeader: true
+      port: http-backend
+      strategy: RoundRobin
+      weight: 10
+  - kind: Rule
+    match: "Host(`bonjour.paulynomial.com`) && PathPrefix(`/api`)"
+    priority: 0
+    middlewares:
+    - name: backend-stripprefix
+      namespace: taqueria-bonjour
+    services:
+    - kind: Service
+      name: backend
+      namespace: taqueria-bonjour
+      passHostHeader: true
+      port: http-backend
+      strategy: RoundRobin
+      weight: 10
+  - kind: Rule
+    match: "Host(`bonjour.${SECRET_DOMAIN}`) && PathPrefix(`/api`)"
+    priority: 0
+    middlewares:
+    - name: backend-stripprefix
+      namespace: taqueria-bonjour
+    services:
+    - kind: Service
+      name: backend
+      namespace: taqueria-bonjour
+      passHostHeader: true
+      port: http-backend
+      strategy: RoundRobin
+      weight: 10
