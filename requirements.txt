@@ -9,7 +9,7 @@ cfgv==3.3.1
 charset-normalizer==2.0.10
 cryptography==36.0.1
 distlib==0.3.4
-distro==1.6.0
+distro==1.7.0
 docker==5.0.3
 docker-compose==1.29.2
 dockerpty==0.4.1
