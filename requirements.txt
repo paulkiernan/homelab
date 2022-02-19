@@ -23,7 +23,7 @@ MarkupSafe==2.0.1
 nodeenv==1.6.0
 packaging==21.3
 paramiko==2.9.2
-platformdirs==2.4.1
+platformdirs==2.5.1
 pre-commit==2.17.0
 pycparser==2.21
 PyNaCl==1.5.0
