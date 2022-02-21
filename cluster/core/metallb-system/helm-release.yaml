@@ -27,3 +27,5 @@ spec:
       logLevel: info
       frr:
         enabled: true
+      image:
+        pullPolicy: Always
