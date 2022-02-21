@@ -90,8 +90,9 @@
       automerge: true,
     },
     {
-      matchPaths: ["+(requirements.txt)"],
+      matchManagers: ["python", "pipenv", "poetry"],
+      enabled: true,
       automerge: true,
-    },
+    }
   ],
 }
