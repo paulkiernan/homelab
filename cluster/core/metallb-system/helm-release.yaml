@@ -26,6 +26,6 @@ spec:
       enabled: true
       logLevel: info
       frr:
-        enabled: true
+        enabled: false
       image:
         pullPolicy: Always
