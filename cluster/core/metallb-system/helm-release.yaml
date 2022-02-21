@@ -28,4 +28,4 @@ spec:
       frr:
         enabled: false
       image:
-        pullPolicy: Always
+        pullPolicy: IfNotPresent
