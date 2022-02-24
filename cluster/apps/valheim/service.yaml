@@ -19,4 +19,4 @@ spec:
       targetPort: 2457
   selector:
     app: valheim-server
-  type: ClusterIP
+  type: LoadBalancer
