@@ -84,15 +84,15 @@ spec:
         cpu: 500m
       limits:
         memory: 500Mi
-    affinity:
-      # This example pod anti-affinity forces the scheduler to put traefik pods
-      # on nodes where no other traefik pods are scheduled.
-      podAntiAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-            matchExpressions:
-              - key: app.kubernetes.io/name
-                operator: In
-                values:
-                  - 'traefik'
-            topologyKey: kubernetes.io/hostname
+    affinity: {}
+      ## This example pod anti-affinity forces the scheduler to put traefik pods
+      ## on nodes where no other traefik pods are scheduled.
+      #podAntiAffinity:
+        #requiredDuringSchedulingIgnoredDuringExecution:
+          #- labelSelector:
+            #matchExpressions:
+              #- key: app.kubernetes.io/name
+                #operator: In
+                #values:
+                  #- 'traefik'
+            #topologyKey: kubernetes.io/hostname
