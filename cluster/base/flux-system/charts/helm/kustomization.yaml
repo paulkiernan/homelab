@@ -24,3 +24,4 @@ resources:
   - traefik-charts.yaml
   - weaveworks-kured-charts.yaml
   - pihole-charts.yaml
+  - addyvan-charts.yaml
