@@ -1,7 +1,13 @@
 ---
+- name: Check if Raspberry Pi
+  command: grep -q  "Raspberry Pi" /proc/cpuinfo
+  ignore_errors: true
+  register: is_raspberry
+
 - name: Enable cgroups
   lineinfile:
     path: /boot/firmware/cmdline.txt
     regexp: "(?=.*root)(?!.*cgroup_memory=1 cgroup_enable=memory)(.+)"
     backrefs: yes
     line: '\1 cgroup_memory=1 cgroup_enable=memory'
+  when: is_raspberry and (ansible_lsb.major_release|int >= 21)
