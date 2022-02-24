@@ -1,0 +1,33 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    helm.toolkit.fluxcd.io/name: valheim-server
+    helm.toolkit.fluxcd.io/namespace: valheim
+  name: valheim-server-world-data
+  namespace: valheim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: ceph-filesystem
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    helm.toolkit.fluxcd.io/name: valheim-server
+    helm.toolkit.fluxcd.io/namespace: valheim
+  name: valheim-server-base-data
+  namespace: valheim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: ceph-filesystem
