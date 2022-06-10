@@ -18,7 +18,7 @@ filelock==3.4.2
 identify==2.4.10
 idna==3.3
 Jinja2==3.0.3
-jsonschema==4.4.0
+jsonschema==4.6.0
 MarkupSafe==2.1.0
 nodeenv==1.6.0
 packaging==21.3
