@@ -19,7 +19,7 @@ identify==2.5.1
 idna==3.3
 Jinja2==3.0.3
 jsonschema==4.6.0
-MarkupSafe==2.1.0
+MarkupSafe==2.1.1
 nodeenv==1.6.0
 packaging==21.3
 paramiko==2.11.0
