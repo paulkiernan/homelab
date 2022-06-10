@@ -90,7 +90,7 @@
       automerge: true,
     },
     {
-      matchManagers: ["python", "pipenv", "poetry"],
+      matchManagers: ["pipenv", "poetry"],
       enabled: true,
       automerge: true,
     }
