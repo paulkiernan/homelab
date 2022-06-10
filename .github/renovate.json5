@@ -93,6 +93,7 @@
       matchManagers: ["pipenv", "poetry"],
       enabled: true,
       automerge: true,
+      automergeType: "branch",
     }
   ],
 }
