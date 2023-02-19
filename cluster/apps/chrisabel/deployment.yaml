@@ -1,0 +1,40 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chrisabel
+  namespace: default
+  labels:
+    app: chrisabel
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: chrisabel
+  template:
+    metadata:
+      labels:
+        app: chrisabel
+    spec:
+      containers:
+        - name: chrisabel
+          image: ghcr.io/paulkiernan/chrisabel:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 3

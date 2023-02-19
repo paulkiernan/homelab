@@ -1,0 +1,14 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: chrisabel
+  namespace: default
+spec:
+  selector:
+    app: chrisabel
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http
