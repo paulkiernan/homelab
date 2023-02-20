@@ -12,7 +12,7 @@ metadata:
     hajimari.io/icon: "account-network"
 spec:
   rules:
-    - host: chrisabel.love
+    - host: "chrisabel.love"
       http:
         paths:
           - backend:
