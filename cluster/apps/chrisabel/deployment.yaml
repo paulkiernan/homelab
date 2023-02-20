@@ -20,6 +20,8 @@ spec:
         - name: chrisabel
           image: ghcr.io/paulkiernan/chrisabel:latest
           imagePullPolicy: Always
+          imagePullSecrets:
+            - name: regcred
           ports:
             - containerPort: 80
               name: http
