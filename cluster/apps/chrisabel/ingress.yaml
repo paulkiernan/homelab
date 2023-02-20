@@ -22,7 +22,7 @@ spec:
                   name: http
             path: /
             pathType: Prefix
-    - host: "chrisabel.${SECRET_DOMAIN}"
+    - host: "chrisabel.home.lab"
       http:
         paths:
           - backend:
