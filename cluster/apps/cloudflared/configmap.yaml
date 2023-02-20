@@ -28,4 +28,8 @@ data:
       service: http://traefik.networking.svc.cluster.local:80
     - hostname: "*.bonjourinc.com"
       service: http://traefik.networking.svc.cluster.local:80
+    - hostname: chrisabel.love
+      service: http://traefik.networking.svc.cluster.local:80
+    - hostname: "*.chrisabel.love"
+      service: http://traefik.networking.svc.cluster.local:80
     - service: http_status:404
