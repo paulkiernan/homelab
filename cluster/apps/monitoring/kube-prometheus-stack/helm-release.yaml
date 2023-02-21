@@ -17,31 +17,39 @@ spec:
       interval: 1m
   install:
     crds: Create
+    createNamespace: true
+    remediation:
+      retries: 3
   upgrade:
     crds: CreateReplace
+    remediation:
+      retries: 3
   values:
-    alertmanager:
-      enabled: false
     grafana:
+      plugins: "grafana-piechart-panel"
+      adminPassword: "${GRAFANA_DASHBOARD_PASSWORD}"
+      defaultDashboardsTimezone: browser
       sidecar:
         dashboards:
           searchNamespace: ALL
+      serviceMonitor:
+        enabled: true
       ingress:
         enabled: true
         ingressClassName: traefik
         annotations:
-          hajimari.io/appName: "monitoring"
           hajimari.io/enable: "true"
+          hajimari.io/appName: "Grafana"
           hajimari.io/icon: "chart-areaspline"
         path: /
         hosts:
           - "grafana.${SECRET_DOMAIN}"
-      plugins: "grafana-piechart-panel"
-      adminPassword: "${GRAFANA_DASHBOARD_PASSWORD}"
     prometheus:
       prometheusSpec:
+        retentionSize: "40GiB"
+        serviceMonitorNamespaceSelector: {}
         serviceMonitorSelectorNilUsesHelmValues: false
-        podMonitorSelectorNilUsesHelmValues: false
+        serviceMonitorSelector: {}
         storageSpec:
           volumeClaimTemplate:
             spec:
@@ -50,3 +58,19 @@ spec:
               resources:
                 requests:
                   storage: 50Gi
+        podMonitorNamespaceSelector: {}
+        podMonitorSelectorNilUsesHelmValues: false
+        podMonitorSelector: {}
+        ruleNamespaceSelector: {}
+        ruleSelectorNilUsesHelmValues: false
+        ruleSelector: {}
+    alertmanager:
+      ingress:
+        enabled: true
+        ingressClassName: traefik
+        annotations:
+          hajimari.io/enable: "true"
+          hajimari.io/appName: "Alertmanager"
+          hajimari.io/icon: "chart-areaspline"
+        hosts:
+          - "alerts.${SECRET_DOMAIN}"
