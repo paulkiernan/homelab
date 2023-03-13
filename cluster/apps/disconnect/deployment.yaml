@@ -17,8 +17,8 @@ spec:
         app: disconnect-2022
     spec:
       containers:
-        - name: disconnect_2022
-          image: ghcr.io/paulkiernan/disconnect_2022:latest
+        - name: disconnect-2022
+          image: ghcr.io/paulkiernan/disconnect-2022:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 80
