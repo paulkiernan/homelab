@@ -9,13 +9,13 @@ tasks:
       - "terraform init"
 
   plan:cloudflare:
-    desc: Prepare all the k8s nodes for running k3s
+    desc: Prepare Cloudflare DNS rules
     dir: provision/terraform/cloudflare
     cmds:
       - "terraform plan"
 
   apply:cloudflare:
-    desc: Prepare all the k8s nodes for running k3s
+    desc: Apply Cloudflare DNS rules
     dir: provision/terraform/cloudflare
     cmds:
       - "terraform apply"
