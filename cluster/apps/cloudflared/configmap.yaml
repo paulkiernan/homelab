@@ -12,24 +12,4 @@ data:
     ingress:
     - hostname: valheim.paulynomial.com
       service: tcp://valheim-server.valheim.svc.cluster.local:2456
-    - hostname: paulynomial.com
-      service: http://traefik.networking.svc.cluster.local:80
-    - hostname: "*.paulynomial.com"
-      service: http://traefik.networking.svc.cluster.local:80
-    - hostname: paulinomial.com
-      service: http://traefik.networking.svc.cluster.local:80
-    - hostname: "*.paulinomial.com"
-      service: http://traefik.networking.svc.cluster.local:80
-    - hostname: paul-kiernan.com
-      service: http://traefik.networking.svc.cluster.local:80
-    - hostname: "*.paul-kiernan.com"
-      service: http://traefik.networking.svc.cluster.local:80
-    - hostname: bonjourinc.com
-      service: http://traefik.networking.svc.cluster.local:80
-    - hostname: "*.bonjourinc.com"
-      service: http://traefik.networking.svc.cluster.local:80
-    - hostname: chrisabel.love
-      service: http://traefik.networking.svc.cluster.local:80
-    - hostname: "*.chrisabel.love"
-      service: http://traefik.networking.svc.cluster.local:80
-    - service: http_status:404
+    - service: http://traefik.networking.svc.cluster.local:80
