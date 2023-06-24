@@ -7,7 +7,7 @@ authors = ["Paul Kiernan <hi@paulynomial.com>"]
 [tool.poetry.dependencies]
 python = "^3.10"
 ansible = "^5.9.0"
-pre-commit = "^2.19.0"
+pre-commit = "^3.0.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.0.0"
