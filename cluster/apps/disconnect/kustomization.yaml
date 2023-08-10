@@ -6,3 +6,6 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress.yaml
+  - deployment-2023.yaml
+  - service-2023.yaml
+  - ingress-2023.yaml
