@@ -3,3 +3,4 @@ helm 3.12.1
 nodejs 18.16.1
 poetry 1.1.13
 terraform 1.5.2
+flux2 2.0.1
