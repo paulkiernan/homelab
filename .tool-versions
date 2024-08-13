@@ -1,4 +1,4 @@
-kubectl 1.22.5
+kubectl 1.31.0
 helm 3.12.1
 nodejs 18.16.1
 poetry 1.1.13
