@@ -1,9 +1,5 @@
 # Le Paulynomial Homelab
 
-This project has been forked from
-[template-cluster-k3s](https://github.com/k8s-at-home/template-cluster-k3s).
-Thank y'all for for the inspiration.
-
 ## Publishing arm64 images
 
 This cluster runs on the arm64 instruction set. Some of the deployments in it

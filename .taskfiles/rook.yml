@@ -1,9 +1,0 @@
----
-version: "3"
-
-tasks:
-  status:
-    desc: Show ceph cluster status
-    cmds:
-      - kubectl -n rook-ceph exec -it deployment.apps/rook-ceph-tools -- ceph status
-    silent: true

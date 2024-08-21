@@ -1,19 +1,19 @@
-# Trash
+*.agekey*
+*.key
+*.pub
 .DS_Store
-Thumbs.db
-
-# k8s
-kubeconfig*
-
-# vscode-sops
-.decrypted~*.yaml
+.bin
 .config.env
-*.agekey
-
-# Ansible
-xanmanning.k3s*
-
-# Terraform
+.decrypted~*.yaml
+.idea
+.private
+.task
 .terraform
-.terraform.tfstate*
+.venv*
+/config.yaml
+Brewfile.lock.json
+Thumbs.db
+kubeconfig*
+talosconfig
 terraform.tfstate*
+wiki
