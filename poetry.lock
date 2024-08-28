@@ -2,27 +2,27 @@
 
 [[package]]
 name = "ansible"
-version = "7.0.0"
+version = "8.7.0"
 description = "Radically simple IT automation"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "ansible-7.0.0-py3-none-any.whl", hash = "sha256:2e9f519441780595ab173ac017210efc94c58633c9bc6e55917745d214cb4332"},
-    {file = "ansible-7.0.0.tar.gz", hash = "sha256:73144e7e602715fab623005d2e71e503dddae86185e061fed861b2449c5618ea"},
+    {file = "ansible-8.7.0-py3-none-any.whl", hash = "sha256:fa7d3bc2dfdb0ab031df645814ff86b15cb5ec041bfbee4041f795abfa5646ca"},
+    {file = "ansible-8.7.0.tar.gz", hash = "sha256:3a5ca5152e4547d590e40b542d76b18dbbe2b36da4edd00a13a7c51a374ff737"},
 ]
 
 [package.dependencies]
-ansible-core = ">=2.14.0,<2.15.0"
+ansible-core = ">=2.15.7,<2.16.0"
 
 [[package]]
 name = "ansible-core"
-version = "2.14.7"
+version = "2.15.12"
 description = "Radically simple IT automation"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "ansible-core-2.14.7.tar.gz", hash = "sha256:2be26d617483b2b1621ec93ca57f2e24faace90cb9f07d8dca3f68a8428d9cd6"},
-    {file = "ansible_core-2.14.7-py3-none-any.whl", hash = "sha256:a909b8cbdd8652796aa3e161d60d65bb18f210bdde27664f3e489e239950ad85"},
+    {file = "ansible_core-2.15.12-py3-none-any.whl", hash = "sha256:390edd603420122f7cb1c470d8d1f8bdbbd795a1844dd03c1917db21935aecb9"},
+    {file = "ansible_core-2.15.12.tar.gz", hash = "sha256:5fde82cd3928d9857ad880782c644f27d3168b0f25321d5a8d6befa524aa1818"},
 ]
 
 [package.dependencies]
@@ -30,7 +30,7 @@ cryptography = "*"
 jinja2 = ">=3.0.0"
 packaging = "*"
 PyYAML = ">=5.1"
-resolvelib = ">=0.5.3,<0.9.0"
+resolvelib = ">=0.5.3,<1.1.0"
 
 [[package]]
 name = "attrs"
@@ -538,4 +538,4 @@ testing = ["coverage (>=4)", "coverage-enable-subprocess (>=1)", "flaky (>=3)", 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "d2e755393170220d4258ac85b706a88c74b66b01c1dcd74c7cdbf1bbfc686d43"
+content-hash = "511868cab84f4fe7d213faf1f4655867b432b23fa5e233c2395b79efb6fa4e96"
