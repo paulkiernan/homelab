@@ -1,0 +1,118 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/budimanjojo/talhelper/master/pkg/config/schemas/talconfig.json
+---
+# renovate: datasource=docker depName=ghcr.io/siderolabs/installer
+talosVersion: v1.7.6
+# renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
+kubernetesVersion: v1.30.3
+
+clusterName: "paulynomial"
+endpoint: "https://192.168.1.200:6443"
+clusterPodNets:
+  - "10.69.0.0/16"
+clusterSvcNets:
+  - "10.96.0.0/16"
+additionalApiServerCertSans: &sans
+  - ""
+  - 127.0.0.1 # KubePrism
+additionalMachineCertSans: *sans
+
+# Disable built-in Flannel to use Cilium
+cniConfig:
+  name: none
+
+nodes:
+  - hostname: "k8s-leader-01"
+    ipAddress: "192.168.1.200"
+    installDisk: "/dev/sdc"
+    talosImageURL: factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "1c:69:7a:69:c3:98"
+        dhcp: false
+        addresses:
+          - "192.168.1.200/24"
+        routes:
+          - network: 0.0.0.0/0
+            gateway: "192.168.1.1"
+        mtu: 1500
+        vip:
+          ip: "192.168.1.3"
+  - hostname: "k8s-worker-01"
+    ipAddress: "192.168.1.201"
+    installDisk: "/dev/mmcblk0"
+    talosImageURL: factory.talos.dev/installer/cbaa6c853fa55bda75d863ac9c950d94c9d09c5764845f1fe2eba1479c089647
+    controlPlane: false
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "dc:a6:32:c5:15:ab"
+        dhcp: false
+        addresses:
+          - "192.168.1.201/24"
+        routes:
+          - network: 0.0.0.0/0
+            gateway: "192.168.1.1"
+        mtu: 1500
+  - hostname: "k8s-worker-02"
+    ipAddress: "192.168.1.202"
+    installDisk: "/dev/mmcblk0"
+    talosImageURL: factory.talos.dev/installer/cbaa6c853fa55bda75d863ac9c950d94c9d09c5764845f1fe2eba1479c089647
+    controlPlane: false
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "dc:a6:32:c5:15:a8"
+        dhcp: false
+        addresses:
+          - "192.168.1.202/24"
+        routes:
+          - network: 0.0.0.0/0
+            gateway: "192.168.1.1"
+        mtu: 1500
+  - hostname: "k8s-worker-03"
+    ipAddress: "192.168.1.203"
+    installDisk: "/dev/mmcblk0"
+    talosImageURL: factory.talos.dev/installer/cbaa6c853fa55bda75d863ac9c950d94c9d09c5764845f1fe2eba1479c089647
+    controlPlane: false
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "e4:5f:01:0a:07:f1"
+        dhcp: false
+        addresses:
+          - "192.168.1.203/24"
+        routes:
+          - network: 0.0.0.0/0
+            gateway: "192.168.1.1"
+        mtu: 1500
+  - hostname: "k8s-worker-04"
+    ipAddress: "192.168.1.204"
+    installDisk: "/dev/mmcblk0"
+    talosImageURL: factory.talos.dev/installer/cbaa6c853fa55bda75d863ac9c950d94c9d09c5764845f1fe2eba1479c089647
+    controlPlane: false
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "dc:a6:32:27:dd:5a"
+        dhcp: false
+        addresses:
+          - "192.168.1.204/24"
+        routes:
+          - network: 0.0.0.0/0
+            gateway: "192.168.1.1"
+        mtu: 1500
+
+# Global patches
+patches:
+  - "@./patches/global/cluster-discovery.yaml"
+  - "@./patches/global/containerd.yaml"
+  - "@./patches/global/disable-search-domain.yaml"
+  - "@./patches/global/hostdns.yaml"
+  - "@./patches/global/kubelet.yaml"
+  - "@./patches/global/openebs-local.yaml"
+  - "@./patches/global/sysctl.yaml"
+
+# Controller patches
+controlPlane:
+  patches:
+    - "@./patches/controller/api-access.yaml"
+    - "@./patches/controller/cluster.yaml"
+    - "@./patches/controller/disable-admission-controller.yaml"
+    - "@./patches/controller/etcd.yaml"
