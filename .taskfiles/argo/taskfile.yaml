@@ -1,0 +1,19 @@
+---
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: "3"
+
+vars:
+  CLUSTER_SECRET_SOPS_FILE: "{{.KUBERNETES_DIR}}/argocd/vars/cluster-secrets.sops.yaml"
+  CLUSTER_SETTINGS_FILE: "{{.KUBERNETES_DIR}}/argocd/vars/cluster-settings.yaml"
+
+tasks:
+
+  bootstrap:
+    desc: Bootstrap ArgoCD into a Kubernetes cluster
+    cmds:
+      - kubectl apply --kubeconfig {{.KUBECONFIG_FILE}} --server-side --kustomize {{.KUBERNETES_DIR}}/bootstrap/argocd
+    preconditions:
+      - msg: Missing kubeconfig
+        sh: test -f {{.KUBECONFIG_FILE}}
+      - msg: Missing Sops Age key file
+        sh: test -f {{.AGE_FILE}}
