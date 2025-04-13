@@ -15,5 +15,5 @@ Brewfile.lock.json
 Thumbs.db
 kubeconfig*
 talosconfig
-terraform.tfstate*
+*.tfstate*
 wiki
