@@ -31,6 +31,28 @@ tasks:
       - msg: Missing Sops Age key file
         sh: test -f {{.AGE_FILE}}
 
+  re-encrypt:
+    desc: Re-encrypt all sops files (e.g., after rotating keys or changing encryption config)
+    cmds:
+      - for: { var: file }
+        task: .re-encrypt-file
+        vars:
+          file: "{{.ITEM}}"
+    vars:
+      file:
+        sh: find . -mindepth 2 -type f -regex './\(kubernetes\|secrets\|talos\)/.*\.sops\.yaml'
+
+  .re-encrypt-file:
+    internal: true
+    cmd: sops updatekeys {{.file}}
+    requires:
+      vars: ["file"]
+    preconditions:
+      - msg: Missing Sops config file
+        sh: test -f {{.SOPS_CONFIG_FILE}}
+      - msg: Missing Sops Age key file
+        sh: test -f {{.AGE_FILE}}
+
   .reset:
     internal: true
     cmd: rm -rf {{.SOPS_CONFIG_FILE}}
