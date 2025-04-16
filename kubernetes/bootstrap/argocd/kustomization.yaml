@@ -6,3 +6,6 @@ resources:
   - namespace.yaml
   - https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
   - root-applicationset.yaml
+
+patches:
+  - path: argocd-cm.patch.yaml
