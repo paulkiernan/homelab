@@ -5,10 +5,6 @@ metadata:
   name: chrisabel
   labels:
     kubernetes.io/ingress.class: traefik
-  annotations:
-    hajimari.io/appName: "chrisabel"
-    hajimari.io/enable: "true"
-    hajimari.io/icon: "account-network"
 spec:
   rules:
     - host: "chrisabel.love"
