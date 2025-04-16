@@ -1,0 +1,42 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: minecraft
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://itzg.github.io/minecraft-server-charts/
+    targetRevision: 4.26.3
+    chart: minecraft
+    helm:
+      valuesObject:
+        resources:
+          requests:
+            memory: 2Gi
+            cpu: 2
+        minecraftServer:
+          eula: "TRUE"
+          serviceType: LoadBalancer
+          motd: "Welcome to Paulynomial's Space!"
+          memory: 2048M
+          worldSaveName: paulynomial
+        serviceAnnotations:
+          external-dns.alpha.kubernetes.io/hostname: minecraft.home.lab
+        persistence:
+          storageClass: "nas-nfs"
+          dataDir:
+            enabled: true
+            Size: 5Gi
+            accessModes:
+              - ReadWriteMany
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: minecraft
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true 
