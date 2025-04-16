@@ -20,7 +20,7 @@ spec:
   project: default
   source:
     path: kubernetes/argo
-    repoURL: git@github.com:phaselabinc/infra
+    repoURL: https://github.com/paulkiernan/homelab
     targetRevision: HEAD
   syncPolicy:
     automated:

@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/budimanjojo/talhelper/master/pkg/config/schemas/talconfig.json
 ---
 # renovate: datasource=docker depName=ghcr.io/siderolabs/installer
-talosVersion: v1.7.6
+talosVersion: v1.9.2
 # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
-kubernetesVersion: v1.30.3
+kubernetesVersion: v1.32.3
 
 clusterName: "paulynomial"
 endpoint: "https://192.168.1.200:6443"
@@ -12,7 +12,11 @@ clusterPodNets:
 clusterSvcNets:
   - "10.96.0.0/16"
 additionalApiServerCertSans: &sans
-  - ""
+  - "k8s-leader-01"
+  - "k8s-worker-01"
+  - "k8s-worker-02"
+  - "k8s-worker-03"
+  - "k8s-worker-04"
   - 127.0.0.1 # KubePrism
 additionalMachineCertSans: *sans
 
@@ -23,7 +27,7 @@ cniConfig:
 nodes:
   - hostname: "k8s-leader-01"
     ipAddress: "192.168.1.200"
-    installDisk: "/dev/sdc"
+    installDisk: "/dev/sdb"
     talosImageURL: factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
     controlPlane: true
     networkInterfaces:
@@ -38,10 +42,10 @@ nodes:
         mtu: 1500
         vip:
           ip: "192.168.1.3"
-  - hostname: "k8s-leader-02"
+  - hostname: "k8s-worker-01"
     ipAddress: "192.168.1.201"
     installDisk: "/dev/mmcblk0"
-    talosImageURL: factory.talos.dev/installer/cbaa6c853fa55bda75d863ac9c950d94c9d09c5764845f1fe2eba1479c089647
+    talosImageURL: factory.talos.dev/installer/ee21ef4a5ef808a9b7484cc0dda0f25075021691c8c09a276591eedb638ea1f9
     controlPlane: false
     networkInterfaces:
       - deviceSelector:
@@ -53,10 +57,10 @@ nodes:
           - network: 0.0.0.0/0
             gateway: "192.168.1.1"
         mtu: 1500
-  - hostname: "k8s-leader-03"
+  - hostname: "k8s-worker-02"
     ipAddress: "192.168.1.202"
     installDisk: "/dev/mmcblk0"
-    talosImageURL: factory.talos.dev/installer/cbaa6c853fa55bda75d863ac9c950d94c9d09c5764845f1fe2eba1479c089647
+    talosImageURL: factory.talos.dev/installer/ee21ef4a5ef808a9b7484cc0dda0f25075021691c8c09a276591eedb638ea1f9
     controlPlane: false
     networkInterfaces:
       - deviceSelector:
@@ -68,10 +72,10 @@ nodes:
           - network: 0.0.0.0/0
             gateway: "192.168.1.1"
         mtu: 1500
-  - hostname: "k8s-worker-01"
+  - hostname: "k8s-worker-03"
     ipAddress: "192.168.1.203"
     installDisk: "/dev/mmcblk0"
-    talosImageURL: factory.talos.dev/installer/cbaa6c853fa55bda75d863ac9c950d94c9d09c5764845f1fe2eba1479c089647
+    talosImageURL: factory.talos.dev/installer/ee21ef4a5ef808a9b7484cc0dda0f25075021691c8c09a276591eedb638ea1f9
     controlPlane: false
     networkInterfaces:
       - deviceSelector:
@@ -83,10 +87,10 @@ nodes:
           - network: 0.0.0.0/0
             gateway: "192.168.1.1"
         mtu: 1500
-  - hostname: "k8s-worker-02"
+  - hostname: "k8s-worker-04"
     ipAddress: "192.168.1.204"
     installDisk: "/dev/mmcblk0"
-    talosImageURL: factory.talos.dev/installer/cbaa6c853fa55bda75d863ac9c950d94c9d09c5764845f1fe2eba1479c089647
+    talosImageURL: factory.talos.dev/installer/ee21ef4a5ef808a9b7484cc0dda0f25075021691c8c09a276591eedb638ea1f9
     controlPlane: false
     networkInterfaces:
       - deviceSelector:
