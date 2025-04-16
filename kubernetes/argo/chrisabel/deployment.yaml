@@ -37,5 +37,3 @@ spec:
               scheme: HTTP
             initialDelaySeconds: 3
             periodSeconds: 3
-      imagePullSecrets:
-        - name: dockerconfigjson-github-com
