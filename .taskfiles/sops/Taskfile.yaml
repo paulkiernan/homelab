@@ -40,7 +40,7 @@ tasks:
           file: "{{.ITEM}}"
     vars:
       file:
-        sh: find . -mindepth 2 -type f -regex './\(kubernetes\|secrets\|talos\)/.*\.sops\.yaml'
+        sh: find . -mindepth 2 -type f -name '*.sops.*'
 
   .re-encrypt-file:
     internal: true
