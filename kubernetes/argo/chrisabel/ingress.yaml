@@ -5,6 +5,8 @@ metadata:
   name: chrisabel
   labels:
     kubernetes.io/ingress.class: traefik
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: chrisabel.home.lab
 spec:
   rules:
     - host: "chrisabel.love"
