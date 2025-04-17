@@ -5,8 +5,10 @@ namespace: argocd
 resources:
   - namespace.yaml
   - https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+  - argocd-bootstrap-application.yaml
   - root-applicationset.yaml
   - helm-repo-bitnami.yaml
+  - argocd-loadbalancer.yaml
 
 patches:
   - path: argocd-cm.patch.yaml
