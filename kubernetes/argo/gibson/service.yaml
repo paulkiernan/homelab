@@ -4,7 +4,10 @@ apiVersion: v1
 metadata:
   name: gibson-webgl-service
   namespace: gibson
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: gibson.home.lab
 spec:
+  type: LoadBalancer
   selector:
     app: gibson-webgl
   ports:
