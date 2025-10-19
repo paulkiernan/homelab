@@ -4,5 +4,7 @@ task 3.38.0
 helmfile 0.167.1
 helm 3.15.4
 github-cli 2.83.1
-kubecolor 0.5.0
+kubecolor 0.5.1
 terraform 1.13.5
+sops 3.11.0
+age 1.2.1
