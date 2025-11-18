@@ -8,7 +8,7 @@ metadata:
 spec:
   project: default
   sources:
-    - path: kubernetes/argo/cluster-resources/metallb
+    - path: kubernetes/argocd/apps/infrastructure/metallb/manifests
       repoURL: https://github.com/paulkiernan/homelab
       targetRevision: HEAD
     - repoURL: https://metallb.github.io/metallb

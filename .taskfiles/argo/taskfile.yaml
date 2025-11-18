@@ -9,9 +9,14 @@ vars:
 tasks:
 
   bootstrap:
-    desc: Bootstrap ArgoCD into a Kubernetes cluster
+    desc: Bootstrap ArgoCD and deploy root app-of-apps
     cmds:
       - kubectl apply --kubeconfig {{.KUBECONFIG_FILE}} --server-side --kustomize {{.KUBERNETES_DIR}}/bootstrap/argocd
+      - echo "Waiting for ArgoCD to be ready..."
+      - kubectl wait --kubeconfig {{.KUBECONFIG_FILE}} --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+      - echo "Deploying root app-of-apps..."
+      - kubectl apply --kubeconfig {{.KUBECONFIG_FILE}} -f {{.KUBERNETES_DIR}}/argocd/root.yaml
+      - echo "ArgoCD bootstrap complete! ArgoCD now manages itself."
     preconditions:
       - msg: Missing kubeconfig
         sh: test -f {{.KUBECONFIG_FILE}}

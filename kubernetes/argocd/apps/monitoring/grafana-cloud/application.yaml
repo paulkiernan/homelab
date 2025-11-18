@@ -8,7 +8,7 @@ metadata:
 spec:
   project: default
   sources:
-    - path: kubernetes/argo/cluster-resources/grafana-cloud
+    - path: kubernetes/argocd/apps/monitoring/grafana-cloud/manifests
       repoURL: https://github.com/paulkiernan/homelab
       targetRevision: HEAD
     - chart: prometheus-operator-crds

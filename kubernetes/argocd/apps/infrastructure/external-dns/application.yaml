@@ -8,7 +8,7 @@ metadata:
 spec:
   project: default
   sources:
-    - path: kubernetes/argo/cluster-resources/external-dns
+    - path: kubernetes/argocd/apps/infrastructure/external-dns/manifests
       repoURL: https://github.com/paulkiernan/homelab
       targetRevision: HEAD
     - repoURL: registry-1.docker.io/bitnamicharts

@@ -1,0 +1,23 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: adguard
+  namespace: adguard
+  labels:
+    app.kubernetes.io/name: adguard
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: adguard.home.lab
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: "adguard.home.lab"
+      http:
+        paths:
+          - backend:
+              service:
+                name: adguard-adguard-home-http
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix

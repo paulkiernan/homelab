@@ -9,7 +9,7 @@ spec:
         repoURL: https://github.com/paulkiernan/homelab
         revision: HEAD
         directories:
-          - path: kubernetes/argo/*
+          - path: kubernetes/argocd/apps/*/*
   template:
     metadata:
       name: "{{path.basename}}"
@@ -21,7 +21,7 @@ spec:
         path: "{{path}}"
       destination:
         server: 'https://kubernetes.default.svc'
-        namespace: "{{path.basename}}"
+        namespace: argocd  # Deploy Application CRDs to argocd namespace
       syncPolicy:
         automated:
           allowEmpty: true
