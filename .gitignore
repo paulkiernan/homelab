@@ -13,7 +13,7 @@
 /config.yaml
 Brewfile.lock.json
 Thumbs.db
-kubeconfig*
 talosconfig
+kubeconfig
 *.tfstate*
 wiki
