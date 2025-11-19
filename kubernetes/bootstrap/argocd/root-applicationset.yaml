@@ -19,7 +19,7 @@ spec:
       source:
         repoURL: https://github.com/paulkiernan/homelab
         targetRevision: main
-        path: "{{path}}"
+        path: '{{.path.path}}'
       destination:
         server: 'https://kubernetes.default.svc'
         namespace: argocd  # Deploy Application CRDs to argocd namespace
