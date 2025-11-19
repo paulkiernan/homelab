@@ -1,36 +1,37 @@
 ---
-name: Schedule - Renovate Helm Releases
+name: Renovate
 
 on: # yamllint disable-line rule:truthy
   workflow_dispatch:
+    inputs:
+      logLevel:
+        description: "Override default log level"
+        required: false
+        default: "info"
+        type: string
+      overrideSchedule:
+        description: "Override all schedules"
+        required: false
+        default: "false"
+        type: string
   schedule:
-    - cron: "0 */12 * * *"
+    - cron: "0 */6 * * *"
 
 jobs:
-  renovate-helm-releases:
+  renovate:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 1
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Renovate Helm Releases
-        uses: k8s-at-home/renovate-helm-releases@v1
+      - name: Self-hosted Renovate
+        uses: renovatebot/github-action@v41.0.14
         with:
-          cluster-path: "./cluster"
-
-      - name: Create pull request for renovatebot helm-release annotations
-        uses: peter-evans/create-pull-request@v7
-        with:
+          configurationFile: .github/renovate.json5
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: renovate-annotations
-          delete-branch: true
-          title: "chore(deps): update renovate annotations"
-          signoff: false
-          committer: GitHub <noreply@github.com>
-          author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
-          commit-message: "chore(deps): update renovate annotations"
-          body: |
-            Update HelmReleases inorder for Renovate to pick up new versions of Helm charts
-          labels: renovate/annotations
+        env:
+          LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
+          RENOVATE_AUTODISCOVER: "false"
+          RENOVATE_ONBOARDING: "false"
+          RENOVATE_PLATFORM: "github"
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
