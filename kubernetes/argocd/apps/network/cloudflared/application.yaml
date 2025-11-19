@@ -26,6 +26,9 @@ spec:
           image:
             repository: cloudflare/cloudflared
             tag: 2024.4.1
+          env:
+            - name: TUNNEL_CREDENTIALS_FILE
+              value: /etc/cloudflared/creds/credentials.json
   destination:
     server: https://kubernetes.default.svc
     namespace: network
