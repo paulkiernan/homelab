@@ -1,0 +1,79 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: immich
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    - repoURL: ghcr.io/immich-app/immich-charts
+      chart: immich
+      targetRevision: 0.10.3
+      helm:
+        valuesObject:
+          image:
+            tag: v1.122.3
+
+          env:
+            DB_HOSTNAME:
+              value: postgres-homelab-rw.postgres.svc.cluster.local
+            DB_DATABASE_NAME:
+              value: immich
+            DB_USERNAME:
+              valueFrom:
+                secretKeyRef:
+                  name: immich-db-user
+                  key: username
+            DB_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: immich-db-user
+                  key: password
+            REDIS_HOSTNAME: immich-valkey
+
+          server:
+            enabled: true
+            persistence:
+              library:
+                existingClaim: immich-library
+
+          microservices:
+            enabled: true
+            persistence:
+              library:
+                existingClaim: immich-library
+
+          machine-learning:
+            enabled: true
+            persistence:
+              cache:
+                enabled: true
+                size: 10Gi
+                type: pvc
+                storageClass: nas-nfs
+                accessMode: ReadWriteMany
+
+          valkey:
+            enabled: true
+            master:
+              persistence:
+                enabled: true
+                size: 1Gi
+                storageClass: nas-nfs
+
+    - repoURL: https://github.com/paulkiernan/homelab
+      targetRevision: main
+      path: kubernetes/argocd/apps/workloads/immich/manifests
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: immich
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

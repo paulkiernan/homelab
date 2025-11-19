@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: immich
+  namespace: immich
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: immich.home.lab
+    hajimari.io/enable: "true"
+    hajimari.io/appName: "Immich"
+    hajimari.io/icon: "mdi:image-multiple"
+    hajimari.io/group: "Media"
+    traefik.ingress.kubernetes.io/router.middlewares: default-redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: immich.home.lab
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: immich-server
+                port:
+                  number: 3001
