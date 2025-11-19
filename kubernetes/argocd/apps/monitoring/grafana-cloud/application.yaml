@@ -75,7 +75,7 @@ spec:
                   username_key: "prom-username"
                   password_key: "access-token"
                   external:
-                    url: https://prometheus-prod-36-prod-us-west-0.grafana.net/api/prom/push
+                    url: https://prometheus-prod-36-prod-us-west-0.grafana.net/api/prom
             kepler:
               enabled: true
           prometheusOperatorObjects:
