@@ -30,6 +30,8 @@ spec:
             showGlobalBookmarks: true
             alwaysTargetBlank: true
             defaultEnable: true
+            namespaceSelector:
+              any: true
             globalBookmarks:
               - group: Homelab
                 bookmarks:
