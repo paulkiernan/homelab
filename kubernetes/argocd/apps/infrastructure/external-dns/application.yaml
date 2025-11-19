@@ -11,34 +11,17 @@ spec:
     - path: kubernetes/argocd/apps/infrastructure/external-dns/manifests
       repoURL: https://github.com/paulkiernan/homelab
       targetRevision: HEAD
-    - repoURL: registry-1.docker.io/bitnamicharts
-      targetRevision: 8.7.11
+    - repoURL: https://kubernetes-sigs.github.io/external-dns/
+      targetRevision: 1.19.0
       chart: external-dns
       helm:
         valuesObject:
-          provider: webhook
-          extraArgs:
-            webhook-provider-url: http://localhost:8888
-          sidecars:
-            - name: adguard-webhook
-              image: ghcr.io/muhlba91/external-dns-provider-adguard:v8.0.1
-              ports:
-                - containerPort: 8888
-                  name: http
-                - containerPort: 8080
-                  name: healthz
-              livenessProbe:
-                httpGet:
-                  path: /healthz
-                  port: healthz
-                initialDelaySeconds: 10
-                timeoutSeconds: 5
-              readinessProbe:
-                httpGet:
-                  path: /healthz
-                  port: healthz
-                initialDelaySeconds: 10
-                timeoutSeconds: 5
+          provider:
+            name: webhook
+            webhook:
+              image:
+                repository: ghcr.io/muhlba91/external-dns-provider-adguard
+                tag: v11.0.0
               env:
                 - name: LOG_LEVEL
                   value: debug
@@ -59,6 +42,20 @@ spec:
                       key: password
                 - name: DRY_RUN
                   value: "false"
+              livenessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http-webhook
+                initialDelaySeconds: 10
+                timeoutSeconds: 5
+              readinessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http-webhook
+                initialDelaySeconds: 10
+                timeoutSeconds: 5
+          extraArgs:
+            webhook-provider-url: http://localhost:8888
   destination:
     server: https://kubernetes.default.svc
     namespace: external-dns
