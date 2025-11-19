@@ -9,7 +9,7 @@ metadata:
 spec:
   project: default
   sources:
-    - repoURL: https://bjw-s-labs.github.io/helm-charts/
+    - repoURL: https://hajimari.io/
       targetRevision: 2.0.1
       chart: hajimari
       helm:
