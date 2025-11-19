@@ -119,16 +119,7 @@ spec:
                 - name: GCLOUD_FM_COLLECTOR_ID
                   value: grafana-k8s-monitoring-$(CLUSTER_NAME)-$(NAMESPACE)-$(POD_NAME)
             remoteConfig:
-              enabled: true
-              url: https://fleet-management-prod-008.grafana.net
-              auth:
-                type: basic
-                username: "1223707"
-                password: "access-token"
-              secret:
-                create: false
-                name: grafana-cloud
-                namespace: monitoring
+              enabled: false
           alloy-singleton:
             enabled: true
             alloy:
@@ -151,16 +142,7 @@ spec:
                 - name: GCLOUD_FM_COLLECTOR_ID
                   value: grafana-k8s-monitoring-$(CLUSTER_NAME)-$(NAMESPACE)-$(POD_NAME)
             remoteConfig:
-              enabled: true
-              url: https://fleet-management-prod-008.grafana.net
-              auth:
-                type: basic
-                username: "1223707"
-                password: "access-token"
-              secret:
-                create: false
-                name: grafana-cloud
-                namespace: monitoring
+              enabled: false
           alloy-logs:
             enabled: true
             alloy:
@@ -187,16 +169,7 @@ spec:
                 - name: GCLOUD_FM_COLLECTOR_ID
                   value: grafana-k8s-monitoring-$(CLUSTER_NAME)-$(NAMESPACE)-alloy-logs-$(NODE_NAME)
             remoteConfig:
-              enabled: true
-              url: https://fleet-management-prod-008.grafana.net
-              auth:
-                type: basic
-                username: "1223707"
-                password: "access-token"
-              secret:
-                create: false
-                name: grafana-cloud
-                namespace: monitoring
+              enabled: false
           alloy-receiver:
             enabled: true
             alloy:
@@ -241,16 +214,7 @@ spec:
                 # @section -- Collectors - Alloy Receiver
                 fullName: "alloy-receiver"
             remoteConfig:
-              enabled: true
-              url: https://fleet-management-prod-008.grafana.net
-              auth:
-                type: basic
-                usernameKey: "fleet-mgmt-username"
-                passwordKey: "access-token"
-              secret:
-                create: false
-                name: grafana-cloud
-                namespace: monitoring
+              enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
