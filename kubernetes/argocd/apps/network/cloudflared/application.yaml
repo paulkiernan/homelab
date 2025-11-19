@@ -17,6 +17,7 @@ spec:
       helm:
         valuesObject:
           cloudflare:
+            secretName: "cloudflared-secret"
             tunnelName: "homelab"
             ingress:
               - hostname: "*.paulynomial.com"
