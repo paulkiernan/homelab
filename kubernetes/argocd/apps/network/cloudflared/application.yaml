@@ -20,8 +20,17 @@ spec:
             secretName: "cloudflared-secret"
             tunnelName: "sf_kubernetes"
             ingress:
+              - hostname: "paulynomial.com"
+                service: http://traefik.traefik.svc.cluster.local:80
               - hostname: "*.paulynomial.com"
                 service: http://traefik.traefik.svc.cluster.local:80
+              - hostname: "bonjourinc.com"
+                service: http://traefik.traefik.svc.cluster.local:80
+              - hostname: "*.bonjourinc.com"
+                service: http://traefik.traefik.svc.cluster.local:80
+              - hostname: "chrisabel.love"
+                service: http://traefik.traefik.svc.cluster.local:80
+              - service: http_status:404
           image:
             repository: cloudflare/cloudflared
             tag: 2025.11.1
