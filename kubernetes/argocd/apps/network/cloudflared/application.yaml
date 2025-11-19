@@ -22,7 +22,6 @@ spec:
             ingress:
               - hostname: "*.paulynomial.com"
                 service: http://traefik.traefik.svc.cluster.local:80
-
           image:
             repository: cloudflare/cloudflared
             tag: 2024.4.1
