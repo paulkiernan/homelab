@@ -1,0 +1,11 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: immich
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres-homelab
+  name: immich
+  owner: immich
+  secretName: immich-db-user

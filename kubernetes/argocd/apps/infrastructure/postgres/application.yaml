@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: postgres
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  sources:
+    - repoURL: https://cloudnative-pg.github.io/charts
+      chart: cloudnative-pg
+      targetRevision: 0.22.1
+      helm:
+        valuesObject:
+          crds:
+            create: true
+    - repoURL: https://github.com/paulkiernan/homelab
+      targetRevision: main
+      path: kubernetes/argocd/apps/infrastructure/postgres/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: postgres
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
