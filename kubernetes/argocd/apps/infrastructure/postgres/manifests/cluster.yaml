@@ -31,3 +31,11 @@ spec:
       owner: postgres
       postInitSQL:
         - CREATE EXTENSION IF NOT EXISTS vectors;
+
+  managed:
+    roles:
+      - name: immich
+        ensure: present
+        login: true
+        passwordSecret:
+          name: immich-db-user

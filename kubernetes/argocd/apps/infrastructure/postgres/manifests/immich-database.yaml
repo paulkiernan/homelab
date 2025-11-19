@@ -8,4 +8,3 @@ spec:
     name: postgres-homelab
   name: immich
   owner: immich
-  secretName: immich-db-user
