@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudflared
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/paulkiernan/homelab
+      targetRevision: HEAD
+      path: kubernetes/argocd/apps/network/cloudflared/manifests
+    - repoURL: https://cloudflare.github.io/helm-charts
+      targetRevision: 0.3.3
+      chart: cloudflare-tunnel
+      helm:
+        valuesObject:
+          cloudflare:
+            tunnelName: "homelab"
+            ingress:
+              - hostname: "*.paulynomial.com"
+                service: http://traefik.argocd.svc.cluster.local:80
+              - service: http_status:404
+          image:
+            repository: cloudflare/cloudflared
+            tag: 2024.4.1
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: network
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

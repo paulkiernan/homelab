@@ -1,0 +1,14 @@
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: error-middleware
+  namespace: paulynomial-index
+spec:
+  errors:
+    status:
+      - "404"
+    query: /404.html
+    service:
+      name: paulynomial-index
+      port: 80

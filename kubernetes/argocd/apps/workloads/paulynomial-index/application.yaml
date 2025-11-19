@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: paulynomial-index
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/paulkiernan/homelab
+    targetRevision: HEAD
+    path: kubernetes/argocd/apps/workloads/paulynomial-index/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: paulynomial-index
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

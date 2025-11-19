@@ -1,0 +1,14 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: disconnect-2023
+  namespace: disconnect
+spec:
+  selector:
+    app: disconnect-2023
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http

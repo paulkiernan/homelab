@@ -12,7 +12,7 @@ spec:
           - path: kubernetes/argocd/apps/*/*
   template:
     metadata:
-      name: "{{path.basename}}"
+      name: '{{index (splitList "/" .path) 3}}-{{path.basename}}'
     spec:
       project: default
       source:

@@ -1,0 +1,85 @@
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: backend-stripprefix
+  namespace: taqueria-bonjour
+spec:
+  stripPrefix:
+    prefixes:
+      - /api
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: backend
+  namespace: taqueria-bonjour
+  labels:
+    app: taqueria-bonjour-backend
+  annotations:
+    hajimari.io/appName: "taqueria-bonjour-api"
+    hajimari.io/enable: "true"
+    hajimari.io/icon: "taco"
+    traefik.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+  - kind: Rule
+    match: "Host(`bonjourinc.com`) && PathPrefix(`/api`)"
+    priority: 0
+    middlewares:
+    - name: backend-stripprefix
+      namespace: taqueria-bonjour
+    services:
+    - kind: Service
+      name: backend
+      namespace: taqueria-bonjour
+      passHostHeader: true
+      port: http-backend
+      strategy: RoundRobin
+      weight: 10
+  - kind: Rule
+    match: "Host(`bonjour.bonjourinc.com`) && PathPrefix(`/api`)"
+    priority: 0
+    middlewares:
+    - name: backend-stripprefix
+      namespace: taqueria-bonjour
+    services:
+    - kind: Service
+      name: backend
+      namespace: taqueria-bonjour
+      passHostHeader: true
+      port: http-backend
+      strategy: RoundRobin
+      weight: 10
+  - kind: Rule
+    match: "Host(`bonjour.paulynomial.com`) && PathPrefix(`/api`)"
+    priority: 0
+    middlewares:
+    - name: backend-stripprefix
+      namespace: taqueria-bonjour
+    services:
+    - kind: Service
+      name: backend
+      namespace: taqueria-bonjour
+      passHostHeader: true
+      port: http-backend
+      strategy: RoundRobin
+      weight: 10
+  - kind: Rule
+    match: "Host(`bonjour.${SECRET_DOMAIN}`) && PathPrefix(`/api`)"
+    priority: 0
+    middlewares:
+    - name: backend-stripprefix
+      namespace: taqueria-bonjour
+    services:
+    - kind: Service
+      name: backend
+      namespace: taqueria-bonjour
+      passHostHeader: true
+      port: http-backend
+      strategy: RoundRobin
+      weight: 10

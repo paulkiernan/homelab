@@ -1,0 +1,40 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: paulynomial-index
+  namespace: paulynomial-index
+  labels:
+    app: paulynomial-index
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: paulynomial-index
+  template:
+    metadata:
+      labels:
+        app: paulynomial-index
+    spec:
+      containers:
+        - name: paulynomial-index
+          image: ghcr.io/paulkiernan/paulynomial-index:3.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              name: http
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 3
