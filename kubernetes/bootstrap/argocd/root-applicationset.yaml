@@ -10,9 +10,10 @@ spec:
         revision: HEAD
         directories:
           - path: kubernetes/argocd/apps/*/*
+  goTemplate: true
   template:
     metadata:
-      name: '{{index (splitList "/" .path) 3}}-{{path.basename}}'
+      name: '{{index .path.segments 3}}-{{.path.basename}}'
     spec:
       project: default
       source:
