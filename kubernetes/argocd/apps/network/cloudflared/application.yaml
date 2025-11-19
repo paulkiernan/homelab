@@ -30,7 +30,6 @@ spec:
                 service: http://traefik.traefik.svc.cluster.local:80
               - hostname: "chrisabel.love"
                 service: http://traefik.traefik.svc.cluster.local:80
-              - service: http_status:404
           image:
             repository: cloudflare/cloudflared
             tag: 2025.11.1
