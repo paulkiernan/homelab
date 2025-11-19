@@ -1,0 +1,23 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: traefik
+  namespace: traefik
+  labels:
+    app.kubernetes.io/name: traefik
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: traefik.home.lab
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: "traefik.home.lab"
+      http:
+        paths:
+          - backend:
+              service:
+                name: traefik
+                port:
+                  number: 8080
+            path: /
+            pathType: Prefix

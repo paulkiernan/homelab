@@ -7,40 +7,49 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
-  source:
-    repoURL: https://helm.traefik.io/traefik
-    targetRevision: 35.0.0
-    chart: traefik
-    helm:
-      valuesObject:
-        deployment:
-          enabled: true
-          kind: Deployment
-          replicas: 2
-        globalArguments:
-          - "--global.checknewversion=false"
-          - "--global.sendanonymoususage=false"
-        ports:
-          web:
-            port: 8000
-            expose:
-              default: true
-            exposedPort: 80
-            protocol: TCP
-          websecure:
-            port: 8443
-            expose:
-              default: true
-            exposedPort: 443
-            protocol: TCP
-        providers:
-          kubernetesCRD:
+  sources:
+    - repoURL: https://helm.traefik.io/traefik
+      targetRevision: 37.3.0
+      chart: traefik
+      helm:
+        valuesObject:
+          deployment:
             enabled: true
-          kubernetesIngress:
+            kind: Deployment
+            replicas: 2
+          globalArguments:
+            - "--global.checknewversion=false"
+            - "--global.sendanonymoususage=false"
+          ports:
+            web:
+              port: 8000
+              expose:
+                default: true
+              exposedPort: 80
+              protocol: TCP
+            websecure:
+              port: 8443
+              expose:
+                default: true
+              exposedPort: 443
+              protocol: TCP
+            traefik:
+              port: 8080
+              expose:
+                default: true
+              exposedPort: 8080
+              protocol: TCP
+          providers:
+            kubernetesCRD:
+              enabled: true
+            kubernetesIngress:
+              enabled: true
+          service:
             enabled: true
-        service:
-          enabled: true
-          type: LoadBalancer
+            type: LoadBalancer
+    - repoURL: https://github.com/paulkiernan/homelab
+      targetRevision: main
+      path: kubernetes/argocd/apps/infrastructure/traefik/manifests
   destination:
     server: https://kubernetes.default.svc
     namespace: traefik
