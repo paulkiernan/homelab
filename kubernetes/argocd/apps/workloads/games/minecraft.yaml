@@ -8,7 +8,7 @@ spec:
   project: default
   source:
     repoURL: https://itzg.github.io/minecraft-server-charts/
-    targetRevision: 4.26.3
+    targetRevision: 4.26.4
     chart: minecraft
     helm:
       valuesObject:
