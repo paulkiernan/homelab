@@ -20,6 +20,12 @@ spec:
           globalArguments:
             - "--global.checknewversion=false"
             - "--global.sendanonymoususage=false"
+          ingressRoute:
+            dashboard:
+              enabled: false
+          additionalArguments:
+            - "--api.dashboard=true"
+            - "--api.insecure=true"
           ports:
             web:
               port: 8000
