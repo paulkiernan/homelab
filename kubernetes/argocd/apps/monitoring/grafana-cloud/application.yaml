@@ -16,7 +16,7 @@ spec:
       targetRevision: 19.1.0
     - chart: k8s-monitoring
       repoURL: https://grafana.github.io/helm-charts
-      targetRevision: 2.0.23
+      targetRevision: 2.0.44
       helm:
         valuesObject:
           cluster:
