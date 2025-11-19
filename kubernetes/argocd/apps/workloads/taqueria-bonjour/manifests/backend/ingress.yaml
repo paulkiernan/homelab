@@ -21,52 +21,17 @@ metadata:
     hajimari.io/appName: "taqueria-bonjour-api"
     hajimari.io/enable: "true"
     hajimari.io/icon: "taco"
-    traefik.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   entryPoints:
     - web
     - websecure
   routes:
-  - kind: Rule
-    match: "Host(`bonjourinc.com`) && PathPrefix(`/api`)"
-    priority: 0
-    middlewares:
-    - name: backend-stripprefix
-      namespace: taqueria-bonjour
-    services:
-    - kind: Service
-      name: backend
-      namespace: taqueria-bonjour
-      passHostHeader: true
-      port: http-backend
-      strategy: RoundRobin
-      weight: 10
-  - kind: Rule
-    match: "Host(`bonjour.bonjourinc.com`) && PathPrefix(`/api`)"
-    priority: 0
-    middlewares:
-    - name: backend-stripprefix
-      namespace: taqueria-bonjour
-    services:
-    - kind: Service
-      name: backend
-      namespace: taqueria-bonjour
-      passHostHeader: true
-      port: http-backend
-      strategy: RoundRobin
-      weight: 10
-  - kind: Rule
-    match: "Host(`bonjour.paulynomial.com`) && PathPrefix(`/api`)"
-    priority: 0
-    middlewares:
-    - name: backend-stripprefix
-      namespace: taqueria-bonjour
-    services:
-    - kind: Service
-      name: backend
-      namespace: taqueria-bonjour
-      passHostHeader: true
-      port: http-backend
-      strategy: RoundRobin
-      weight: 10
+    - kind: Rule
+      match: "(Host(`bonjourinc.com`) || Host(`bonjour.bonjourinc.com`) || Host(`bonjour.paulynomial.com`) || Host(`bonjour.home.lab`)) && PathPrefix(`/api`)"
+      middlewares:
+        - name: backend-stripprefix
+      services:
+        - kind: Service
+          name: backend
+          port: http-backend
 

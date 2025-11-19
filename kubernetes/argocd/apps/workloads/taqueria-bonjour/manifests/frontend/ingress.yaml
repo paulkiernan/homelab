@@ -5,12 +5,14 @@ metadata:
   name: frontend
   namespace: taqueria-bonjour
   labels:
-    kubernetes.io/ingress.class: traefik
+    app: taqueria-bonjour-frontend
   annotations:
     hajimari.io/appName: "taqueria-bonjour"
     hajimari.io/enable: "true"
     hajimari.io/icon: "taco"
+    external-dns.alpha.kubernetes.io/hostname: bonjour.home.lab
 spec:
+  ingressClassName: traefik
   rules:
     - host: bonjourinc.com
       http:
@@ -33,6 +35,16 @@ spec:
                 port:
                   name: http-frontend
     - host: bonjour.paulynomial.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  name: http-frontend
+    - host: bonjour.home.lab
       http:
         paths:
           - path: /
