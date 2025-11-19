@@ -8,6 +8,10 @@ metadata:
     app.kubernetes.io/name: traefik
   annotations:
     external-dns.alpha.kubernetes.io/hostname: traefik.home.lab
+    hajimari.io/enable: "true"
+    hajimari.io/appName: "Traefik Dashboard"
+    hajimari.io/icon: "mdi:router-network"
+    hajimari.io/group: "Infrastructure"
 spec:
   ingressClassName: traefik
   rules:

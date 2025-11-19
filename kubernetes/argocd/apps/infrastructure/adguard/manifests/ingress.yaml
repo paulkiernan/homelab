@@ -8,6 +8,10 @@ metadata:
     app.kubernetes.io/name: adguard
   annotations:
     external-dns.alpha.kubernetes.io/hostname: adguard.home.lab
+    hajimari.io/enable: "true"
+    hajimari.io/appName: "AdGuard Home"
+    hajimari.io/icon: "mdi:shield-check"
+    hajimari.io/group: "Infrastructure"
 spec:
   ingressClassName: traefik
   rules:

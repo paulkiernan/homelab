@@ -7,10 +7,11 @@ metadata:
   labels:
     app: taqueria-bonjour-frontend
   annotations:
-    hajimari.io/appName: "taqueria-bonjour"
-    hajimari.io/enable: "true"
-    hajimari.io/icon: "taco"
     external-dns.alpha.kubernetes.io/hostname: bonjour.home.lab
+    hajimari.io/enable: "true"
+    hajimari.io/appName: "Taqueria Bonjour"
+    hajimari.io/icon: "mdi:taco"
+    hajimari.io/group: "Apps"
 spec:
   ingressClassName: traefik
   rules:

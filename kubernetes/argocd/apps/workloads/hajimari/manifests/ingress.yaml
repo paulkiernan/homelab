@@ -1,0 +1,23 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hajimari
+  namespace: hajimari
+  labels:
+    app: hajimari
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: hajimari.home.lab
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: hajimari.home.lab
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hajimari
+                port:
+                  number: 3000

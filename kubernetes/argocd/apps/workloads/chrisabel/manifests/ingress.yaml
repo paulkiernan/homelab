@@ -7,6 +7,10 @@ metadata:
     kubernetes.io/ingress.class: traefik
   annotations:
     external-dns.alpha.kubernetes.io/hostname: chrisabel.home.lab
+    hajimari.io/enable: "true"
+    hajimari.io/appName: "Chrisabel"
+    hajimari.io/icon: "mdi:heart"
+    hajimari.io/group: "Personal"
 spec:
   rules:
     - host: "chrisabel.love"

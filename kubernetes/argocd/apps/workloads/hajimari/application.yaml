@@ -1,0 +1,69 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hajimari
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  sources:
+    - repoURL: https://bjw-s.github.io/helm-charts/
+      targetRevision: 2.0.1
+      chart: hajimari
+      helm:
+        valuesObject:
+          image:
+            repository: ghcr.io/toboshii/hajimari
+            tag: v0.3.1
+          env:
+            TZ: America/Los_Angeles
+          hajimari:
+            title: Paulynomial Homelab
+            lightTheme: gazette
+            darkTheme: tron
+            showGreeting: true
+            showAppGroups: true
+            showAppStatus: true
+            showBookmarkGroups: true
+            showGlobalBookmarks: true
+            alwaysTargetBlank: true
+            defaultEnable: true
+            globalBookmarks:
+              - group: Homelab
+                bookmarks:
+                  - name: GitHub
+                    url: https://github.com/paulkiernan/homelab
+                  - name: ArgoCD
+                    url: https://argocd.home.lab
+          ingress:
+            main:
+              enabled: false
+          persistence:
+            data:
+              enabled: true
+              storageClass: nas-nfs
+              accessMode: ReadWriteOnce
+              size: 1Gi
+          podAnnotations:
+            configmap.reloader.stakater.com/reload: "hajimari-settings"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+    - repoURL: https://github.com/paulkiernan/homelab
+      targetRevision: main
+      path: kubernetes/argocd/apps/workloads/hajimari/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hajimari
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
