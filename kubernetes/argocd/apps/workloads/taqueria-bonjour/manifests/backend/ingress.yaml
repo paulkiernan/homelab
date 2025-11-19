@@ -1,5 +1,5 @@
 ---
-apiVersion: traefik.containo.us/v1alpha1
+apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
   name: backend-stripprefix
@@ -10,7 +10,7 @@ spec:
       - /api
 
 ---
-apiVersion: traefik.containo.us/v1alpha1
+apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
   name: backend
@@ -69,17 +69,4 @@ spec:
       port: http-backend
       strategy: RoundRobin
       weight: 10
-  - kind: Rule
-    match: "Host(`bonjour.${SECRET_DOMAIN}`) && PathPrefix(`/api`)"
-    priority: 0
-    middlewares:
-    - name: backend-stripprefix
-      namespace: taqueria-bonjour
-    services:
-    - kind: Service
-      name: backend
-      namespace: taqueria-bonjour
-      passHostHeader: true
-      port: http-backend
-      strategy: RoundRobin
-      weight: 10
+

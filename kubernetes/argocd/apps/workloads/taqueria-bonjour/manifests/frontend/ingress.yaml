@@ -42,13 +42,4 @@ spec:
                 name: frontend
                 port:
                   name: http-frontend
-    - host: "bonjour.${SECRET_DOMAIN}"
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: frontend
-                port:
-                  name: http-frontend
+

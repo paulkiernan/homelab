@@ -42,13 +42,4 @@ spec:
                   name: http
             path: /
             pathType: Prefix
-    - host: "paul.${SECRET_DOMAIN}"
-      http:
-        paths:
-          - backend:
-              service:
-                name: paulynomial-index
-                port:
-                  name: http
-            path: /
-            pathType: Prefix
+

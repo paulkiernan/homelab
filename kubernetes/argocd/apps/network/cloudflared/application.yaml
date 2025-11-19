@@ -12,7 +12,7 @@ spec:
       targetRevision: HEAD
       path: kubernetes/argocd/apps/network/cloudflared/manifests
     - repoURL: https://cloudflare.github.io/helm-charts
-      targetRevision: 0.3.3
+      targetRevision: 0.3.2
       chart: cloudflare-tunnel
       helm:
         valuesObject:
