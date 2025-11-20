@@ -16,23 +16,6 @@ spec:
           image:
             tag: v1.122.3
 
-          env:
-            DB_HOSTNAME:
-              value: postgres-homelab-rw.postgres.svc.cluster.local
-            DB_DATABASE_NAME:
-              value: immich
-            DB_USERNAME:
-              valueFrom:
-                secretKeyRef:
-                  name: immich-db-user
-                  key: username
-            DB_PASSWORD:
-              valueFrom:
-                secretKeyRef:
-                  name: immich-db-user
-                  key: password
-            REDIS_HOSTNAME: immich-valkey
-
           immich:
             persistence:
               library:
@@ -42,6 +25,26 @@ spec:
             enabled: true
             nodeSelector:
               kubernetes.io/hostname: k8s-leader-01
+            controllers:
+              main:
+                containers:
+                  main:
+                    env:
+                      DB_HOSTNAME:
+                        value: postgres-homelab-rw.postgres.svc.cluster.local
+                      DB_DATABASE_NAME:
+                        value: immich
+                      DB_USERNAME:
+                        valueFrom:
+                          secretKeyRef:
+                            name: immich-db-user
+                            key: username
+                      DB_PASSWORD:
+                        valueFrom:
+                          secretKeyRef:
+                            name: immich-db-user
+                            key: password
+                      REDIS_HOSTNAME: immich-valkey
 
           microservices:
             enabled: true
