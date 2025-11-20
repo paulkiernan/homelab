@@ -51,7 +51,7 @@ spec:
               cache:
                 enabled: true
                 size: 10Gi
-                type: pvc
+                type: persistentVolumeClaim
                 storageClass: nas-nfs
                 accessMode: ReadWriteMany
 
