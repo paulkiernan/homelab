@@ -42,9 +42,6 @@ spec:
             enabled: true
             nodeSelector:
               kubernetes.io/hostname: k8s-leader-01
-            persistence:
-              library:
-                existingClaim: immich-library
 
           microservices:
             enabled: true
