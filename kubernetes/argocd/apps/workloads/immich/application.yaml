@@ -33,6 +33,11 @@ spec:
                   key: password
             REDIS_HOSTNAME: immich-valkey
 
+          immich:
+            persistence:
+              library:
+                existingClaim: immich-library
+
           server:
             enabled: true
             persistence:
