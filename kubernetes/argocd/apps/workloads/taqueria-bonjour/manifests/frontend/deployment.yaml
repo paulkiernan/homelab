@@ -7,7 +7,7 @@ metadata:
   labels:
     app: taqueria-bonjour-frontend
 spec:
-  replicas: 2
+  replicas: 1
   revisionHistoryLimit: 5
   selector:
     matchLabels:
