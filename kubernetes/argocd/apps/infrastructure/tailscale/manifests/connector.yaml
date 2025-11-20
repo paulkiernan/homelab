@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-api-proxy
+  namespace: tailscale
+  annotations:
+    tailscale.com/expose: "true"
+    tailscale.com/hostname: "homelab-k8s-api"
+    tailscale.com/tags: "tag:k8s"
+spec:
+  type: ExternalName
+  externalName: 192.168.1.200
+  ports:
+    - name: https
+      port: 6443
+      targetPort: 6443
+      protocol: TCP
