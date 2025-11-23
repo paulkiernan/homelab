@@ -1,7 +1,7 @@
 talosctl 1.11.5
 talhelper 3.0.39
 task 3.38.0
-helmfile 1.2.0
+helmfile 1.2.1
 helm 4.0.0
 github-cli 2.83.1
 kubecolor 0.5.1
