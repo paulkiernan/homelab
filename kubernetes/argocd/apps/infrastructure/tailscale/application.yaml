@@ -13,6 +13,10 @@ spec:
       chart: tailscale-operator
       helm:
         valuesObject:
+          operatorConfig:
+            image:
+              pullPolicy: IfNotPresent
+          replicaCount: 3
           oauth:
             existingSecret: operator-oauth
     - path: kubernetes/argocd/apps/infrastructure/tailscale/manifests

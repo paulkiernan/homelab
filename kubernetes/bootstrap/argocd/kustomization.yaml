@@ -9,6 +9,7 @@ resources:
   - root-applicationset.yaml
   - helm-repo-bitnami.yaml
   - argocd-loadbalancer.yaml
+  - tailscale-ingress.yaml
 
 patches:
   - path: argocd-cm.patch.yaml
