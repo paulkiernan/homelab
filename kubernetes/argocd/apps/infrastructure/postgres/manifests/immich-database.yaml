@@ -11,6 +11,10 @@ spec:
   extensions:
     - name: vectors
       ensure: present
+    - name: cube
+      ensure: present
+    - name: earthdistance
+      ensure: present
   schemas:
     - name: vectors
       owner: immich
