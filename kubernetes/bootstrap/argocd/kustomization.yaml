@@ -11,6 +11,7 @@ resources:
   - argocd-loadbalancer.yaml
   - tailscale-ingress.yaml
   - ingress.yaml
+  - serverstransport.yaml
 
 patches:
   - path: argocd-cm.patch.yaml

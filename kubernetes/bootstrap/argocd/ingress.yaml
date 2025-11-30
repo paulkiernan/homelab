@@ -11,6 +11,8 @@ metadata:
     hajimari.io/group: "Infrastructure"
     traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
     traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/service.serverstransport: argocd-insecure-transport@kubernetescrd
+    traefik.ingress.kubernetes.io/service.serversscheme: https
 spec:
   ingressClassName: traefik
   rules:
@@ -23,4 +25,4 @@ spec:
               service:
                 name: argocd-server
                 port:
-                  number: 80
+                  number: 443
