@@ -9,7 +9,7 @@ metadata:
     tailscale.com/tags: "tag:k8s"
 spec:
   type: ExternalName
-  externalName: kubernetes.default.svc
+  externalName: k8s-api-direct.tailscale.svc.cluster.local
   ports:
     - name: https
       port: 6443
