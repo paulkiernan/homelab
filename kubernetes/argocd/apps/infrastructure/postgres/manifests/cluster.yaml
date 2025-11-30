@@ -12,6 +12,7 @@ spec:
       max_connections: "200"
       shared_buffers: "256MB"
       effective_cache_size: "1GB"
+      shared_preload_libraries: "vectors.so"
 
   storage:
     storageClass: nas-nfs
