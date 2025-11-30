@@ -81,3 +81,21 @@ docker \
     tonistiigi/binfmt \
       --uninstall qemu-aarch64
 ```
+
+## Declarative Configuration & Security
+
+This repository follows a strict **declarative configuration** model. All cluster state, including infrastructure and application configuration, must be defined as code within this repository.
+
+### Principles
+1.  **GitOps**: All changes should be committed to git and applied via ArgoCD (or similar controllers). Avoid manual `kubectl apply` unless strictly necessary for bootstrapping or debugging.
+2.  **Secret Management**: Sensitive values (API keys, passwords, etc.) must **NEVER** be committed in plain text. Use **SOPS** (Secrets OPerationS) with Age encryption to encrypt secrets before committing them.
+    *   Files containing secrets should be suffixed with `.sops.yaml`.
+    *   Use `task sops:encrypt` (if available) or `sops -e -i <file>` to encrypt.
+3.  **Portability**: The configuration should be portable across machines, relying on the repository as the single source of truth.
+
+### Tailscale Access
+To access the cluster via Tailscale, use the provided task:
+```bash
+task tailscale:update-kubeconfig
+```
+This configures your local `kubeconfig` to use the Tailscale-exposed API endpoint.
