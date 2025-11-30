@@ -10,6 +10,7 @@ resources:
   - helm-repo-bitnami.yaml
   - argocd-loadbalancer.yaml
   - tailscale-ingress.yaml
+  - ingress.yaml
 
 patches:
   - path: argocd-cm.patch.yaml

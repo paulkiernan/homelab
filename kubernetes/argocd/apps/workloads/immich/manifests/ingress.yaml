@@ -9,7 +9,7 @@ metadata:
     hajimari.io/appName: "Immich"
     hajimari.io/icon: "mdi:image-multiple"
     hajimari.io/group: "Media"
-    traefik.ingress.kubernetes.io/router.middlewares: default-redirect-https@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
 spec:
   ingressClassName: traefik
   rules:
@@ -22,4 +22,4 @@ spec:
               service:
                 name: immich-server
                 port:
-                  number: 3001
+                  number: 2283
