@@ -8,3 +8,6 @@ spec:
     name: postgres-homelab
   name: immich
   owner: immich
+  extensions:
+    - name: vectors
+      ensure: present
