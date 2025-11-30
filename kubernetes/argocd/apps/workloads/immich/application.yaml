@@ -20,6 +20,8 @@ spec:
             persistence:
               library:
                 existingClaim: immich-library
+            ingress:
+              enabled: false
 
           server:
             enabled: true

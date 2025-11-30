@@ -1,25 +1,26 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: immich
-  namespace: immich
+  name: argocd-server
+  namespace: argocd
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: immich.home.lab
+    external-dns.alpha.kubernetes.io/hostname: argocd.home.lab
     hajimari.io/enable: "true"
-    hajimari.io/appName: "Immich"
-    hajimari.io/icon: "mdi:image-multiple"
-    hajimari.io/group: "Media"
+    hajimari.io/appName: "ArgoCD"
+    hajimari.io/icon: "simple-icons:argo"
+    hajimari.io/group: "Infrastructure"
     traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
+    traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik
   rules:
-    - host: immich.home.lab
+    - host: argocd.home.lab
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: immich-server
+                name: argocd-server
                 port:
-                  name: http
+                  number: 80
