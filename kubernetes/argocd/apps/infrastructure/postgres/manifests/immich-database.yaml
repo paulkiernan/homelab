@@ -11,3 +11,7 @@ spec:
   extensions:
     - name: vectors
       ensure: present
+  schemas:
+    - name: vectors
+      owner: immich
+      ensure: present
