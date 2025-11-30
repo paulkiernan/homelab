@@ -1,0 +1,9 @@
+---
+version: "3"
+
+tasks:
+  update-kubeconfig:
+    desc: Update kubeconfig to use Tailscale endpoint
+    cmds:
+      - kubectl config set-cluster admin@paulynomial --server=https://homelab-k8s-api.border-enigmatic.ts.net:6443 --insecure-skip-tls-verify=true
+      - echo "Kubeconfig updated to use Tailscale endpoint"
