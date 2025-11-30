@@ -4,3 +4,4 @@ resources:
   - library-pvc.yaml
   - ingress.yaml
   - db-credentials.secret.sops.yaml
+  - tailscale-ingress.yaml
