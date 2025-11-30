@@ -4,3 +4,4 @@ namespace: tailscale
 resources:
   - oauth-secret.sops.yaml
   - connector.yaml
+  - k8s-api-direct.yaml
