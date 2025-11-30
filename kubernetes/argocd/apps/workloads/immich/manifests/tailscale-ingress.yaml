@@ -15,6 +15,6 @@ spec:
     app.kubernetes.io/name: server
   ports:
     - name: http
-      port: 3001
-      targetPort: 3001
+      port: 443
+      targetPort: http
       protocol: TCP
