@@ -16,16 +16,46 @@ spec:
       chart: external-dns
       helm:
         valuesObject:
-          provider: cloudflare
-          env:
-            - name: CF_API_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: cloudflare-api-token-secret
-                  key: api-token
-          domainFilters:
-            - home.paulynomial.com
-          txtOwnerId: external-dns
+          provider:
+            name: webhook
+            webhook:
+              image:
+                repository: ghcr.io/muhlba91/external-dns-provider-adguard
+                tag: v11.0.0
+              env:
+                - name: LOG_LEVEL
+                  value: debug
+                - name: ADGUARD_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: adguard-config
+                      key: url
+                - name: ADGUARD_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: adguard-config
+                      key: user
+                - name: ADGUARD_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: adguard-config
+                      key: password
+                - name: DRY_RUN
+                  value: "false"
+              livenessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http-webhook
+                initialDelaySeconds: 10
+                timeoutSeconds: 5
+              readinessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http-webhook
+                initialDelaySeconds: 10
+                timeoutSeconds: 5
+          extraArgs:
+            webhook-provider-url: http://localhost:8888
   destination:
     server: https://kubernetes.default.svc
     namespace: external-dns
