@@ -4,7 +4,7 @@ metadata:
   name: argocd-server
   namespace: argocd
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: argocd.home.lab
+    external-dns.alpha.kubernetes.io/hostname: argocd.home.paulynomial.com
     hajimari.io/enable: "true"
     hajimari.io/appName: "ArgoCD"
     hajimari.io/icon: "simple-icons:argo"
@@ -16,7 +16,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: argocd.home.lab
+    - host: argocd.home.paulynomial.com
       http:
         paths:
           - path: /

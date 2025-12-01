@@ -7,19 +7,22 @@ metadata:
     argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
-  source:
-    repoURL: https://charts.jetstack.io
-    targetRevision: v1.19.2
-    chart: cert-manager
-    helm:
-      valuesObject:
-        installCRDs: true
-        dns01RecursiveNameservers: https://1.1.1.1:443/dns-query,https://1.0.0.1:443/dns-query
-        dns01RecursiveNameserversOnly: true
-        prometheus:
-          enabled: true
-          servicemonitor:
+  sources:
+    - repoURL: https://charts.jetstack.io
+      targetRevision: v1.19.2
+      chart: cert-manager
+      helm:
+        valuesObject:
+          installCRDs: true
+          dns01RecursiveNameservers: https://1.1.1.1:443/dns-query,https://1.0.0.1:443/dns-query
+          dns01RecursiveNameserversOnly: true
+          prometheus:
             enabled: true
+            servicemonitor:
+              enabled: true
+    - path: kubernetes/argocd/apps/infrastructure/cert-manager/manifests
+      repoURL: https://github.com/paulkiernan/homelab
+      targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc
     namespace: cert-manager

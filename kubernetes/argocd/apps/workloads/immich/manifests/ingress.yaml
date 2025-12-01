@@ -4,7 +4,8 @@ metadata:
   name: immich
   namespace: immich
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: immich.home.lab
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    external-dns.alpha.kubernetes.io/hostname: immich.home.paulynomial.com
     hajimari.io/enable: "true"
     hajimari.io/appName: "Immich"
     hajimari.io/icon: "mdi:image-multiple"
@@ -13,7 +14,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: immich.home.lab
+    - host: immich.home.paulynomial.com
       http:
         paths:
           - path: /
