@@ -45,14 +45,14 @@ spec:
                 default: true
               exposedPort: 8080
               protocol: TCP
+          service:
+            enabled: true
+            type: LoadBalancer
           providers:
             kubernetesCRD:
               enabled: true
             kubernetesIngress:
               enabled: true
-            service:
-              enabled: true
-              type: LoadBalancer
     - repoURL: https://github.com/paulkiernan/homelab
       targetRevision: main
       path: kubernetes/argocd/apps/infrastructure/traefik/manifests
