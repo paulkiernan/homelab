@@ -4,14 +4,14 @@ metadata:
   name: traefik-tailscale
   namespace: traefik
   annotations:
-    tailscale.com/expose: "true"
     tailscale.com/hostname: "traefik"
 spec:
-  type: ClusterIP
+  type: LoadBalancer
+  loadBalancerClass: tailscale
   selector:
     app.kubernetes.io/name: traefik
   ports:
     - name: dashboard
-      port: 8443
+      port: 443
       targetPort: 8080
       protocol: TCP
