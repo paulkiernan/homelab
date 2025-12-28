@@ -12,6 +12,6 @@ spec:
     app.kubernetes.io/name: traefik
   ports:
     - name: dashboard
-      port: 8080
+      port: 443
       targetPort: 8080
       protocol: TCP

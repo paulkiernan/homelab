@@ -50,12 +50,9 @@ spec:
               enabled: true
             kubernetesIngress:
               enabled: true
-          service:
-            enabled: true
-            type: LoadBalancer
-            annotations:
-              tailscale.com/expose: "true"
-              tailscale.com/hostname: "traefik"
+            service:
+              enabled: true
+              type: LoadBalancer
     - repoURL: https://github.com/paulkiernan/homelab
       targetRevision: main
       path: kubernetes/argocd/apps/infrastructure/traefik/manifests
