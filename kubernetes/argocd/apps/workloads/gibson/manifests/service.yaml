@@ -5,11 +5,10 @@ metadata:
   name: gibson-webgl-service
   namespace: gibson
   annotations:
-    tailscale.com/expose: "true"
     tailscale.com/hostname: "gibson"
-    tailscale.com/tags: "tag:k8s"
 spec:
-  type: ClusterIP
+  type: LoadBalancer
+  loadBalancerClass: tailscale
   selector:
     app: gibson-webgl
   ports:

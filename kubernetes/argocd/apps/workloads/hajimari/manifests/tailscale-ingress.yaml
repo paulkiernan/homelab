@@ -5,11 +5,10 @@ metadata:
   name: hajimari-tailscale
   namespace: hajimari
   annotations:
-    tailscale.com/expose: "true"
     tailscale.com/hostname: "hajimari"
-    tailscale.com/tags: "tag:k8s"
 spec:
-  type: ClusterIP
+  type: LoadBalancer
+  loadBalancerClass: tailscale
   selector:
     app.kubernetes.io/name: hajimari
   ports:

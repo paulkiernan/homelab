@@ -5,15 +5,14 @@ metadata:
   name: adguard-tailscale
   namespace: adguard
   annotations:
-    tailscale.com/expose: "true"
     tailscale.com/hostname: "adguard"
-    tailscale.com/tags: "tag:k8s"
     hajimari.io/enable: "true"
     hajimari.io/appName: "AdGuard Home"
     hajimari.io/icon: "mdi:shield-check"
     hajimari.io/group: "Infrastructure"
 spec:
-  type: ClusterIP
+  type: LoadBalancer
+  loadBalancerClass: tailscale
   selector:
     app.kubernetes.io/name: adguard-home
     app.kubernetes.io/instance: adguard

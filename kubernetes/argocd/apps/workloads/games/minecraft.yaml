@@ -18,14 +18,13 @@ spec:
             cpu: 2
         minecraftServer:
           eula: "TRUE"
-          serviceType: ClusterIP
+          serviceType: LoadBalancer
           motd: "Welcome to Paulynomial's Space!"
           memory: 2048M
           worldSaveName: paulynomial
         serviceAnnotations:
-          tailscale.com/expose: "true"
           tailscale.com/hostname: "minecraft"
-          tailscale.com/tags: "tag:k8s"
+        serviceLoadBalancerClass: "tailscale"
         persistence:
           storageClass: "nas-nfs"
           dataDir:

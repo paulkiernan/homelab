@@ -4,15 +4,14 @@ metadata:
   name: argocd-tailscale
   namespace: argocd
   annotations:
-    tailscale.com/expose: "true"
     tailscale.com/hostname: "argocd"
-    tailscale.com/tags: "tag:k8s"
     hajimari.io/enable: "true"
     hajimari.io/appName: "ArgoCD"
     hajimari.io/icon: "simple-icons:argo"
     hajimari.io/group: "Infrastructure"
 spec:
-  type: ClusterIP
+  type: LoadBalancer
+  loadBalancerClass: tailscale
   selector:
     app.kubernetes.io/name: argocd-server
   ports:

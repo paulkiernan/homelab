@@ -4,17 +4,16 @@ metadata:
   name: immich-tailscale
   namespace: immich
   annotations:
-    tailscale.com/expose: "true"
     tailscale.com/hostname: "immich"
-    tailscale.com/tags: "tag:k8s"
 spec:
-  type: ClusterIP
+  type: LoadBalancer
+  loadBalancerClass: tailscale
   selector:
     app.kubernetes.io/controller: main
     app.kubernetes.io/instance: immich
     app.kubernetes.io/name: server
   ports:
-    - name: http
-      port: 2283
+    - name: https
+      port: 443
       targetPort: http
       protocol: TCP
