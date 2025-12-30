@@ -4,7 +4,10 @@
       "Bash(kubectl get:*)",
       "WebSearch",
       "Bash(kubectl logs:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(curl:*)",
+      "Bash(tailscale ping:*)",
+      "Bash(ping:*)"
     ],
     "deny": [],
     "ask": []

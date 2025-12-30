@@ -1,0 +1,105 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: homepage
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  sources:
+    - repoURL: https://jameswynn.github.io/helm-charts
+      targetRevision: 1.2.3
+      chart: homepage
+      helm:
+        valuesObject:
+          image:
+            repository: ghcr.io/gethomepage/homepage
+            tag: v0.9.10
+          enableRbac: true
+          serviceAccount:
+            create: true
+            name: homepage
+          config:
+            bookmarks:
+              - Developer:
+                  - Github:
+                      - abbr: GH
+                        href: https://github.com/paulkiernan/homelab
+            services:
+              - Infrastructure:
+                  - ArgoCD:
+                      icon: argocd.png
+                      href: https://argocd.border-enigmatic.ts.net
+                      description: GitOps continuous delivery
+                  - Traefik:
+                      icon: traefik.png
+                      href: https://traefik.border-enigmatic.ts.net
+                      description: Reverse proxy and ingress
+                  - AdGuard Home:
+                      icon: adguard-home.png
+                      href: https://adguard.border-enigmatic.ts.net
+                      description: Network-wide ad blocking
+              - Applications:
+                  - Immich:
+                      icon: immich.png
+                      href: https://immich.border-enigmatic.ts.net
+                      description: Photo and video backup
+                  - Hajimari:
+                      icon: hajimari.png
+                      href: https://hajimari.border-enigmatic.ts.net
+                      description: Application dashboard
+              - Websites:
+                  - Chrisabel:
+                      icon: mdi-heart
+                      href: https://chrisabel.love
+                      description: Personal website
+                  - Taqueria Bonjour:
+                      icon: mdi-taco
+                      href: https://bonjourinc.com
+                      description: Restaurant website
+            widgets:
+              - search:
+                  provider: google
+                  target: _blank
+              - datetime:
+                  text_size: xl
+                  format:
+                    timeStyle: short
+                    dateStyle: short
+            kubernetes:
+              mode: cluster
+            settings:
+              title: Paulynomial Homelab
+              theme: dark
+              color: slate
+              headerStyle: boxed
+              hideVersion: true
+          ingress:
+            main:
+              enabled: false
+          persistence:
+            logs:
+              enabled: true
+              type: emptyDir
+              mountPath: /app/config/logs
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+    - repoURL: https://github.com/paulkiernan/homelab
+      targetRevision: main
+      path: kubernetes/argocd/apps/workloads/homepage/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: homepage
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
