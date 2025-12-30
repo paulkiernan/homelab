@@ -27,7 +27,7 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: "(Host(`bonjourinc.com`) || Host(`bonjour.bonjourinc.com`) || Host(`bonjour.paulynomial.com`) || Host(`bonjour.home.lab`)) && PathPrefix(`/api`)"
+      match: "(Host(`bonjourinc.com`) || Host(`bonjour.bonjourinc.com`) || Host(`bonjour.paulynomial.com`)) && PathPrefix(`/api`)"
       middlewares:
         - name: backend-stripprefix
       services:

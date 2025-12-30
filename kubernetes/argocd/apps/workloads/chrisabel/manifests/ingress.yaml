@@ -6,7 +6,6 @@ metadata:
   labels:
     kubernetes.io/ingress.class: traefik
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: chrisabel.home.lab
     hajimari.io/enable: "true"
     hajimari.io/appName: "Chrisabel"
     hajimari.io/icon: "mdi:heart"
@@ -14,16 +13,6 @@ metadata:
 spec:
   rules:
     - host: "chrisabel.love"
-      http:
-        paths:
-          - backend:
-              service:
-                name: chrisabel
-                port:
-                  name: http
-            path: /
-            pathType: Prefix
-    - host: "chrisabel.home.lab"
       http:
         paths:
           - backend:

@@ -33,13 +33,3 @@ spec:
                   name: http
             path: /
             pathType: Prefix
-    - host: "disconnect.home.lab"
-      http:
-        paths:
-          - backend:
-              service:
-                name: disconnect-2022
-                port:
-                  name: http
-            path: /
-            pathType: Prefix

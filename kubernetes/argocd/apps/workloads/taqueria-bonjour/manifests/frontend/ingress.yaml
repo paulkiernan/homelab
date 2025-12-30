@@ -7,7 +7,6 @@ metadata:
   labels:
     app: taqueria-bonjour-frontend
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: bonjour.home.lab
     hajimari.io/enable: "true"
     hajimari.io/appName: "Taqueria Bonjour"
     hajimari.io/icon: "mdi:taco"
@@ -36,16 +35,6 @@ spec:
                 port:
                   name: http-frontend
     - host: bonjour.paulynomial.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: frontend
-                port:
-                  name: http-frontend
-    - host: bonjour.home.lab
       http:
         paths:
           - path: /

@@ -5,6 +5,10 @@ metadata:
   namespace: traefik
   annotations:
     tailscale.com/hostname: "traefik"
+    hajimari.io/enable: "true"
+    hajimari.io/appName: "Traefik Dashboard"
+    hajimari.io/icon: "mdi:router-network"
+    hajimari.io/group: "Infrastructure"
 spec:
   type: LoadBalancer
   loadBalancerClass: tailscale

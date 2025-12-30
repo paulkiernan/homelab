@@ -24,13 +24,3 @@ spec:
                   name: http
             path: /
             pathType: Prefix
-    - host: "disconnect-2023.home.lab"
-      http:
-        paths:
-          - backend:
-              service:
-                name: disconnect-2023
-                port:
-                  name: http
-            path: /
-            pathType: Prefix

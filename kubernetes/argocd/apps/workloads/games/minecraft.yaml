@@ -18,12 +18,14 @@ spec:
             cpu: 2
         minecraftServer:
           eula: "TRUE"
-          serviceType: LoadBalancer
+          serviceType: ClusterIP
           motd: "Welcome to Paulynomial's Space!"
           memory: 2048M
           worldSaveName: paulynomial
         serviceAnnotations:
-          external-dns.alpha.kubernetes.io/hostname: minecraft.home.lab
+          tailscale.com/expose: "true"
+          tailscale.com/hostname: "minecraft"
+          tailscale.com/tags: "tag:k8s"
         persistence:
           storageClass: "nas-nfs"
           dataDir:

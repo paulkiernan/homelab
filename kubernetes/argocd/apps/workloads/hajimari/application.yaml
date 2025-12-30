@@ -38,7 +38,7 @@ spec:
                   - name: GitHub
                     url: https://github.com/paulkiernan/homelab
                   - name: ArgoCD
-                    url: https://argocd.home.lab
+                    url: https://argocd.border-enigmatic.ts.net
           ingress:
             main:
               enabled: false

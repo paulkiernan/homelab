@@ -1,19 +1,19 @@
 ---
-kind: Service
 apiVersion: v1
+kind: Service
 metadata:
-  name: gibson-webgl-service
-  namespace: gibson
+  name: hajimari-tailscale
+  namespace: hajimari
   annotations:
     tailscale.com/expose: "true"
-    tailscale.com/hostname: "gibson"
+    tailscale.com/hostname: "hajimari"
     tailscale.com/tags: "tag:k8s"
 spec:
   type: ClusterIP
   selector:
-    app: gibson-webgl
+    app.kubernetes.io/name: hajimari
   ports:
     - name: http
+      port: 3000
+      targetPort: 3000
       protocol: TCP
-      port: 8080
-      targetPort: 8080

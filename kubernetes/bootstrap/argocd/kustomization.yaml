@@ -8,7 +8,6 @@ resources:
   - argocd-bootstrap-application.yaml
   - root-applicationset.yaml
   - helm-repo-bitnami.yaml
-  - argocd-loadbalancer.yaml
   - tailscale-ingress.yaml
   - ingress.yaml
   - serverstransport.yaml
