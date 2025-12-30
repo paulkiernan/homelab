@@ -1,0 +1,79 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: booklore
+  namespace: booklore
+  labels:
+    app: booklore
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: booklore
+  template:
+    metadata:
+      labels:
+        app: booklore
+    spec:
+      initContainers:
+        - name: wait-for-mariadb
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z mariadb 3306; do echo waiting for mariadb; sleep 2; done;']
+      containers:
+        - name: booklore
+          image: booklore/booklore:latest
+          imagePullPolicy: Always
+          env:
+            - name: DATABASE_URL
+              value: "jdbc:mariadb://mariadb:3306/booklore"
+            - name: DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: username
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: password
+            - name: BOOKLORE_PORT
+              value: "6060"
+            - name: TZ
+              value: "America/Los_Angeles"
+            - name: USER_ID
+              value: "1000"
+            - name: GROUP_ID
+              value: "1000"
+          ports:
+            - containerPort: 6060
+              name: http
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: books
+              mountPath: /books
+            - name: bookdrop
+              mountPath: /bookdrop
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 6060
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 6060
+            initialDelaySeconds: 30
+            periodSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: booklore-data
+        - name: books
+          persistentVolumeClaim:
+            claimName: booklore-books
+        - name: bookdrop
+          persistentVolumeClaim:
+            claimName: booklore-bookdrop
