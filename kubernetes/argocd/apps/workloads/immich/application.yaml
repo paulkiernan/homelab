@@ -14,7 +14,7 @@ spec:
       helm:
         valuesObject:
           image:
-            tag: v1.122.3
+            tag: v2.4.1
 
           immich:
             persistence:
