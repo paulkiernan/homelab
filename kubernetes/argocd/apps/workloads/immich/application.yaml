@@ -13,9 +13,6 @@ spec:
       targetRevision: 0.10.3
       helm:
         valuesObject:
-          image:
-            tag: v2.4.1
-
           immich:
             persistence:
               library:
@@ -31,6 +28,8 @@ spec:
               main:
                 containers:
                   main:
+                    image:
+                      tag: v2.4.1
                     env:
                       DB_HOSTNAME:
                         value: postgres-homelab-rw.postgres.svc.cluster.local
@@ -50,12 +49,24 @@ spec:
 
           microservices:
             enabled: true
+            controllers:
+              main:
+                containers:
+                  main:
+                    image:
+                      tag: v2.4.1
             persistence:
               library:
                 existingClaim: immich-library
 
           machine-learning:
             enabled: true
+            controllers:
+              main:
+                containers:
+                  main:
+                    image:
+                      tag: v2.4.1
             persistence:
               cache:
                 enabled: true
