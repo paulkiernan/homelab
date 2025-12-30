@@ -18,7 +18,7 @@ spec:
     app.kubernetes.io/name: adguard-home
     app.kubernetes.io/instance: adguard
   ports:
-    - name: http
-      port: 80
+    - name: https
+      port: 443
       targetPort: 3000
       protocol: TCP

@@ -13,7 +13,7 @@ spec:
   selector:
     app: gibson-webgl
   ports:
-    - name: http
+    - name: https
       protocol: TCP
-      port: 8080
+      port: 443
       targetPort: 8080
