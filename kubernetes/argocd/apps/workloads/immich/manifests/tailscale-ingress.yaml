@@ -1,19 +1,17 @@
-apiVersion: v1
-kind: Service
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
   name: immich-tailscale
   namespace: immich
   annotations:
     tailscale.com/hostname: "immich"
 spec:
-  type: LoadBalancer
-  loadBalancerClass: tailscale
-  selector:
-    app.kubernetes.io/controller: main
-    app.kubernetes.io/instance: immich
-    app.kubernetes.io/name: server
-  ports:
-    - name: https
-      port: 443
-      targetPort: http
-      protocol: TCP
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: immich-server
+      port:
+        number: 2283
+  tls:
+    - hosts:
+        - immich

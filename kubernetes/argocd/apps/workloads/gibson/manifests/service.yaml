@@ -1,18 +1,18 @@
 ---
-kind: Service
-apiVersion: v1
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: gibson-webgl-service
+  name: gibson-tailscale
   namespace: gibson
   annotations:
     tailscale.com/hostname: "gibson"
 spec:
-  type: LoadBalancer
-  loadBalancerClass: tailscale
-  selector:
-    app: gibson-webgl
-  ports:
-    - name: https
-      protocol: TCP
-      port: 443
-      targetPort: 8080
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: gibson-webgl
+      port:
+        number: 8080
+  tls:
+    - hosts:
+        - gibson
