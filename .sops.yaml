@@ -10,6 +10,7 @@ creation_rules:
           - "age10kuyqqdzgtefr40redrl6xnw9a3pcl2589dw63n5qlllnscxccrq8jez7f"
           - "age1cll0t2zmt8xj5x9zuka8zknymzqd5l4ewcv79yrwe9szd06kacyq5wfwr4"
           - "age1g93uv85j5x5l9twvg4833736vcyrca2femh7gkytq8dtnhkzgs9qyfynf0"
+          - "age17mzyvmc2dr266c5ky90e8earmvy39awwskhk6nwfavn8vprq3gwqzhcc3e"
   - path_regex: kubernetes/.*\.sops\.ya?ml
     encrypted_regex: "^(data|stringData)$"
     key_groups:
@@ -20,6 +21,7 @@ creation_rules:
           - "age10kuyqqdzgtefr40redrl6xnw9a3pcl2589dw63n5qlllnscxccrq8jez7f"
           - "age1cll0t2zmt8xj5x9zuka8zknymzqd5l4ewcv79yrwe9szd06kacyq5wfwr4"
           - "age1g93uv85j5x5l9twvg4833736vcyrca2femh7gkytq8dtnhkzgs9qyfynf0"
+          - "age17mzyvmc2dr266c5ky90e8earmvy39awwskhk6nwfavn8vprq3gwqzhcc3e"
   - path_regex: secrets/.*\.sops\.ya?ml
     key_groups:
       - age:
@@ -29,3 +31,4 @@ creation_rules:
           - "age10kuyqqdzgtefr40redrl6xnw9a3pcl2589dw63n5qlllnscxccrq8jez7f"
           - "age1cll0t2zmt8xj5x9zuka8zknymzqd5l4ewcv79yrwe9szd06kacyq5wfwr4"
           - "age1g93uv85j5x5l9twvg4833736vcyrca2femh7gkytq8dtnhkzgs9qyfynf0"
+          - "age17mzyvmc2dr266c5ky90e8earmvy39awwskhk6nwfavn8vprq3gwqzhcc3e"
