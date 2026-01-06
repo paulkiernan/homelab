@@ -4,9 +4,12 @@ kind: Ingress
 metadata:
   name: booklore-public
   namespace: booklore
-  labels:
-    kubernetes.io/ingress.class: traefik
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    external-dns.alpha.kubernetes.io/hostname: books.paulynomial.com
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
 spec:
+  ingressClassName: traefik
   rules:
     - host: "books.paulynomial.com"
       http:
@@ -18,3 +21,7 @@ spec:
                   number: 6060
             path: /
             pathType: Prefix
+  tls:
+    - hosts:
+        - books.paulynomial.com
+      secretName: books-paulynomial-com-tls

@@ -5,10 +5,12 @@ kind: Ingress
 metadata:
   name: disconnect-2023
   namespace: disconnect
-  labels:
-    kubernetes.io/ingress.class: traefik
   annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    external-dns.alpha.kubernetes.io/hostname: 2023.disconnect.paulynomial.com
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
 spec:
+  ingressClassName: traefik
   rules:
     - host: "disconnect-2023.paulynomial.com"
       http:
@@ -20,3 +22,7 @@ spec:
                   name: http
             path: /
             pathType: Prefix
+  tls:
+    - hosts:
+        - disconnect-2023.paulynomial.com
+      secretName: disconnect-2023-paulynomial-com-tls

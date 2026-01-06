@@ -7,6 +7,9 @@ metadata:
   labels:
     app: taqueria-bonjour-frontend
   annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    external-dns.alpha.kubernetes.io/hostname: bonjourinc.com,bonjour.bonjourinc.com,bonjour.paulynomial.com
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
 spec:
   ingressClassName: traefik
   rules:
@@ -40,4 +43,10 @@ spec:
                 name: frontend
                 port:
                   name: http-frontend
+  tls:
+    - hosts:
+        - bonjourinc.com
+        - bonjour.bonjourinc.com
+        - bonjour.paulynomial.com
+      secretName: bonjourinc-com-tls
 
