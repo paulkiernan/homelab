@@ -41,15 +41,22 @@ spec:
                       icon: adguard-home.png
                       href: https://adguard.border-enigmatic.ts.net
                       description: Network-wide ad blocking
-              - Applications:
+              - Media & Personal:
                   - Immich:
                       icon: immich.png
                       href: https://immich.border-enigmatic.ts.net
                       description: Photo and video backup
-                  - Hajimari:
-                      icon: hajimari.png
-                      href: https://hajimari.border-enigmatic.ts.net
-                      description: Application dashboard
+                      widget:
+                        type: immich
+                        url: https://immich.border-enigmatic.ts.net
+                  - BookLore:
+                      icon: mdi-book-open-page-variant
+                      href: https://books.paulynomial.com
+                      description: Digital book library
+                  - Gibson WebGL:
+                      icon: mdi-cube-outline
+                      href: https://gibson.border-enigmatic.ts.net
+                      description: 3D visualization
               - Websites:
                   - Chrisabel:
                       icon: mdi-heart
@@ -59,6 +66,19 @@ spec:
                       icon: mdi-taco
                       href: https://bonjourinc.com
                       description: Restaurant website
+                  - Disconnect:
+                      icon: mdi-calendar-star
+                      href: https://disconnect.paulynomial.com
+                      description: Event website
+                  - Paulynomial Index:
+                      icon: mdi-web
+                      href: https://paulynomial.com
+                      description: Personal index
+              - Games:
+                  - Minecraft:
+                      icon: mdi-minecraft
+                      description: Minecraft server
+                      ping: minecraft.border-enigmatic.ts.net
             widgets:
               - search:
                   provider: google
