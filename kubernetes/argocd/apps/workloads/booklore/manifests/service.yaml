@@ -19,10 +19,6 @@ metadata:
   namespace: booklore
   annotations:
     tailscale.com/hostname: "booklore"
-    tailscale.com/funnel: "true"
-    hajimari.io/enable: "true"
-    hajimari.io/appName: "BookLore"
-    hajimari.io/icon: "book-open-page-variant"
 spec:
   ingressClassName: tailscale
   defaultBackend:

@@ -6,10 +6,6 @@ metadata:
   namespace: booklore
   labels:
     kubernetes.io/ingress.class: traefik
-  annotations:
-    hajimari.io/enable: "true"
-    hajimari.io/appName: "BookLore (Public)"
-    hajimari.io/icon: "book-open-page-variant"
 spec:
   rules:
     - host: "books.paulynomial.com"
