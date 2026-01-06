@@ -7,10 +7,6 @@ metadata:
   labels:
     kubernetes.io/ingress.class: traefik
   annotations:
-    hajimari.io/enable: "true"
-    hajimari.io/appName: "Disconnect 2022"
-    hajimari.io/icon: "mdi:calendar-star"
-    hajimari.io/group: "Events"
 spec:
   rules:
     - host: "disconnect.paulynomial.com"

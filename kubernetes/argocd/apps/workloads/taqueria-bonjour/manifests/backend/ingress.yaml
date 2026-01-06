@@ -18,9 +18,6 @@ metadata:
   labels:
     app: taqueria-bonjour-backend
   annotations:
-    hajimari.io/appName: "taqueria-bonjour-api"
-    hajimari.io/enable: "true"
-    hajimari.io/icon: "taco"
 spec:
   entryPoints:
     - web

@@ -7,10 +7,6 @@ metadata:
   labels:
     kubernetes.io/ingress.class: traefik
   annotations:
-    hajimari.io/enable: "true"
-    hajimari.io/appName: "Paulynomial"
-    hajimari.io/icon: "mdi:account-circle"
-    hajimari.io/group: "Personal"
 spec:
   rules:
     - host: paulynomial.com

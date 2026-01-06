@@ -6,10 +6,6 @@ metadata:
   namespace: adguard
   annotations:
     tailscale.com/hostname: "adguard"
-    hajimari.io/enable: "true"
-    hajimari.io/appName: "AdGuard Home"
-    hajimari.io/icon: "mdi:shield-check"
-    hajimari.io/group: "Infrastructure"
 spec:
   ingressClassName: tailscale
   defaultBackend:

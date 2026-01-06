@@ -7,10 +7,6 @@ metadata:
   labels:
     app: taqueria-bonjour-frontend
   annotations:
-    hajimari.io/enable: "true"
-    hajimari.io/appName: "Taqueria Bonjour"
-    hajimari.io/icon: "mdi:taco"
-    hajimari.io/group: "Apps"
 spec:
   ingressClassName: traefik
   rules:

@@ -5,10 +5,6 @@ metadata:
   namespace: argocd
   annotations:
     tailscale.com/hostname: "argocd"
-    hajimari.io/enable: "true"
-    hajimari.io/appName: "ArgoCD"
-    hajimari.io/icon: "simple-icons:argo"
-    hajimari.io/group: "Infrastructure"
 spec:
   ingressClassName: tailscale
   defaultBackend:
