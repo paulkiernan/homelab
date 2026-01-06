@@ -7,3 +7,4 @@ resources:
   - mariadb.yaml
   - deployment.yaml
   - service.yaml
+  - public-ingress.yaml
