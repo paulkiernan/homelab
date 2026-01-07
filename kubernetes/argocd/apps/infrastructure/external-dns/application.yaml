@@ -28,6 +28,7 @@ spec:
             proxied: false
           extraArgs:
             - --default-targets=17d5c05c-a2c3-4f83-ad23-696251c04862.cfargotunnel.com
+            - --force-default-targets
           policy: sync
           sources:
             - ingress
