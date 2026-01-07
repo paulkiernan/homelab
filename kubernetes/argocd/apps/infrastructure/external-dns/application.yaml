@@ -26,8 +26,7 @@ spec:
                   key: api-token
           cloudflare:
             proxied: false
-          cnameTtl: 300
-          targets:
+          defaultTargets:
             - 17d5c05c-a2c3-4f83-ad23-696251c04862.cfargotunnel.com
           policy: sync
           sources:
