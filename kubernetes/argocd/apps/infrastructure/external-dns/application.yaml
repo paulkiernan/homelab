@@ -27,7 +27,7 @@ spec:
           cloudflare:
             proxied: false
           extraArgs:
-            - --target=17d5c05c-a2c3-4f83-ad23-696251c04862.cfargotunnel.com
+            - --default-targets=17d5c05c-a2c3-4f83-ad23-696251c04862.cfargotunnel.com
           policy: sync
           sources:
             - ingress
