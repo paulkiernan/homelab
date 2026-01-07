@@ -7,6 +7,9 @@
     'prIgnoreNotification',
   ],
   rebaseWhen: 'conflicted',
+  prCreation: 'immediate',
+  prConcurrentLimit: 0,
+  platformAutomerge: true,
   argocd: {
     managerFilePatterns: [
       '/kubernetes/argocd/apps/.+\\.yaml$/',
@@ -114,10 +117,10 @@
       matchUpdateTypes: [
         'minor',
         'patch',
-        'pin',
-        'digest',
       ],
       automerge: true,
+      platformAutomerge: true,
+      automergeType: 'pr',
     },
     {
       matchManagers: [
