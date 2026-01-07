@@ -26,8 +26,8 @@ spec:
                   key: api-token
           cloudflare:
             proxied: false
-          defaultTargets:
-            - 17d5c05c-a2c3-4f83-ad23-696251c04862.cfargotunnel.com
+          extraArgs:
+            - --target=17d5c05c-a2c3-4f83-ad23-696251c04862.cfargotunnel.com
           policy: sync
           sources:
             - ingress
