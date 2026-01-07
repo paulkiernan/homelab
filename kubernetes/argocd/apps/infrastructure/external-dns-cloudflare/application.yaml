@@ -1,0 +1,44 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-dns-cloudflare
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    - path: kubernetes/argocd/apps/infrastructure/external-dns-cloudflare/manifests
+      repoURL: https://github.com/paulkiernan/homelab
+      targetRevision: HEAD
+    - repoURL: https://kubernetes-sigs.github.io/external-dns/
+      targetRevision: 1.20.0
+      chart: external-dns
+      helm:
+        valuesObject:
+          provider:
+            name: cloudflare
+          env:
+            - name: CF_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflare-token
+                  key: token
+          extraArgs:
+            - --cloudflare-proxied=false
+            - --cname-target=17d5c05c-a2c3-4f83-ad23-696251c04862.cfargotunnel.com
+            - --annotation-filter=external-dns.alpha.kubernetes.io/hostname
+          policy: sync
+          sources:
+            - ingress
+          txtOwnerId: external-dns-cloudflare
+          txtPrefix: _external-dns-
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-dns-cloudflare
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
