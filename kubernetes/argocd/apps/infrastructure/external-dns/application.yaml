@@ -17,45 +17,22 @@ spec:
       helm:
         valuesObject:
           provider:
-            name: webhook
-            webhook:
-              image:
-                repository: ghcr.io/muhlba91/external-dns-provider-adguard
-                tag: v11.0.0
-              env:
-                - name: LOG_LEVEL
-                  value: debug
-                - name: ADGUARD_URL
-                  valueFrom:
-                    secretKeyRef:
-                      name: adguard-config
-                      key: url
-                - name: ADGUARD_USER
-                  valueFrom:
-                    secretKeyRef:
-                      name: adguard-config
-                      key: user
-                - name: ADGUARD_PASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: adguard-config
-                      key: password
-                - name: DRY_RUN
-                  value: "false"
-              livenessProbe:
-                httpGet:
-                  path: /healthz
-                  port: http-webhook
-                initialDelaySeconds: 10
-                timeoutSeconds: 5
-              readinessProbe:
-                httpGet:
-                  path: /healthz
-                  port: http-webhook
-                initialDelaySeconds: 10
-                timeoutSeconds: 5
+            name: cloudflare
+          env:
+            - name: CF_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflare-api-token-secret
+                  key: api-token
           extraArgs:
-            webhook-provider-url: http://localhost:8888
+            - --cloudflare-proxied=false
+            - --cname-target=17d5c05c-a2c3-4f83-ad23-696251c04862.cfargotunnel.com
+            - --annotation-filter=external-dns.alpha.kubernetes.io/hostname
+          policy: sync
+          sources:
+            - ingress
+          txtOwnerId: external-dns-cloudflare
+          txtPrefix: _external-dns-
   destination:
     server: https://kubernetes.default.svc
     namespace: external-dns
