@@ -10,6 +10,7 @@
   prCreation: 'immediate',
   prConcurrentLimit: 0,
   platformAutomerge: true,
+  automergeStrategy: 'squash',
   argocd: {
     managerFilePatterns: [
       '/kubernetes/argocd/apps/.+\\.yaml$/',
