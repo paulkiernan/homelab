@@ -26,8 +26,8 @@ spec:
           additionalArguments:
             - "--api.dashboard=true"
             - "--api.insecure=true"
-            - "--entrypoints.web.forwardedHeaders.insecure"
-            - "--entrypoints.websecure.forwardedHeaders.insecure"
+            - "--entryPoints.web.forwardedHeaders.insecure=true"
+            - "--entryPoints.websecure.forwardedHeaders.insecure=true"
           ports:
             web:
               port: 8000
