@@ -9,7 +9,6 @@ resources:
   - root-applicationset.yaml
   - helm-repo-bitnami.yaml
   - tailscale-ingress.yaml
-  - ingress.yaml
   - serverstransport.yaml
 
 patches:
