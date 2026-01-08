@@ -4,7 +4,7 @@ metadata:
   name: argocd-server
   namespace: argocd
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: argocd.home.paulynomial.com
+    external-dns.alpha.kubernetes.io/hostname: argocd.paulynomial.com
     traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
     traefik.ingress.kubernetes.io/router.tls: "true"
     traefik.ingress.kubernetes.io/service.serverstransport: argocd-insecure-transport@kubernetescrd
@@ -12,7 +12,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: argocd.home.paulynomial.com
+    - host: argocd.paulynomial.com
       http:
         paths:
           - path: /

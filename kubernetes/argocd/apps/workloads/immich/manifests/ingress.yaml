@@ -5,12 +5,12 @@ metadata:
   namespace: immich
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-production
-    external-dns.alpha.kubernetes.io/hostname: immich.home.paulynomial.com
+    external-dns.alpha.kubernetes.io/hostname: immich.paulynomial.com
     traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
 spec:
   ingressClassName: traefik
   rules:
-    - host: immich.home.paulynomial.com
+    - host: immich.paulynomial.com
       http:
         paths:
           - path: /
