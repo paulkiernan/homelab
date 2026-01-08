@@ -26,6 +26,8 @@ spec:
           additionalArguments:
             - "--api.dashboard=true"
             - "--api.insecure=true"
+            - "--entrypoints.web.forwardedHeaders.insecure"
+            - "--entrypoints.websecure.forwardedHeaders.insecure"
           ports:
             web:
               port: 8000
@@ -33,6 +35,8 @@ spec:
                 default: true
               exposedPort: 80
               protocol: TCP
+              redirectTo:
+                port: websecure
             websecure:
               port: 8443
               expose:
