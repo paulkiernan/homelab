@@ -1,0 +1,14 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: dnd-player-site
+  namespace: dnd-player-site
+spec:
+  selector:
+    app: dnd-player-site
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http
