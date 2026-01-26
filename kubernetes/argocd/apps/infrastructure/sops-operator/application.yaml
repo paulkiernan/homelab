@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://isindir.github.io/sops-secrets-operator/
-    targetRevision: 0.24.1
+    targetRevision: 0.25.0
     chart: sops-secrets-operator
     helm:
       valuesObject:
