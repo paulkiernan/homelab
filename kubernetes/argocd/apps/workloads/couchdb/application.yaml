@@ -45,6 +45,10 @@ spec:
             accessModes:
               - ReadWriteOnce
             size: 10Gi
+          persistentVolumeClaimRetentionPolicy:
+            enabled: true
+            whenScaled: Retain
+            whenDeleted: Retain
     - repoURL: https://github.com/paulkiernan/homelab
       targetRevision: HEAD
       path: kubernetes/argocd/apps/workloads/couchdb/manifests
