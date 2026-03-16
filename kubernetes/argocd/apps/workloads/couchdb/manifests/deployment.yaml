@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: couchdb
-          image: couchdb:3.3.3
+          image: couchdb:3.5.1
           ports:
             - containerPort: 5984
           env:
