@@ -1,0 +1,58 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: couchdb
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    - chart: couchdb
+      repoURL: https://apache.github.io/couchdb-helm
+      targetRevision: 4.6.3
+      helm:
+        valuesObject:
+          fullnameOverride: couchdb
+          couchdbConfig:
+            couchdb:
+              uuid: "cf302e1de2e7428e93ba9bbac4a0a037"
+            chttpd:
+              bind_address: any
+              enable_cors: true
+              require_valid_user: false
+            cors:
+              origins: "http://localhost, app://obsidian.md, capacitor://localhost, https://couchdb.border-enigmatic.ts.net, *"
+              credentials: true
+              methods: GET, PUT, POST, HEAD, DELETE
+              headers: accept, authorization, content-type, origin, referer, x-csrf-token
+          extraEnv:
+            - name: COUCHDB_USER_obsidian
+              valueFrom:
+                secretKeyRef:
+                  name: couchdb-secrets
+                  key: obsidianPassword
+          createAdminSecret: false
+          extraSecretName: couchdb-secrets
+          adminUsernameKey: adminUsername
+          adminPasswordKey: adminPassword
+          cookieAuthSecretKey: cookieAuthSecret
+          erlangCookieKey: erlangCookie
+          persistentVolume:
+            enabled: true
+            accessModes:
+              - ReadWriteOnce
+            size: 10Gi
+    - repoURL: https://github.com/paulkiernan/homelab
+      targetRevision: HEAD
+      path: kubernetes/argocd/apps/workloads/couchdb/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: couchdb
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: couchdb-tailscale
+  namespace: couchdb
+  annotations:
+    tailscale.com/hostname: "couchdb"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: couchdb-svc-couchdb
+      port:
+        number: 5984
+  tls:
+    - hosts:
+        - couchdb

@@ -10,6 +10,7 @@ resources:
   - helm-repo-bitnami.yaml
   - tailscale-ingress.yaml
   - serverstransport.yaml
+  - helm-repo-couchdb.yaml
 
 patches:
   - path: argocd-cm.patch.yaml
