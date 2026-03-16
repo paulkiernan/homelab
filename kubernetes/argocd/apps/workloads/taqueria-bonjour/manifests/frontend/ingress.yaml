@@ -8,7 +8,6 @@ metadata:
     app: taqueria-bonjour-frontend
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-production
-    external-dns.alpha.kubernetes.io/hostname: bonjourinc.com,bonjour.bonjourinc.com,bonjour.paulynomial.com
     traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
 spec:
   ingressClassName: traefik

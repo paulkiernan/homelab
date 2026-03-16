@@ -7,7 +7,6 @@ metadata:
   namespace: disconnect
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-production
-    external-dns.alpha.kubernetes.io/hostname: 2023.disconnect.paulynomial.com
     traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
 spec:
   ingressClassName: traefik

@@ -17,8 +17,6 @@ metadata:
   namespace: taqueria-bonjour
   labels:
     app: taqueria-bonjour-backend
-  annotations:
-    external-dns.alpha.kubernetes.io/hostname: bonjourinc.com,bonjour.bonjourinc.com,bonjour.paulynomial.com
 spec:
   entryPoints:
     - web

@@ -6,7 +6,6 @@ metadata:
   namespace: dnd-player-site
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-production
-    external-dns.alpha.kubernetes.io/hostname: dnd.paulynomial.com
     traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
 spec:
   ingressClassName: traefik
