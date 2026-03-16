@@ -35,7 +35,7 @@ spec:
               credentials: true
               methods: GET, PUT, POST, HEAD, DELETE
               headers: accept, authorization, content-type, origin, referer, x-csrf-token
-          createAdminSecret: false
+          createAdminSecret: true
           extraSecretName: couchdb-secrets
           adminUsernameKey: adminUsername
           adminPasswordKey: adminPassword
