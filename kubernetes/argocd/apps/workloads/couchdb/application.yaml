@@ -16,23 +16,24 @@ spec:
         valuesObject:
           fullnameOverride: couchdb
           couchdbConfig:
-            couchdb:
-              uuid: "cf302e1de2e7428e93ba9bbac4a0a037"
             chttpd:
               bind_address: any
               enable_cors: true
-              require_valid_user: false
+              require_valid_user: true
+              max_http_request_size: "4294967296"
+            chttpd_auth:
+              require_valid_user: true
+            httpd:
+              WWW-Authenticate: 'Basic realm="couchdb"'
+              enable_cors: true
+            couchdb:
+              max_document_size: "50000000"
+              uuid: "cf302e1de2e7428e93ba9bbac4a0a037"
             cors:
-              origins: "http://localhost, app://obsidian.md, capacitor://localhost, https://couchdb.border-enigmatic.ts.net, *"
+              origins: "http://localhost, app://obsidian.md, capacitor://localhost, https://couchdb.border-enigmatic.ts.net, capacitor://couchdb.border-enigmatic.ts.net, *"
               credentials: true
               methods: GET, PUT, POST, HEAD, DELETE
               headers: accept, authorization, content-type, origin, referer, x-csrf-token
-          extraEnv:
-            - name: COUCHDB_USER_obsidian
-              valueFrom:
-                secretKeyRef:
-                  name: couchdb-secrets
-                  key: obsidianPassword
           createAdminSecret: false
           extraSecretName: couchdb-secrets
           adminUsernameKey: adminUsername
