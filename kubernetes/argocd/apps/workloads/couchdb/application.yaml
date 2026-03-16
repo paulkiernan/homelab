@@ -15,6 +15,7 @@ spec:
       helm:
         valuesObject:
           fullnameOverride: couchdb
+          clusterSize: 1
           couchdbConfig:
             chttpd:
               bind_address: any
