@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foundry
+  labels:
+    app: foundry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: foundry
+  template:
+    metadata:
+      labels:
+        app: foundry
+    spec:
+      containers:
+        - name: foundry
+          image: felddy/foundryvtt:13.351.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 30000
+          env:
+            - name: FOUNDRY_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: foundry-secrets
+                  key: FOUNDRY_USERNAME
+            - name: FOUNDRY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: foundry-secrets
+                  key: FOUNDRY_PASSWORD
+            - name: FOUNDRY_ADMIN_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: foundry-secrets
+                  key: FOUNDRY_ADMIN_KEY
+            - name: FOUNDRY_LICENSE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: foundry-secrets
+                  key: FOUNDRY_LICENSE_KEY
+          volumeMounts:
+            - name: foundry-data
+              mountPath: /data
+      volumes:
+        - name: foundry-data
+          persistentVolumeClaim:
+            claimName: foundry-data
