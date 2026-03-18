@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: foundry-tailscale
+  labels:
+    app: foundry
+  annotations:
+    tailscale.com/hostname: "foundry"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: foundry
+      port:
+        number: 30000
+  tls:
+    - hosts:
+        - foundry
