@@ -10,17 +10,17 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: "foundry.dnd.paulynomial.com"
+    - host: "foundry-dnd.paulynomial.com"
       http:
         paths:
           - backend:
               service:
                 name: foundry
                 port:
-                  number: 30000
+                  number: 80
             path: /
             pathType: Prefix
   tls:
     - hosts:
-        - foundry.dnd.paulynomial.com
+        - foundry-dnd.paulynomial.com
       secretName: foundry-paulynomial-com-tls

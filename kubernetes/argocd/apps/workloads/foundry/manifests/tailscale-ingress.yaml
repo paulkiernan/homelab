@@ -12,7 +12,7 @@ spec:
     service:
       name: foundry
       port:
-        number: 30000
+        number: 80
   tls:
     - hosts:
         - foundry
