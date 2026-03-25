@@ -1,0 +1,10 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: tidewood
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres-homelab
+  name: tidewood
+  owner: tidewood

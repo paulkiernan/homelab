@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tidewood-booking-tailscale
+  namespace: tidewood-booking
+  annotations:
+    tailscale.com/hostname: "tidewood"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: tidewood-booking
+      port:
+        number: 3000
+  tls:
+    - hosts:
+        - tidewood

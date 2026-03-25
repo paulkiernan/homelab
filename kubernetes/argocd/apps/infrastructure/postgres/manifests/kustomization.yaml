@@ -4,3 +4,5 @@ resources:
   - cluster.yaml
   - immich-db-user-secret.sops.yaml
   - immich-database.yaml
+  - tidewood-db-user-secret.sops.yaml
+  - tidewood-database.yaml

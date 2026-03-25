@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tidewood-booking
+  namespace: tidewood-booking
+  labels:
+    app: tidewood-booking
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tidewood-booking
+  template:
+    metadata:
+      labels:
+        app: tidewood-booking
+    spec:
+      containers:
+        - name: tidewood-booking
+          image: ghcr.io/paulkiernan/tidewood-booking:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: tidewood-app-secrets
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      imagePullSecrets:
+        - name: dockerconfigjson-github-com

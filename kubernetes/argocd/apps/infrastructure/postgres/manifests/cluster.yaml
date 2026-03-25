@@ -41,3 +41,8 @@ spec:
         login: true
         passwordSecret:
           name: immich-db-user
+      - name: tidewood
+        ensure: present
+        login: true
+        passwordSecret:
+          name: tidewood-db-user
