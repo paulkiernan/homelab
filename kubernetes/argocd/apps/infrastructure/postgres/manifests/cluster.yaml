@@ -44,6 +44,6 @@ spec:
       - name: tidewood
         ensure: present
         login: true
-        createDb: true
+        createdb: true
         passwordSecret:
           name: tidewood-db-user
