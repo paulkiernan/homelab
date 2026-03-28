@@ -24,6 +24,10 @@ spec:
                 service: http://traefik.traefik.svc.cluster.local:80
               - hostname: "*.paulynomial.com"
                 service: http://traefik.traefik.svc.cluster.local:80
+              - hostname: "alexispaul.net"
+                service: http://traefik.traefik.svc.cluster.local:80
+              - hostname: "*.alexispaul.net"
+                service: http://traefik.traefik.svc.cluster.local:80
               - hostname: "bonjourinc.com"
                 service: http://traefik.traefik.svc.cluster.local:80
               - hostname: "*.bonjourinc.com"
