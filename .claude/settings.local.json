@@ -9,7 +9,8 @@
       "Bash(tailscale ping:*)",
       "Bash(ping:*)",
       "Bash(asdf plugin:*)",
-      "Bash(asdf list:*)"
+      "Bash(asdf list:*)",
+      "Bash(gh repo:*)",
     ],
     "deny": [],
     "ask": []

@@ -17,7 +17,8 @@ spec:
     spec:
       containers:
         - name: alexispaul
-          image: nginx:alpine
+          image: ghcr.io/paulkiernan/alexispaul:0.0.0
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
               name: http
@@ -34,17 +35,5 @@ spec:
               port: http
             initialDelaySeconds: 3
             periodSeconds: 3
-          volumeMounts:
-            - name: html
-              mountPath: /usr/share/nginx/html/index.html
-              subPath: index.html
-            - name: dog
-              mountPath: /usr/share/nginx/html/dog.webp
-              subPath: dog.webp
-      volumes:
-        - name: html
-          configMap:
-            name: alexispaul-html
-        - name: dog
-          configMap:
-            name: alexispaul-dog
+      imagePullSecrets:
+        - name: dockerconfigjson-github-com

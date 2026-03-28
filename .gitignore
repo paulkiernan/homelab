@@ -16,8 +16,5 @@ Thumbs.db
 talosconfig
 kubeconfig
 *.tfstate*
-kubernetes/argocd/apps/workloads/alexispaul/*.jpg
-kubernetes/argocd/apps/workloads/alexispaul/*.jpeg
-kubernetes/argocd/apps/workloads/alexispaul/*.png
 !terraform/terraform.tfstate
 wiki
