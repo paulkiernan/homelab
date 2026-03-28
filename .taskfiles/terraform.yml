@@ -1,21 +1,43 @@
 ---
 version: "3"
 
+vars:
+  TERRAFORM_DIR: "{{.ROOT_DIR}}/terraform"
+
+x-tf-encryption: &tf-encryption
+  TF_ENCRYPTION:
+    sh: |
+      PASSPHRASE=$(sops -d --extract '["state_passphrase"]' state-encryption.sops.yaml)
+      cat <<EOF
+      key_provider "pbkdf2" "key" {
+        passphrase = "${PASSPHRASE}"
+      }
+      method "aes_gcm" "method" {
+        keys = key_provider.pbkdf2.key
+      }
+      state {
+        method   = method.aes_gcm.method
+        enforced = true
+      }
+      EOF
+
 tasks:
-  init:cloudflare:
-    desc: Initialize terraform
-    dir: provision/terraform/cloudflare
+  init:
+    desc: Initialize OpenTofu
+    dir: "{{.TERRAFORM_DIR}}"
     cmds:
-      - "terraform init"
+      - tofu init
 
-  plan:cloudflare:
-    desc: Prepare Cloudflare DNS rules
-    dir: provision/terraform/cloudflare
+  plan:
+    desc: Plan OpenTofu changes
+    dir: "{{.TERRAFORM_DIR}}"
+    env: *tf-encryption
     cmds:
-      - "terraform plan"
+      - tofu plan
 
-  apply:cloudflare:
-    desc: Apply Cloudflare DNS rules
-    dir: provision/terraform/cloudflare
+  apply:
+    desc: Apply OpenTofu changes
+    dir: "{{.TERRAFORM_DIR}}"
+    env: *tf-encryption
     cmds:
-      - "terraform apply"
+      - tofu apply

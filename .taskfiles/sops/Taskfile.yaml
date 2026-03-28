@@ -10,7 +10,7 @@ tasks:
     status: ["test -f {{.AGE_FILE}}"]
 
   encrypt:
-    desc: Encrypt all Kubernetes SOPS secrets
+    desc: Encrypt all SOPS secrets (kubernetes/ and terraform/)
     cmds:
       - for: { var: file }
         task: .encrypt-file
@@ -18,7 +18,7 @@ tasks:
           file: "{{.ITEM}}"
     vars:
       file:
-        sh: find "{{.KUBERNETES_DIR}}" -type f -name "*.sops.*" -exec grep -L "ENC\[AES256_GCM" {} \;
+        sh: find "{{.KUBERNETES_DIR}}" "{{.ROOT_DIR}}/terraform" -type f -name "*.sops.*" -exec grep -L "ENC\[AES256_GCM" {} \;
 
   .encrypt-file:
     internal: true

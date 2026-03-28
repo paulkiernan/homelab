@@ -22,6 +22,16 @@ creation_rules:
           - "age1cll0t2zmt8xj5x9zuka8zknymzqd5l4ewcv79yrwe9szd06kacyq5wfwr4"
           - "age1g93uv85j5x5l9twvg4833736vcyrca2femh7gkytq8dtnhkzgs9qyfynf0"
           - "age17mzyvmc2dr266c5ky90e8earmvy39awwskhk6nwfavn8vprq3gwqzhcc3e"
+  - path_regex: terraform/.*\.sops\.ya?ml
+    key_groups:
+      - age:
+          - "age16vnesw9pd7l556h9lmgv4lyya03xsu2akc5hukhgua8mffukmsms46665n"
+          - "age1cxqfxy46kp8p007857c6cnk4j2ypuc0pw04utqr58uraxn0dz3ystslpxj"
+          - "age1ye3vjfjzfpdd9eqn9qlhj0jr369h8xgdxlj0j0yplpg2xqsfna3qrm73gl"
+          - "age10kuyqqdzgtefr40redrl6xnw9a3pcl2589dw63n5qlllnscxccrq8jez7f"
+          - "age1cll0t2zmt8xj5x9zuka8zknymzqd5l4ewcv79yrwe9szd06kacyq5wfwr4"
+          - "age1g93uv85j5x5l9twvg4833736vcyrca2femh7gkytq8dtnhkzgs9qyfynf0"
+          - "age17mzyvmc2dr266c5ky90e8earmvy39awwskhk6nwfavn8vprq3gwqzhcc3e"
   - path_regex: secrets/.*\.sops\.ya?ml
     key_groups:
       - age:

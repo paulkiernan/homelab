@@ -29,6 +29,7 @@ includes:
   sops: .taskfiles/sops
   talos: .taskfiles/talos
   tailscale: .taskfiles/tailscale
+  terraform: .taskfiles/terraform.yml
   workstation: .taskfiles/workstation
 
 tasks:

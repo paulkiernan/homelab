@@ -1,11 +1,7 @@
 terraform {
-  required_version = "~> 1.14.0"
+  required_version = ">= 1.7.0"
 
   required_providers {
-    local = {
-      source  = "hashicorp/local"
-      version = "2.6.1"
-    }
     sops = {
       source  = "carlpett/sops"
       version = "1.3.0"
@@ -17,8 +13,13 @@ terraform {
   }
 
   backend "local" {
-    path = "../secrets/paulynomial.tfstate"
+    path = "terraform.tfstate"
   }
+
+  # State encryption config is injected at runtime via TF_ENCRYPTION env var.
+  # The Taskfile tasks (terraform:plan, terraform:apply, etc.) handle this
+  # automatically by decrypting the passphrase from state-encryption.sops.yaml.
+  # See: https://opentofu.org/docs/language/state/encryption/
 }
 
 
