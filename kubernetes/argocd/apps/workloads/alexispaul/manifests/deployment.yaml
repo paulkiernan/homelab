@@ -7,6 +7,7 @@ metadata:
     app: alexispaul
 spec:
   replicas: 1
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: alexispaul
