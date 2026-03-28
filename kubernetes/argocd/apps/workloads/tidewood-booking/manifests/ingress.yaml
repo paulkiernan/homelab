@@ -19,7 +19,20 @@ spec:
                   name: http
             path: /
             pathType: Prefix
+    - host: "tidewood.alexispaul.net"
+      http:
+        paths:
+          - backend:
+              service:
+                name: tidewood-booking
+                port:
+                  name: http
+            path: /
+            pathType: Prefix
   tls:
     - hosts:
         - tidewood.paulynomial.com
       secretName: tidewood-paulynomial-com-tls
+    - hosts:
+        - tidewood.alexispaul.net
+      secretName: tidewood-alexispaul-net-tls
