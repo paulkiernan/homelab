@@ -8,7 +8,41 @@ resource "cloudflare_zone" "alexispaul_net" {
   vanity_name_servers = []
 }
 
+# Cloudflare tunnel routing
+resource "cloudflare_dns_record" "alexispaul_net_apex_CNAME" {
+  content  = "17d5c05c-a2c3-4f83-ad23-696251c04862.cfargotunnel.com"
+  name     = "alexispaul.net"
+  priority = null
+  proxied  = true
+  settings = {
+    flatten_cname = false
+    ipv4_only     = null
+    ipv6_only     = null
+  }
+  tags    = []
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = "121c2c56cd47fa6427e018878ee20082"
+}
+
+resource "cloudflare_dns_record" "alexispaul_net_wildcard_CNAME" {
+  content  = "17d5c05c-a2c3-4f83-ad23-696251c04862.cfargotunnel.com"
+  name     = "*.alexispaul.net"
+  priority = null
+  proxied  = true
+  settings = {
+    flatten_cname = false
+    ipv4_only     = null
+    ipv6_only     = null
+  }
+  tags    = []
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = "121c2c56cd47fa6427e018878ee20082"
+}
+
 # Google Workspace MX records
+
 resource "cloudflare_dns_record" "alexispaul_net_apex_MX_4" {
   content  = "aspmx.l.google.com"
   name     = "alexispaul.net"
