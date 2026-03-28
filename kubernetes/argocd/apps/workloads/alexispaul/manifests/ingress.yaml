@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alexispaul
+  namespace: alexispaul
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: "alexispaul.net"
+      http:
+        paths:
+          - backend:
+              service:
+                name: alexispaul
+                port:
+                  name: http
+            path: /
+            pathType: Prefix
+    - host: "www.alexispaul.net"
+      http:
+        paths:
+          - backend:
+              service:
+                name: alexispaul
+                port:
+                  name: http
+            path: /
+            pathType: Prefix
+  tls:
+    - hosts:
+        - alexispaul.net
+        - www.alexispaul.net
+      secretName: alexispaul-net-tls

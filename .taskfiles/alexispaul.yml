@@ -1,0 +1,31 @@
+---
+version: "3"
+
+vars:
+  MANIFESTS_DIR: "{{.ROOT_DIR}}/kubernetes/argocd/apps/workloads/alexispaul/manifests"
+
+tasks:
+  update-dog-photo:
+    desc: "Generate the dog photo ConfigMap from a local image file. Usage: task alexispaul:update-dog-photo -- /path/to/dog.jpg"
+    cmds:
+      - |
+        IMAGE_PATH="{{.CLI_ARGS}}"
+        if [ -z "$IMAGE_PATH" ]; then
+          echo "Usage: task alexispaul:update-dog-photo -- /path/to/dog.jpg"
+          exit 1
+        fi
+        if [ ! -f "$IMAGE_PATH" ]; then
+          echo "File not found: $IMAGE_PATH"
+          exit 1
+        fi
+        WEBP_PATH="$(mktemp).webp"
+        echo "Converting to WebP..."
+        cwebp -quiet "$IMAGE_PATH" -o "$WEBP_PATH"
+        kubectl create configmap alexispaul-dog \
+          --from-file=dog.webp="$WEBP_PATH" \
+          --namespace=alexispaul \
+          --dry-run=client \
+          -o yaml > "{{.MANIFESTS_DIR}}/configmap-dog.yaml"
+        rm "$WEBP_PATH"
+        echo "Generated {{.MANIFESTS_DIR}}/configmap-dog.yaml"
+        echo "Commit and push to deploy."
