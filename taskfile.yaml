@@ -24,7 +24,6 @@ env:
   VIRTUAL_ENV: "{{.ROOT_DIR}}/.venv"
 
 includes:
-  alexispaul: .taskfiles/alexispaul.yml
   argo: .taskfiles/argo
   kubernetes: .taskfiles/kubernetes
   sops: .taskfiles/sops

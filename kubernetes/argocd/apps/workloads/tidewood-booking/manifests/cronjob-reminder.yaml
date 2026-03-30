@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tidewood-booking-reminder
+  namespace: tidewood-booking
+spec:
+  schedule: "0 15 * * *"  # 9 AM Pacific (UTC-7 PDT / UTC-8 PST — adjust seasonally if needed)
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: reminder
+              image: curlimages/curl:latest
+              command:
+                - sh
+                - -c
+                - |
+                  curl -sf \
+                    -H "x-cron-secret: ${CRON_SECRET}" \
+                    http://tidewood-booking.tidewood-booking.svc.cluster.local/api/cron/reminder
+              envFrom:
+                - secretRef:
+                    name: tidewood-app-secrets

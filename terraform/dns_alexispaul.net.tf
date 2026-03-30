@@ -181,3 +181,83 @@ resource "cloudflare_dns_record" "alexispaul_net_email_CNAME" {
   type    = "CNAME"
   zone_id = "121c2c56cd47fa6427e018878ee20082"
 }
+
+# Explicit CNAME for tidewood subdomain (required because the Resend MX record
+# below shadows the *.alexispaul.net wildcard CNAME for this subdomain)
+resource "cloudflare_dns_record" "tidewood_alexispaul_net_CNAME" {
+  content  = "17d5c05c-a2c3-4f83-ad23-696251c04862.cfargotunnel.com"
+  name     = "tidewood"
+  priority = null
+  proxied  = true
+  tags    = []
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = "121c2c56cd47fa6427e018878ee20082"
+}
+
+# resend
+resource "cloudflare_dns_record" "tidewood_alexispaul_net_DKIM_TXT" {
+  content  = "p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDDTfxwGbrjspZRM87o0wPR3XdLZVpHlFE93Khjp4UMXKZYJLQLs89ggyJCDUni3ATOXVqaUG1umse3sn+gxYFHgRXhTxF2zZsBzb9q1kwjX4zlRvANi9JfogIkeX1GPgg9Bix+VHUSHlcdHJgTjdGH9cY5q7Bpn1MxKG8au3ihQwIDAQAB"
+  name     = "resend._domainkey.tidewood"
+  priority = null
+  proxied  = false
+  tags    = []
+  ttl     = 3600
+  type    = "TXT"
+  zone_id = "121c2c56cd47fa6427e018878ee20082"
+}
+
+resource "cloudflare_dns_record" "tidewood_alexispaul_net_SPF_TXT" {
+  content  = "v=spf1 include:amazonses.com ~all"
+  name     = "send.tidewood"
+  priority = null
+  proxied  = false
+  tags    = []
+  ttl     = 3600
+  type    = "TXT"
+  zone_id = "121c2c56cd47fa6427e018878ee20082"
+}
+
+resource "cloudflare_dns_record" "tidewood_alexispaul_net_SPF_MX" {
+  content  = "feedback-smtp.us-east-1.amazonses.com"
+  name     = "send.tidewood"
+  priority = 10
+  proxied  = false
+  tags    = []
+  ttl     = 3600
+  type    = "MX"
+  zone_id = "121c2c56cd47fa6427e018878ee20082"
+}
+
+resource "cloudflare_dns_record" "tidewood_alexispaul_net_DMARC_TXT" {
+  content  = "v=DMARC1; p=quarantine;"
+  name     = "_dmarc.tidewood"
+  priority = null
+  proxied  = false
+  tags    = []
+  ttl     = 3600
+  type    = "TXT"
+  zone_id = "121c2c56cd47fa6427e018878ee20082"
+}
+
+resource "cloudflare_dns_record" "tidewood_alexispaul_net_BIMI_TXT" {
+  content  = "v=BIMI1; l=https://tidewood.alexispaul.net/bimi-logo.svg;"
+  name     = "default._bimi.tidewood"
+  priority = null
+  proxied  = false
+  tags    = []
+  ttl     = 3600
+  type    = "TXT"
+  zone_id = "121c2c56cd47fa6427e018878ee20082"
+}
+
+resource "cloudflare_dns_record" "tidewood_alexispaul_net_inbound_MX" {
+  content  = "inbound-smtp.us-east-1.amazonaws.com"
+  name     = "tidewood"
+  priority = 10
+  proxied  = false
+  tags    = []
+  ttl     = 3600
+  type    = "MX"
+  zone_id = "121c2c56cd47fa6427e018878ee20082"
+}
