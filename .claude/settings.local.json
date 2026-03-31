@@ -10,7 +10,7 @@
       "Bash(ping:*)",
       "Bash(asdf plugin:*)",
       "Bash(asdf list:*)",
-      "Bash(gh repo:*)",
+      "Bash(gh repo:*)"
     ],
     "deny": [],
     "ask": []
