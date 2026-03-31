@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: homeassistant
+  namespace: tidewood-booking
+  annotations:
+    tailscale.com/tailnet-fqdn: "homeassistant.border-enigmatic.ts.net"
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  ports:
+    - name: http
+      port: 8123
+      protocol: TCP

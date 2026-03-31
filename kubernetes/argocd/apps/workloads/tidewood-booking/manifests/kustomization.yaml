@@ -5,6 +5,7 @@ resources:
   - service.yaml
   - ingress.yaml
   - tailscale-ingress.yaml
+  - homeassistant-egress.yaml
   - cronjob-reminder.yaml
   - app-secrets.sops.yaml
   - ghcr-pull-secret.sops.yaml
