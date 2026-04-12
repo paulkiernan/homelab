@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: alexispaul
-          image: ghcr.io/paulkiernan/alexispaul:0.2.0
+          image: ghcr.io/paulkiernan/alexispaul:0.2.1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
