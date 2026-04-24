@@ -38,7 +38,7 @@ spec:
                   name: mariadb-secret
                   key: password
             - name: DISK_TYPE
-              value: "NETWORK"
+              value: "LOCAL"
             - name: TZ
               value: "America/Los_Angeles"
             - name: USER_ID
