@@ -120,7 +120,7 @@
         'patch',
       ],
       automerge: true,
-      platformAutomerge: true,
+      platformAutomerge: false,
       automergeType: 'pr',
     },
     {

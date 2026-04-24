@@ -22,7 +22,7 @@ spec:
           command: ['sh', '-c', 'until nc -z mariadb 3306; do echo waiting for mariadb; sleep 2; done;']
       containers:
         - name: booklore
-          image: booklore/booklore:latest
+          image: ghcr.io/grimmory-tools/grimmory:latest
           imagePullPolicy: Always
           env:
             - name: DATABASE_URL
@@ -37,8 +37,8 @@ spec:
                 secretKeyRef:
                   name: mariadb-secret
                   key: password
-            - name: BOOKLORE_PORT
-              value: "6060"
+            - name: DISK_TYPE
+              value: "NETWORK"
             - name: TZ
               value: "America/Los_Angeles"
             - name: USER_ID

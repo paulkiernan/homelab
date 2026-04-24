@@ -11,7 +11,7 @@ spec:
   source:
     repoURL: https://github.com/paulkiernan/homelab
     targetRevision: main
-    path: kubernetes/argocd/apps/workloads/booklore/manifests
+    path: kubernetes/argocd/apps/workloads/grimmory/manifests
   destination:
     server: https://kubernetes.default.svc
     namespace: booklore
