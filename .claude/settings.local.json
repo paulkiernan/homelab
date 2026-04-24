@@ -10,7 +10,9 @@
       "Bash(ping:*)",
       "Bash(asdf plugin:*)",
       "Bash(asdf list:*)",
-      "Bash(gh repo:*)"
+      "Bash(gh repo:*)",
+      "Bash(kubectl describe:*)",
+      "Bash(python3 -m json.tool)"
     ],
     "deny": [],
     "ask": []

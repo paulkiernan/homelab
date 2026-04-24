@@ -45,6 +45,8 @@ spec:
               value: "1000"
             - name: GROUP_ID
               value: "1000"
+            - name: BOOKLORE_PORT
+              value: "6060"
           ports:
             - containerPort: 6060
               name: http
