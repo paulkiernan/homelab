@@ -10,4 +10,4 @@ sops 3.11.0
 age 1.2.1
 cloudflared 2025.11.1
 argocd 3.2.3
-opentofu 1.11.5
+opentofu 1.11.6
