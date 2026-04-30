@@ -12,7 +12,11 @@
       "Bash(asdf list:*)",
       "Bash(gh repo:*)",
       "Bash(kubectl describe:*)",
-      "Bash(python3 -m json.tool)"
+      "Bash(python3 -m json.tool)",
+      "Bash(gh pr:*)",
+      "Bash(gh api:*)",
+      "Bash(gh run:*)",
+      "Bash(gh issue:*)"
     ],
     "deny": [],
     "ask": []

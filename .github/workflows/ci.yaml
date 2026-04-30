@@ -1,0 +1,117 @@
+---
+name: CI
+
+on: # yamllint disable-line rule:truthy
+  pull_request:
+
+jobs:
+  yaml-lint:
+    name: yaml-lint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Get changed files
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          list-files: shell
+          filters: |
+            yaml:
+              - added|modified: "**.yaml"
+              - added|modified: "**.yml"
+
+      - name: Lint YAML files
+        if: steps.filter.outputs.yaml == 'true'
+        uses: reviewdog/action-yamllint@v1
+        with:
+          yamllint_flags: "-c .github/lint/.yamllint.yaml ${{ steps.filter.outputs.yaml_files }}"
+
+  kubeconform:
+    name: kubeconform
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Get changed files
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            kubernetes:
+              - 'kubernetes/**'
+
+      - name: Install kubeconform
+        if: steps.filter.outputs.kubernetes == 'true'
+        run: |
+          curl -fsSL \
+            https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz \
+            | tar xz -C /usr/local/bin kubeconform
+
+      - name: Validate Kubernetes manifests
+        if: steps.filter.outputs.kubernetes == 'true'
+        run: |
+          find kubernetes/ -type f -name '*.yaml' \
+            -not -name '*.sops.*' \
+            | xargs kubeconform \
+              -strict \
+              -ignore-missing-schemas \
+              -skip Secret \
+              -schema-location default \
+              -schema-location \
+              'https://kubernetes-schemas.pages.dev/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+              -verbose \
+              -summary
+
+  sops-check:
+    name: sops-check
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Get changed files
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          list-files: shell
+          filters: |
+            sops:
+              - added|modified: "**.sops.**"
+
+      - name: Check SOPS files are encrypted
+        if: steps.filter.outputs.sops == 'true'
+        run: |
+          failed=0
+          for file in ${{ steps.filter.outputs.sops_files }}; do
+            if ! grep -q "ENC\[AES256_GCM" "$file"; then
+              echo "::error file=${file}::SOPS file is not encrypted: ${file}"
+              failed=1
+            fi
+          done
+          if [ "$failed" -eq 1 ]; then
+            echo "Unencrypted SOPS files detected. Run 'task sops:encrypt' before committing."
+            exit 1
+          fi
+          echo "All SOPS files are properly encrypted."
+
+  ci-status:
+    name: ci-status
+    runs-on: ubuntu-24.04
+    needs: [yaml-lint, kubeconform, sops-check]
+    if: always()
+    steps:
+      - name: Verify CI results
+        run: |
+          results=("${{ needs.yaml-lint.result }}" \
+                   "${{ needs.kubeconform.result }}" \
+                   "${{ needs.sops-check.result }}")
+          for result in "${results[@]}"; do
+            if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
+              echo "CI failed: one or more checks did not pass."
+              exit 1
+            fi
+          done
+          echo "All CI checks passed."
