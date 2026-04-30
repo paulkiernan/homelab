@@ -32,4 +32,3 @@ spec:
           port: http-backend
   tls:
     secretName: bonjourinc-com-tls
-

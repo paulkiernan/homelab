@@ -46,4 +46,3 @@ spec:
         - www.paulynomial.com
         - paul.bonjourinc.com
       secretName: paulynomial-com-tls
-

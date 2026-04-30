@@ -48,4 +48,3 @@ spec:
         - bonjour.bonjourinc.com
         - bonjour.paulynomial.com
       secretName: bonjourinc-com-tls
-
