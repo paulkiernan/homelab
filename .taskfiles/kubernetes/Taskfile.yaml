@@ -24,10 +24,20 @@ tasks:
         ingresses
         pods
 
+  lint:
+    desc: Lint all YAML files with yamllint
+    cmds:
+      - yamllint -c .github/lint/.yamllint.yaml $(find . -type f \( -name '*.yaml' -o -name '*.yml' \) -not -path './.git/*' -not -path './.claude/*')
+    preconditions:
+      - msg: yamllint is not installed
+        sh: command -v yamllint
+
   kubeconform:
     desc: Validate Kubernetes manifests with kubeconform
     cmd: bash {{.KUBECONFORM_SCRIPT}} {{.KUBERNETES_DIR}}
     preconditions:
+      - msg: kubeconform is not installed
+        sh: command -v kubeconform
       - msg: Missing kubeconform script
         sh: test -f {{.KUBECONFORM_SCRIPT}}
 

@@ -24,9 +24,9 @@ jobs:
 
       - name: Lint YAML files
         if: steps.filter.outputs.yaml == 'true'
-        uses: reviewdog/action-yamllint@v1
-        with:
-          yamllint_flags: "-c .github/lint/.yamllint.yaml ${{ steps.filter.outputs.yaml_files }}"
+        run: |
+          pip install --quiet yamllint
+          yamllint -c .github/lint/.yamllint.yaml ${{ steps.filter.outputs.yaml_files }}
 
   kubeconform:
     name: kubeconform
@@ -52,18 +52,7 @@ jobs:
 
       - name: Validate Kubernetes manifests
         if: steps.filter.outputs.kubernetes == 'true'
-        run: |
-          find kubernetes/ -type f -name '*.yaml' \
-            -not -name '*.sops.*' \
-            | xargs kubeconform \
-              -strict \
-              -ignore-missing-schemas \
-              -skip Secret \
-              -schema-location default \
-              -schema-location \
-              'https://kubernetes-schemas.pages.dev/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
-              -verbose \
-              -summary
+        run: bash scripts/kubeconform.sh kubernetes/
 
   sops-check:
     name: sops-check
@@ -85,7 +74,7 @@ jobs:
         if: steps.filter.outputs.sops == 'true'
         run: |
           failed=0
-          for file in ${{ steps.filter.outputs.sops_files }}; do
+          for file in $(find kubernetes/ terraform/ -type f -name '*.sops.*' 2>/dev/null); do
             if ! grep -q "ENC\[AES256_GCM" "$file"; then
               echo "::error file=${file}::SOPS file is not encrypted: ${file}"
               failed=1

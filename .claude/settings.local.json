@@ -16,7 +16,8 @@
       "Bash(gh pr:*)",
       "Bash(gh api:*)",
       "Bash(gh run:*)",
-      "Bash(gh issue:*)"
+      "Bash(gh issue:*)",
+      "Bash(gh workflow:*)"
     ],
     "deny": [],
     "ask": []

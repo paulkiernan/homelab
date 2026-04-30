@@ -9,6 +9,23 @@ tasks:
     cmd: age-keygen --output {{.AGE_FILE}}
     status: ["test -f {{.AGE_FILE}}"]
 
+  check:
+    desc: Verify all SOPS files are encrypted
+    cmds:
+      - |
+        failed=0
+        for file in $(find "{{.KUBERNETES_DIR}}" "{{.ROOT_DIR}}/terraform" -type f -name '*.sops.*' 2>/dev/null); do
+          if ! grep -q "ENC\[AES256_GCM" "$file"; then
+            echo "ERROR: SOPS file is not encrypted: ${file}"
+            failed=1
+          fi
+        done
+        if [ "$failed" -eq 1 ]; then
+          echo "Unencrypted SOPS files detected. Run 'task sops:encrypt' before committing."
+          exit 1
+        fi
+        echo "All SOPS files are properly encrypted."
+
   encrypt:
     desc: Encrypt all SOPS secrets (kubernetes/ and terraform/)
     cmds:
