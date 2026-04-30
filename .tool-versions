@@ -6,7 +6,7 @@ helm 4.1.4
 github-cli 2.83.1
 kubecolor 0.5.1
 terraform 1.15.0
-sops 3.11.0
+sops 3.12.2
 age 1.2.1
 cloudflared 2025.11.1
 argocd 3.3.9
