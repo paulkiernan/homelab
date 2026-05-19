@@ -1,3 +1,4 @@
+---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -14,12 +15,12 @@ spec:
     helm:
       valuesObject:
         secretsAsFiles:
-        - mountPath: /etc/sops-age-key-file
-          name: sops-age-key-file
-          secretName: sops-age-key-file
+          - mountPath: /etc/sops-age-key-file
+            name: sops-age-key-file
+            secretName: sops-age-key-file
         extraEnv:
-        - name: SOPS_AGE_KEY_FILE
-          value: /etc/sops-age-key-file/age-key.txt
+          - name: SOPS_AGE_KEY_FILE
+            value: /etc/sops-age-key-file/age-key.txt
   destination:
     server: https://kubernetes.default.svc
     namespace: sops
