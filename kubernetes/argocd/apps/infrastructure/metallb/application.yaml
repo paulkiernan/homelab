@@ -13,7 +13,7 @@ spec:
       repoURL: https://github.com/paulkiernan/homelab
       targetRevision: HEAD
     - repoURL: https://metallb.github.io/metallb
-      targetRevision: 0.15.3
+      targetRevision: 0.16.0
       chart: metallb
       helm:
         valuesObject:
