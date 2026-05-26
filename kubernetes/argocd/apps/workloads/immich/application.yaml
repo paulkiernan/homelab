@@ -30,7 +30,7 @@ spec:
                 containers:
                   main:
                     image:
-                      tag: v2.4.1
+                      tag: v2.7.5
                     env:
                       DB_HOSTNAME:
                         value: postgres-homelab-rw.postgres.svc.cluster.local
@@ -55,7 +55,7 @@ spec:
                 containers:
                   main:
                     image:
-                      tag: v2.4.1
+                      tag: v2.7.5
             persistence:
               library:
                 existingClaim: immich-library
@@ -67,7 +67,7 @@ spec:
                 containers:
                   main:
                     image:
-                      tag: v2.4.1
+                      tag: v2.7.5
             persistence:
               cache:
                 enabled: true
