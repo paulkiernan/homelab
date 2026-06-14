@@ -1,0 +1,14 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: ireland
+  namespace: ireland
+spec:
+  selector:
+    app: ireland
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http

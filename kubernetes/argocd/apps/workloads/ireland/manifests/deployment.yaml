@@ -1,0 +1,52 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ireland
+  namespace: ireland
+  labels:
+    app: ireland
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: ireland
+  template:
+    metadata:
+      labels:
+        app: ireland
+    spec:
+      containers:
+        - name: ireland
+          image: ghcr.io/paulkiernan/ireland-2026:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+              protocol: TCP
+          # /login.html is the only always-200, ungated path — ideal for probes
+          # ("/" returns a 302 to the password gate).
+          livenessProbe:
+            httpGet:
+              path: /login.html
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /login.html
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "25m"
+            limits:
+              memory: "192Mi"
+              cpu: "250m"
+      imagePullSecrets:
+        - name: dockerconfigjson-github-com

@@ -1,0 +1,26 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ireland
+  namespace: ireland
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: "ireland.alexispaul.net"
+      http:
+        paths:
+          - backend:
+              service:
+                name: ireland
+                port:
+                  name: http
+            path: /
+            pathType: Prefix
+  tls:
+    - hosts:
+        - ireland.alexispaul.net
+      secretName: ireland-alexispaul-net-tls
