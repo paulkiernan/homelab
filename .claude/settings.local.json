@@ -17,7 +17,15 @@
       "Bash(gh api:*)",
       "Bash(gh run:*)",
       "Bash(gh issue:*)",
-      "Bash(gh workflow:*)"
+      "Bash(gh workflow:*)",
+      "Bash(kubectl run:*)",
+      "Bash(dig paulynomial.com A +short)",
+      "Bash(dig www.paulynomial.com A +short)",
+      "Bash(dig paulynomial.com A +short @8.8.8.8)",
+      "Bash(dig paulynomial.com NS +short @8.8.8.8)",
+      "Bash(dig paulynomial.com CNAME @1.1.1.1 +short)",
+      "Bash(dig _cf-custom-hostname.paulynomial.com TXT @1.1.1.1 +short)",
+      "Bash(python3 -c \"import sys,json; body = json.loads\\(sys.stdin.read\\(\\)\\)['body']; print\\(body[:8000]\\)\")"
     ],
     "deny": [],
     "ask": []
