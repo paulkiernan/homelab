@@ -4,9 +4,11 @@ kind: Kustomization
 namespace: home
 resources:
   - namespace.yaml
+  - ghcr-pull-secret.sops.yaml
   - deployment.yaml
   - service.yaml
   - tailscale-ingress.yaml
+  - public-ingress.yaml
 
 # config.yaml / projects.yaml become a ConfigMap mounted at /app/config.
 # The name suffix hash means editing either file + git push rolls the pods

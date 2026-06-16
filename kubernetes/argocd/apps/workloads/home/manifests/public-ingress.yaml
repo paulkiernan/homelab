@@ -1,0 +1,28 @@
+---
+# Public ingress: https://home.paulynomial.com  (via Traefik + Cloudflare tunnel;
+# *.paulynomial.com already wildcards to the tunnel, so no extra DNS needed).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: home-public
+  namespace: home
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: home.paulynomial.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: home
+                port:
+                  name: http
+            path: /
+            pathType: Prefix
+  tls:
+    - hosts:
+        - home.paulynomial.com
+      secretName: home-paulynomial-com-tls
