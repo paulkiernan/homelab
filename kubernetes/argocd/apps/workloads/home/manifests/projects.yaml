@@ -1,0 +1,115 @@
+# Curated links shown on the homepage. Add a new project here and it shows up on
+# the next page refresh (the backend reads this file per request). In the cluster
+# this is mounted as a ConfigMap; edit + git push and ArgoCD syncs it.
+#
+# Helper:  python scripts/update_projects.py   # scans ~/workspace + GitHub and
+#                                               # prints entries you can paste below.
+#
+# Each item: name, href, description, icon (emoji or text), external (opens new tab)
+
+groups:
+  - name: "Projects"
+    items:
+      - name: "swarmphony"
+        href: "https://github.com/paulkiernan/swarmphony"
+        description: "Audio-reactive generative murmuration (4096 boids)"
+        icon: "🐦"
+        external: true
+      - name: "paulynomial-index"
+        href: "https://paulynomial.com"
+        description: "Personal index / hyperbolic tangents"
+        icon: "🌐"
+        external: true
+      - name: "bubble-chamber"
+        href: "https://github.com/paulkiernan/bubble-chamber"
+        description: "Particle physics visualization"
+        icon: "⚛️"
+        external: true
+      - name: "tidewood-booking"
+        href: "https://github.com/paulkiernan/tidewood-booking"
+        description: "Booking app"
+        icon: "📅"
+        external: true
+      - name: "wedding"
+        href: "https://github.com/paulkiernan/wedding"
+        description: "Wedding site (gated content + drop-in photos)"
+        icon: "💍"
+        external: true
+      - name: "resume"
+        href: "https://paulkiernan.github.io/resume/pdf/latest.pdf"
+        description: "Latest resume PDF"
+        icon: "📄"
+        external: true
+      - name: "voron / VoronBFI"
+        href: "https://github.com/paulkiernan/voron"
+        description: "3D printer build configs"
+        icon: "🖨️"
+        external: true
+      - name: "homelab"
+        href: "https://github.com/paulkiernan/homelab"
+        description: "k8s GitOps cluster"
+        icon: "🧰"
+        external: true
+
+  # --- Ported from the previous gethomepage dashboard (nothing lost) ---
+  - name: "Infrastructure"
+    items:
+      - name: "ArgoCD"
+        href: "https://argocd.border-enigmatic.ts.net"
+        description: "GitOps continuous delivery"
+        icon: "🔁"
+        external: false
+      - name: "Traefik"
+        href: "https://traefik.border-enigmatic.ts.net"
+        description: "Reverse proxy and ingress"
+        icon: "🚦"
+        external: false
+      - name: "AdGuard Home"
+        href: "https://adguard.border-enigmatic.ts.net"
+        description: "Network-wide ad blocking"
+        icon: "🛡️"
+        external: false
+
+  - name: "Media & Personal"
+    items:
+      - name: "Immich"
+        href: "https://immich.border-enigmatic.ts.net"
+        description: "Photo and video backup"
+        icon: "📸"
+        external: false
+      - name: "BookLore"
+        href: "https://books.paulynomial.com"
+        description: "Digital book library"
+        icon: "📚"
+        external: true
+      - name: "Gibson WebGL"
+        href: "https://gibson.border-enigmatic.ts.net"
+        description: "3D visualization"
+        icon: "🧊"
+        external: false
+
+  - name: "Websites"
+    items:
+      - name: "Chrisabel"
+        href: "https://chrisabel.love"
+        description: "Personal website"
+        icon: "💛"
+        external: true
+      - name: "Taqueria Bonjour"
+        href: "https://bonjourinc.com"
+        description: "Restaurant website"
+        icon: "🌮"
+        external: true
+      - name: "Disconnect"
+        href: "https://disconnect.paulynomial.com"
+        description: "Event website"
+        icon: "📅"
+        external: true
+
+  - name: "Games"
+    items:
+      - name: "Minecraft"
+        href: "minecraft.border-enigmatic.ts.net"
+        description: "Minecraft server"
+        icon: "⛏️"
+        external: false

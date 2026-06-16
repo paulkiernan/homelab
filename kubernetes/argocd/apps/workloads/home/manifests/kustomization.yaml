@@ -1,0 +1,19 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: home
+resources:
+  - namespace.yaml
+  - deployment.yaml
+  - service.yaml
+  - tailscale-ingress.yaml
+
+# config.yaml / projects.yaml become a ConfigMap mounted at /app/config.
+# The name suffix hash means editing either file + git push rolls the pods
+# (ArgoCD syncs, new hash, new ConfigMap, rolling restart) — this is the
+# "refresh when I add a new project" path. Edit projects.yaml here and push.
+configMapGenerator:
+  - name: home-config
+    files:
+      - config.yaml
+      - projects.yaml

@@ -5,7 +5,9 @@ metadata:
   name: homepage-tailscale
   namespace: homepage
   annotations:
-    tailscale.com/hostname: "home"
+    # Cutover: the `home` hostname now belongs to the custom `home` dashboard
+    # workload (apps/workloads/home). gethomepage moves to `homelab`.
+    tailscale.com/hostname: "homelab"
 spec:
   ingressClassName: tailscale
   defaultBackend:
@@ -15,4 +17,4 @@ spec:
         number: 3000
   tls:
     - hosts:
-        - home
+        - homelab
