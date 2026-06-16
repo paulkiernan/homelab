@@ -1,0 +1,58 @@
+# Coastal conditions config.
+# One or more surf spots and one or more fishing/diving spots, each rendered as a
+# panel. If ndbc_buoy or tide_station are blank (""), the nearest active station
+# is looked up from lat/lon at startup and logged.
+
+timezone: "America/Los_Angeles"   # used for solunar / sun-moon display times
+
+surf_spots:
+  - name: "Linda Mar (Pacifica)"
+    lat: 37.5930
+    lon: -122.5050
+    ndbc_buoy: "46026"        # San Francisco offshore wave buoy
+    tide_station: "9414131"   # Pillar Point Harbor, Half Moon Bay
+    offshore_wind_bearing_deg: 90   # wind FROM ~E = offshore/clean here
+
+fishing_spots:
+  - name: "Ocean Beach (SF)"
+    lat: 37.7594
+    lon: -122.5107
+    ndbc_buoy: "46026"        # San Francisco offshore wave buoy
+    tide_station: "9414275"   # Ocean Beach, outer coast
+  - name: "Timber Cove (Sonoma)"
+    lat: 38.5366
+    lon: -123.0247
+    ndbc_buoy: "46013"        # Bodega Bay offshore wave buoy
+    tide_station: "9416024"   # Fort Ross
+
+refresh_minutes: 30
+
+# Barometric trend window (hours) used for the fishing pressure signal.
+pressure_trend_hours: 9
+
+# Scoring weights (0..1 within each panel; normalized internally).
+scoring:
+  surf:
+    period: 0.35
+    offshore: 0.30
+    wind_strength: 0.20
+    gustiness: 0.15
+    period_min_s: 6
+    period_max_s: 14
+    wind_calm_kt: 5
+    wind_strong_kt: 20
+    offshore_tolerance_deg: 45
+  fishing:
+    swell_viz: 0.40
+    wind: 0.25
+    pressure: 0.20
+    solunar: 0.15
+    swell_calm_m: 0.5
+    swell_rough_m: 2.5
+    wind_calm_kt: 5
+    wind_strong_kt: 18
+
+# Solunar window half-widths (minutes).
+solunar:
+  major_halfwidth_min: 60
+  minor_halfwidth_min: 30
