@@ -7,7 +7,6 @@ resources:
   - ghcr-pull-secret.sops.yaml
   - deployment.yaml
   - service.yaml
-  - tailscale-ingress.yaml
   - public-ingress.yaml
 
 # config.yaml / projects.yaml become a ConfigMap mounted at /app/config.
