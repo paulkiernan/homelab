@@ -18,8 +18,9 @@ spec:
     spec:
       containers:
         - name: home
-          # Bump tag to the version published by .github/workflows/docker-publish.yml
-          image: ghcr.io/paulkiernan/coastal-conditions:main
+          # Pinned to an immutable sha tag from .github/workflows/docker-publish.yml.
+          # Bump this on each deploy (it also triggers the ArgoCD rollout).
+          image: ghcr.io/paulkiernan/coastal-conditions:sha-9fb6600
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
