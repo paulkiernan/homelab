@@ -9,5 +9,5 @@ terraform 1.15.6
 sops 3.13.1
 age 1.2.1
 cloudflared 2025.11.1
-argocd 3.4.3
+argocd 3.4.4
 opentofu 1.12.2
