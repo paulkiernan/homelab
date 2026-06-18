@@ -8,6 +8,7 @@ resources:
   - deployment.yaml
   - service.yaml
   - public-ingress.yaml
+  - tailscale-ingress.yaml
 
 # config.yaml / projects.yaml become a ConfigMap mounted at /app/config.
 # The name suffix hash means editing either file + git push rolls the pods
