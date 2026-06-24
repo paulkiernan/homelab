@@ -5,7 +5,7 @@ helmfile 1.6.0
 helm 4.2.2
 github-cli 2.95.0
 kubecolor 0.5.1
-terraform 1.15.6
+terraform 1.15.7
 sops 3.13.1
 age 1.2.1
 cloudflared 2025.11.1
