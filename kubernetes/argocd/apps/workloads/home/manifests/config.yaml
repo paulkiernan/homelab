@@ -6,12 +6,26 @@
 timezone: "America/Los_Angeles"   # used for solunar / sun-moon display times
 
 surf_spots:
+  # Beginner-friendly SF-area breaks. offshore_wind_bearing_deg = the wind
+  # direction that blows offshore (clean) for that beach; tune to taste.
   - name: "Linda Mar (Pacifica)"
     lat: 37.5930
     lon: -122.5050
     ndbc_buoy: "46026"        # San Francisco offshore wave buoy
     tide_station: "9414131"   # Pillar Point Harbor, Half Moon Bay
     offshore_wind_bearing_deg: 90   # wind FROM ~E = offshore/clean here
+  - name: "Bolinas (Marin)"
+    lat: 37.8907
+    lon: -122.6892
+    ndbc_buoy: "46214"        # Point Reyes offshore wave buoy
+    tide_station: "9414958"   # Bolinas Lagoon
+    offshore_wind_bearing_deg: 30   # south-facing, tucked behind the point; offshore ~NNE
+  - name: "Half Moon Bay (Francis Beach)"
+    lat: 37.4636
+    lon: -122.4453
+    ndbc_buoy: "46012"        # Half Moon Bay offshore wave buoy
+    tide_station: "9414131"   # Pillar Point Harbor, Half Moon Bay
+    offshore_wind_bearing_deg: 85   # west-facing beach break; offshore ~E
 
 fishing_spots:
   - name: "Ocean Beach (SF)"
@@ -32,15 +46,20 @@ pressure_trend_hours: 9
 
 # Scoring weights (0..1 within each panel; normalized internally).
 scoring:
+  # Surf is scored for BEGINNER-friendliness: small, clean, manageable = good;
+  # too big or flat = bad. Sizes are swell height in feet.
   surf:
-    period: 0.35
-    offshore: 0.30
-    wind_strength: 0.20
-    gustiness: 0.15
-    period_min_s: 6
-    period_max_s: 14
+    size: 0.45          # how close to the learner sweet-spot
+    offshore: 0.25      # offshore/clean wind direction
+    wind_strength: 0.20 # light wind
+    gustiness: 0.10     # steady (not gusty/choppy)
+    flat_ft: 1.0        # below this = too small to ride
+    ideal_lo_ft: 2.0    # learner sweet-spot starts
+    ideal_hi_ft: 3.5    # learner sweet-spot ends
+    big_ft: 5.0         # above this = too big for beginners
+    max_ft: 7.0         # well overhead, score 0
     wind_calm_kt: 5
-    wind_strong_kt: 20
+    wind_strong_kt: 18
     offshore_tolerance_deg: 45
   fishing:
     swell_viz: 0.40

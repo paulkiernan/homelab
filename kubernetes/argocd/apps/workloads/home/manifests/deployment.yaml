@@ -20,7 +20,7 @@ spec:
         - name: home
           # Pinned to an immutable sha tag from .github/workflows/docker-publish.yml.
           # Bump this on each deploy (it also triggers the ArgoCD rollout).
-          image: ghcr.io/paulkiernan/coastal-conditions:sha-9fb6600
+          image: ghcr.io/paulkiernan/coastal-conditions:sha-2bd6c72
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
