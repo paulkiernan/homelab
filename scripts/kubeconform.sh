@@ -21,6 +21,12 @@ kubeconform_args=(
 echo "=== Validating manifests in ${KUBERNETES_DIR}/bootstrap/argocd ==="
 find "${KUBERNETES_DIR}/bootstrap/argocd" -type f -name '*.yaml' -not -name '*.sops.*' -print0 | while IFS= read -r -d $'\0' file;
   do
+    # Skip non-manifest YAML (e.g. configMapGenerator data files) that have no
+    # top-level "kind" — kubeconform can't (and shouldn't) validate those.
+    if ! grep -qE '^kind:' "${file}"; then
+      echo "${file} - skipped (not a Kubernetes manifest)"
+      continue
+    fi
     kubeconform "${kubeconform_args[@]}" "${file}"
     if [[ ${PIPESTATUS[0]} != 0 ]]; then
       exit 1
@@ -30,6 +36,12 @@ done
 echo "=== Validating manifests in ${KUBERNETES_DIR}/argocd/apps ==="
 find "${KUBERNETES_DIR}/argocd/apps" -type f -name '*.yaml' -not -name '*.sops.*' -print0 | while IFS= read -r -d $'\0' file;
   do
+    # Skip non-manifest YAML (e.g. configMapGenerator data files) that have no
+    # top-level "kind" — kubeconform can't (and shouldn't) validate those.
+    if ! grep -qE '^kind:' "${file}"; then
+      echo "${file} - skipped (not a Kubernetes manifest)"
+      continue
+    fi
     kubeconform "${kubeconform_args[@]}" "${file}"
     if [[ ${PIPESTATUS[0]} != 0 ]]; then
       exit 1
