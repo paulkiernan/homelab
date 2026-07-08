@@ -10,8 +10,8 @@
 groups:
   - name: "Projects"
     items:
-      - name: "swarmphony"
-        href: "https://github.com/paulkiernan/swarmphony"
+      - name: "entrainment"
+        href: "https://github.com/paulkiernan/entrainment"
         description: "Audio-reactive generative murmuration (4096 boids)"
         icon: "🐦"
         external: true
