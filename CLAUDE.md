@@ -22,7 +22,6 @@ This repository is a personal "homelab" setup that serves multiple objectives:
 - **Immich**: Photo management and backup server
 - **Personal websites**: disconnect, paulynomial-index, chrisabel, gibson, taqueria-bonjour
 - **Dashboard**: Hajimari
-- **Games**: Minecraft server
 
 ## Development Workflow
 
