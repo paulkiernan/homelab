@@ -1,0 +1,43 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openebs
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://openebs.github.io/openebs
+    targetRevision: 4.5.1
+    chart: openebs
+    helm:
+      valuesObject:
+        # Hostpath localpv only — nodes already mount /var/openebs/local via
+        # the talos openebs-local machine patch. Replicated/LVM/ZFS engines
+        # are heavyweight and need dedicated disks we don't have.
+        engines:
+          local:
+            lvm:
+              enabled: false
+            zfs:
+              enabled: false
+          replicated:
+            mayastor:
+              enabled: false
+        localpv-provisioner:
+          localpv:
+            basePath: /var/openebs/local
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openebs
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/enforce: privileged

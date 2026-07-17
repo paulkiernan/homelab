@@ -105,11 +105,3 @@ groups:
         description: "Event website"
         icon: "📅"
         external: true
-
-  - name: "Games"
-    items:
-      - name: "Minecraft"
-        href: "minecraft.border-enigmatic.ts.net"
-        description: "Minecraft server"
-        icon: "⛏️"
-        external: false
