@@ -32,21 +32,9 @@ spec:
     requests:
       storage: 20Gi
 ---
-# Drop folder. Exposed on the NAS so a scanner (or a Finder drag) can write
-# straight into it; paperless polls it (see PAPERLESS_CONSUMER_POLLING_INTERVAL).
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: paperless-consume
-  namespace: paperless
-spec:
-  accessModes:
-    - ReadWriteMany
-  storageClassName: nas-nfs
-  resources:
-    requests:
-      storage: 20Gi
----
+# The drop folder is not here — it is a static PV bound to an existing NAS
+# share so the scanner has a stable path. See consume-storage.yaml.
+#
 # Target for `document_exporter` backups.
 apiVersion: v1
 kind: PersistentVolumeClaim

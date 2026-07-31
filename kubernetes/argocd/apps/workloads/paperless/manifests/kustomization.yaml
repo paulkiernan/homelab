@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - pvc.yaml
+  - consume-storage.yaml
   - broker.yaml
   - deployment.yaml
   - service.yaml
