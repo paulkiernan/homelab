@@ -27,6 +27,27 @@ spec:
       # No securityContext/runAsUser here on purpose. The upstream image uses
       # s6-overlay (ENTRYPOINT ["/init"]) and starts as root so it can map
       # ownership of the mounted volumes before dropping to uid 1000.
+      initContainers:
+        # PAPERLESS_EMPTY_TRASH_DIR has to exist before startup — paperless
+        # validates it in a Django system check and refuses to boot rather
+        # than creating it. Same image as the main container so this costs no
+        # extra pull, and uid 1000 is the user paperless drops to.
+        - name: init-trash-dir
+          image: ghcr.io/paperless-ngx/paperless-ngx:3.0.4
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mkdir -p /usr/src/paperless/media/trash
+              chown 1000:1000 /usr/src/paperless/media/trash
+          volumeMounts:
+            - name: media
+              mountPath: /usr/src/paperless/media
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 10m
       containers:
         - name: paperless
           image: ghcr.io/paperless-ngx/paperless-ngx:3.0.4
