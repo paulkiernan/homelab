@@ -1,0 +1,22 @@
+---
+# Private access on the Tailnet: https://paperless.border-enigmatic.ts.net/
+# Deliberately tailnet-only — this holds personal and financial documents.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: paperless-tailscale
+  namespace: paperless
+  labels:
+    app: paperless
+  annotations:
+    tailscale.com/hostname: "paperless"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: paperless
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - paperless

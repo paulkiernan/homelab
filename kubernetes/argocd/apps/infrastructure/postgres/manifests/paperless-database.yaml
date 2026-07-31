@@ -1,0 +1,11 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: paperless
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres-homelab
+  name: paperless
+  owner: paperless

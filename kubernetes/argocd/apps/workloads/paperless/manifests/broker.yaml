@@ -1,0 +1,92 @@
+---
+# Celery broker. Paperless needs something that speaks the Redis protocol for
+# its task queue (consumption, OCR, scheduled jobs). Valkey is what upstream
+# ships in their compose files.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: paperless-broker
+  namespace: paperless
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nas-nfs
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: paperless-broker
+  namespace: paperless
+  labels:
+    app: paperless
+    component: broker
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: paperless
+      component: broker
+  template:
+    metadata:
+      labels:
+        app: paperless
+        component: broker
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: valkey
+          image: docker.io/valkey/valkey:9-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 6379
+              name: redis
+              protocol: TCP
+          livenessProbe:
+            exec:
+              command: ["valkey-cli", "ping"]
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            exec:
+              command: ["valkey-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: 64Mi
+              cpu: 25m
+            limits:
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: paperless-broker
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: paperless-broker
+  namespace: paperless
+  labels:
+    app: paperless
+    component: broker
+spec:
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+      protocol: TCP
+  selector:
+    app: paperless
+    component: broker
