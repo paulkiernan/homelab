@@ -24,6 +24,20 @@ spec:
         app: paperless
         component: server
     spec:
+      # Kubernetes injects <SERVICE>_PORT and friends into every pod for each
+      # service in the namespace. The service here is named `paperless`, so it
+      # injects PAPERLESS_PORT=tcp://10.96.x.x:80 — and PAPERLESS_PORT is also
+      # a real paperless setting (the port to listen on), so it wins over the
+      # image default and granian dies with:
+      #
+      #   Error: Invalid value for '--port': 'tcp://10.96.3.208:80'
+      #                                       is not a valid integer.
+      #
+      # Nothing here needs the injected vars — the broker is reached by DNS —
+      # so switch the whole mechanism off rather than papering over the one
+      # collision. Prevents the next PAPERLESS_*-shaped service name from
+      # doing this again.
+      enableServiceLinks: false
       # No securityContext/runAsUser here on purpose. The upstream image uses
       # s6-overlay (ENTRYPOINT ["/init"]) and starts as root so it can map
       # ownership of the mounted volumes before dropping to uid 1000.
