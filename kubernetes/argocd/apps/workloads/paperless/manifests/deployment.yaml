@@ -208,7 +208,7 @@ spec:
             claimName: paperless-media
         - name: consume
           persistentVolumeClaim:
-            claimName: paperless-consume
+            claimName: paperless-scans
         - name: export
           persistentVolumeClaim:
             claimName: paperless-export

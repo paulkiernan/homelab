@@ -1,0 +1,46 @@
+---
+# The scanner inbox, shared between the Brother ADS-4700 and paperless.
+#
+# The Brother speaks SMB, not NFS, so the two meet on the NAS rather than in
+# the cluster: DSM exports /volume1/scans over SMB for the scanner and over
+# NFS for us. That is also why this is a static PV instead of a nas-nfs claim
+# — a dynamically provisioned directory is named after the PV's UUID, so it
+# would change out from under the scanner's profile any time the PVC was
+# recreated, and scans would pile up in an orphaned folder unnoticed.
+#
+# Requires a Synology shared folder named `scans` with both protocols enabled.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: paperless-scans
+  labels:
+    app: paperless
+spec:
+  capacity:
+    # Not enforced for NFS — this only has to match the claim below so the two
+    # bind. Actual space is whatever is free on volume1.
+    storage: 20Gi
+  accessModes:
+    - ReadWriteMany
+  # Retain: this directory belongs to the NAS, not to Kubernetes. Deleting the
+  # claim must never take a pending scan with it.
+  persistentVolumeReclaimPolicy: Retain
+  # Empty (not absent) so the default nas-nfs class doesn't claim this.
+  storageClassName: ""
+  nfs:
+    server: 192.168.1.2
+    path: /volume1/scans
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: paperless-scans
+  namespace: paperless
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: paperless-scans
+  resources:
+    requests:
+      storage: 20Gi
