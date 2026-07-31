@@ -48,3 +48,8 @@ spec:
         createdb: true
         passwordSecret:
           name: tidewood-db-user
+      - name: paperless
+        ensure: present
+        login: true
+        passwordSecret:
+          name: paperless-db-user

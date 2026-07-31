@@ -7,3 +7,5 @@ resources:
   - immich-database.yaml
   - tidewood-db-user-secret.sops.yaml
   - tidewood-database.yaml
+  - paperless-db-user-secret.sops.yaml
+  - paperless-database.yaml

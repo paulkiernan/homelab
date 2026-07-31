@@ -1,0 +1,62 @@
+---
+# Documents + thumbnails. This is the irreplaceable data, so it lives on the
+# NAS where it gets picked up by the normal backup story.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: paperless-media
+  namespace: paperless
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nas-nfs
+  resources:
+    requests:
+      storage: 200Gi
+---
+# Search index (tantivy, new in v3), classification model and logs. All of this
+# is rebuildable from the DB + media via `document_index reindex`, so losing it
+# is inconvenient rather than fatal. Kept on NFS anyway for schedulability —
+# the deployment is single-replica with strategy: Recreate so there is only
+# ever one writer against the index.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: paperless-data
+  namespace: paperless
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nas-nfs
+  resources:
+    requests:
+      storage: 20Gi
+---
+# Drop folder. Exposed on the NAS so a scanner (or a Finder drag) can write
+# straight into it; paperless polls it (see PAPERLESS_CONSUMER_POLLING_INTERVAL).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: paperless-consume
+  namespace: paperless
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nas-nfs
+  resources:
+    requests:
+      storage: 20Gi
+---
+# Target for `document_exporter` backups.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: paperless-export
+  namespace: paperless
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nas-nfs
+  resources:
+    requests:
+      storage: 50Gi
