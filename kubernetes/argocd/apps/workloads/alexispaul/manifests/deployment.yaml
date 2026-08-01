@@ -27,18 +27,29 @@ spec:
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: /
+              path: /healthz
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           readinessProbe:
             httpGet:
-              path: /
+              path: /healthz
               port: http
             initialDelaySeconds: 3
             periodSeconds: 3
           envFrom:
             - secretRef:
                 name: alexispaul-auth
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: alexispaul-auth
+                  key: POSTGRES_PASSWORD
+            # The ClusterIP `db` Service from postgres.yaml.
+            - name: DATABASE_URL
+              value: postgres://wedding:$(POSTGRES_PASSWORD)@db:5432/wedding
       imagePullSecrets:
         - name: dockerconfigjson-github-com

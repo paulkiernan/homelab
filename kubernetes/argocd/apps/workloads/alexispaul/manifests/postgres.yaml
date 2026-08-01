@@ -1,0 +1,77 @@
+# Postgres for the "Stay With Us" room block (invite codes + commitments).
+# Password comes from the alexispaul-auth SopsSecret (POSTGRES_PASSWORD).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pgdata
+  namespace: alexispaul
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  namespace: alexispaul
+  labels:
+    app: alexispaul-db
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate # single PVC — never run two postgres pods at once
+  selector:
+    matchLabels:
+      app: alexispaul-db
+  template:
+    metadata:
+      labels:
+        app: alexispaul-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: wedding
+            - name: POSTGRES_USER
+              value: wedding
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: alexispaul-auth
+                  key: POSTGRES_PASSWORD
+            # Subdirectory so initdb doesn't trip over the volume's lost+found.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ['pg_isready', '-U', 'wedding', '-d', 'wedding']
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: pgdata
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: alexispaul
+spec:
+  type: ClusterIP
+  selector:
+    app: alexispaul-db
+  ports:
+    - port: 5432
+      targetPort: 5432
