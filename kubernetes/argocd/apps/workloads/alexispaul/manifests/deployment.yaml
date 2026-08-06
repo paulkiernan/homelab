@@ -7,7 +7,7 @@ metadata:
   labels:
     app: alexispaul
 spec:
-  replicas: 1
+  replicas: 3
   revisionHistoryLimit: 2
   selector:
     matchLabels:
@@ -17,6 +17,17 @@ spec:
       labels:
         app: alexispaul
     spec:
+      # Prefer one pod per node. Kept soft so rolling updates and node
+      # maintenance never strand a replica in Pending on this small cluster.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app: alexispaul
       containers:
         - name: alexispaul
           image: ghcr.io/paulkiernan/alexispaul:0.16.1
