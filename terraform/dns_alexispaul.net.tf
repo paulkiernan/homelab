@@ -196,9 +196,9 @@ resource "cloudflare_dns_record" "tidewood_alexispaul_net_CNAME" {
 }
 
 # resend
-resource "cloudflare_dns_record" "tidewood_alexispaul_net_DKIM_TXT" {
-  content  = "p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDDTfxwGbrjspZRM87o0wPR3XdLZVpHlFE93Khjp4UMXKZYJLQLs89ggyJCDUni3ATOXVqaUG1umse3sn+gxYFHgRXhTxF2zZsBzb9q1kwjX4zlRvANi9JfogIkeX1GPgg9Bix+VHUSHlcdHJgTjdGH9cY5q7Bpn1MxKG8au3ihQwIDAQAB"
-  name     = "resend._domainkey.tidewood"
+resource "cloudflare_dns_record" "alexispaul_net_DKIM_TXT" {
+  content  = "p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCeDK0SVyHzNXnWdxkybFErHFHKuX0YfU/LPwG/i5Lvd7QgfCQhV2ZO2MpzBt4euHXxBk1zbnRGZQUoSPYewE2yRTO7ijimywIO6xBpjU3b9w9sChuK+HkPRdfVfaphqNXGZf2dry7JaFqCn05Z9j1IBox3XOvrKEcfjoeg1xC7lwIDAQAB"
+  name     = "resend._domainkey"
   priority = null
   proxied  = false
   tags    = []
@@ -207,9 +207,9 @@ resource "cloudflare_dns_record" "tidewood_alexispaul_net_DKIM_TXT" {
   zone_id = "121c2c56cd47fa6427e018878ee20082"
 }
 
-resource "cloudflare_dns_record" "tidewood_alexispaul_net_SPF_TXT" {
+resource "cloudflare_dns_record" "alexispaul_net_SPF_TXT" {
   content  = "v=spf1 include:amazonses.com ~all"
-  name     = "send.tidewood"
+  name     = "send"
   priority = null
   proxied  = false
   tags    = []
@@ -218,9 +218,9 @@ resource "cloudflare_dns_record" "tidewood_alexispaul_net_SPF_TXT" {
   zone_id = "121c2c56cd47fa6427e018878ee20082"
 }
 
-resource "cloudflare_dns_record" "tidewood_alexispaul_net_SPF_MX" {
+resource "cloudflare_dns_record" "alexispaul_net_SPF_MX" {
   content  = "feedback-smtp.us-east-1.amazonses.com"
-  name     = "send.tidewood"
+  name     = "send"
   priority = 10
   proxied  = false
   tags    = []
@@ -229,7 +229,7 @@ resource "cloudflare_dns_record" "tidewood_alexispaul_net_SPF_MX" {
   zone_id = "121c2c56cd47fa6427e018878ee20082"
 }
 
-resource "cloudflare_dns_record" "tidewood_alexispaul_net_DMARC_TXT" {
+resource "cloudflare_dns_record" "alexispaul_net_DMARC_TXT" {
   content  = "v=DMARC1; p=quarantine;"
   name     = "_dmarc.tidewood"
   priority = null
@@ -237,27 +237,5 @@ resource "cloudflare_dns_record" "tidewood_alexispaul_net_DMARC_TXT" {
   tags    = []
   ttl     = 3600
   type    = "TXT"
-  zone_id = "121c2c56cd47fa6427e018878ee20082"
-}
-
-resource "cloudflare_dns_record" "tidewood_alexispaul_net_BIMI_TXT" {
-  content  = "v=BIMI1; l=https://tidewood.alexispaul.net/bimi-logo.svg;"
-  name     = "default._bimi.tidewood"
-  priority = null
-  proxied  = false
-  tags    = []
-  ttl     = 3600
-  type    = "TXT"
-  zone_id = "121c2c56cd47fa6427e018878ee20082"
-}
-
-resource "cloudflare_dns_record" "tidewood_alexispaul_net_inbound_MX" {
-  content  = "inbound-smtp.us-east-1.amazonaws.com"
-  name     = "tidewood"
-  priority = 10
-  proxied  = false
-  tags    = []
-  ttl     = 3600
-  type    = "MX"
   zone_id = "121c2c56cd47fa6427e018878ee20082"
 }

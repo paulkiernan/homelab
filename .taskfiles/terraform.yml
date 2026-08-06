@@ -25,6 +25,7 @@ tasks:
   init:
     desc: Initialize OpenTofu
     dir: "{{.TERRAFORM_DIR}}"
+    env: *tf-encryption
     cmds:
       - tofu init
 
