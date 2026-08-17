@@ -62,5 +62,15 @@ spec:
             # The ClusterIP `db` Service from postgres.yaml.
             - name: DATABASE_URL
               value: postgres://wedding:$(POSTGRES_PASSWORD)@db:5432/wedding
+            # PostHog. The app serves this key to the browser (GET
+            # /api/analytics), which is what a phc_ project key is for: it can
+            # only write events, never read them. It is deliberately not in the
+            # SopsSecret, because encrypting a value that ships to every
+            # visitor buys nothing. Unset both to turn analytics off without a
+            # rebuild; the browser then never loads posthog-js at all.
+            - name: POSTHOG_KEY
+              value: phc_wyFs7Qespzu8mGwHQqzaEoqeePvUNgYgfgkbLVs8cCYh
+            - name: POSTHOG_HOST
+              value: https://us.i.posthog.com
       imagePullSecrets:
         - name: dockerconfigjson-github-com
