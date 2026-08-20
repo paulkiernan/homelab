@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: foundry
-          image: felddy/foundryvtt:14.366.0
+          image: felddy/foundryvtt:14.367.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 30000
