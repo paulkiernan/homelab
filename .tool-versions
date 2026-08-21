@@ -3,7 +3,7 @@ talhelper 3.1.16
 task 3.38.0
 helmfile 1.7.4
 helm 4.2.4
-github-cli 2.97.0
+github-cli 2.98.0
 kubecolor 0.5.1
 terraform 1.15.9
 sops 3.13.3
