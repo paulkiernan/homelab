@@ -10,7 +10,7 @@ spec:
   project: default
   source:
     repoURL: https://openebs.github.io/openebs
-    targetRevision: 4.5.1
+    targetRevision: 4.6.0
     chart: openebs
     helm:
       valuesObject:
