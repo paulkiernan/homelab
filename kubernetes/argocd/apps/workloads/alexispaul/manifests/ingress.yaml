@@ -6,6 +6,10 @@ metadata:
   namespace: alexispaul
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-production
+    # The app serves Access-Control-Allow-Origin for /fonts/* itself (email
+    # clients fetch @font-face files cross-origin). Keep this route free of
+    # middleware that rewrites response headers; Traefik and cloudflared
+    # currently pass them through untouched.
     traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
 spec:
   ingressClassName: traefik
