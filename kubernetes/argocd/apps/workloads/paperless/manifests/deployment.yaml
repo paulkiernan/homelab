@@ -47,7 +47,7 @@ spec:
         # than creating it. Same image as the main container so this costs no
         # extra pull, and uid 1000 is the user paperless drops to.
         - name: init-trash-dir
-          image: ghcr.io/paperless-ngx/paperless-ngx:3.1.1
+          image: ghcr.io/paperless-ngx/paperless-ngx:3.1.2
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -64,7 +64,7 @@ spec:
               cpu: 10m
       containers:
         - name: paperless
-          image: ghcr.io/paperless-ngx/paperless-ngx:3.1.1
+          image: ghcr.io/paperless-ngx/paperless-ngx:3.1.2
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
