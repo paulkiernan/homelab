@@ -1,0 +1,50 @@
+---
+# World saves, admin/ban/permitted lists. Valheim 1.0 writes a world as a
+# directory of many chunk files, so this stays on the node-local SSD: the
+# image's chmod pass fails on root-squashed NFS and a save landing mid-read
+# over NFS is the documented corruption path. WaitForFirstConsumer binds it
+# to whichever node the pod lands on, which the nodeSelector forces to the
+# only amd64 node. Losing the node loses this volume — that is what the
+# backups PVC below is for.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: valheim-config
+  namespace: valheim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
+---
+# SteamCMD install of the dedicated server (~2 GiB). Rebuildable, but keeping
+# it means a pod restart takes seconds instead of a fresh Steam download.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: valheim-server
+  namespace: valheim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Hourly zipped world backups written by the image's backup job. On the NAS so
+# the world survives the amd64 node dying.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: valheim-backups
+  namespace: valheim
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nas-nfs
+  resources:
+    requests:
+      storage: 20Gi

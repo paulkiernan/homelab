@@ -1,0 +1,91 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: valheim
+  namespace: valheim
+  labels:
+    app: valheim
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate # one world, one writer — never two servers on the same save dir
+  selector:
+    matchLabels:
+      app: valheim
+  template:
+    metadata:
+      labels:
+        app: valheim
+    spec:
+      # valheim_server.x86_64 is x86-64 only (Steam ships no arm64 depot), so
+      # this can only run on k8s-leader-01. Same node the local PVs bind to.
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      # On SIGTERM the image sends SIGINT to the server, which saves the world
+      # before exiting. Killing it mid-save truncates the chunked 1.0 world.
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: valheim
+          image: ghcr.io/community-valheim-tools/valheim-server:1.2.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: game
+              containerPort: 2456
+              protocol: UDP
+            - name: query
+              containerPort: 2457
+              protocol: UDP
+          env:
+            - name: TZ
+              value: America/Los_Angeles
+            - name: SERVER_NAME
+              value: Paulynomial
+            - name: WORLD_NAME
+              value: Paulynomial
+            # 0 = not registered with the Steam server browser, joinable via
+            # "Join IP" only. Must be numeric: the image's idle detection
+            # (which gates auto-updates and the nightly restart) keys on "0".
+            - name: SERVER_PUBLIC
+              value: "0"
+            - name: SERVER_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: valheim-secrets
+                  key: SERVER_PASS
+            - name: BACKUPS_DIRECTORY
+              value: /backups
+            - name: BACKUPS_MAX_AGE
+              value: "14"
+          securityContext:
+            capabilities:
+              add:
+                - SYS_NICE # lets the Steam networking lib raise thread priority
+          resources:
+            # One hot thread does ~70% of the work; a CPU limit would only add
+            # CFS throttling stutter, so request a core and a half and let it
+            # burst. Memory is the scarce resource on this node: ~2.8 GiB RSS
+            # idle, growing with world age.
+            requests:
+              cpu: 1500m
+              memory: 3Gi
+            limits:
+              memory: 4Gi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: server
+              mountPath: /opt/valheim
+            - name: backups
+              mountPath: /backups
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: valheim-config
+        - name: server
+          persistentVolumeClaim:
+            claimName: valheim-server
+        - name: backups
+          persistentVolumeClaim:
+            claimName: valheim-backups

@@ -22,7 +22,7 @@ This repository is a personal "homelab" setup that serves multiple objectives:
 - **Immich**: Photo management and backup server
 - **Personal websites**: disconnect, paulynomial-index, chrisabel, gibson, taqueria-bonjour
 - **Dashboard**: Hajimari
-- **Games**: Minecraft server
+- **Games**: Valheim dedicated server (amd64-only, pinned to k8s-leader-01, reached over Tailscale)
 
 ## Development Workflow
 

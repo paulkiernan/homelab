@@ -1,0 +1,27 @@
+---
+# Exposed on the tailnet as valheim.<tailnet>.ts.net via the Tailscale operator
+# (L3 proxy, UDP DNAT). In-game "Join IP" wants the 100.x tailnet IP; look it
+# up with `kubectl get svc -n valheim valheim`.
+apiVersion: v1
+kind: Service
+metadata:
+  name: valheim
+  namespace: valheim
+  labels:
+    app: valheim
+  annotations:
+    tailscale.com/hostname: "valheim"
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  selector:
+    app: valheim
+  ports:
+    - name: game
+      port: 2456
+      targetPort: 2456
+      protocol: UDP
+    - name: query
+      port: 2457
+      targetPort: 2457
+      protocol: UDP
