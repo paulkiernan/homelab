@@ -1,0 +1,39 @@
+---
+# Scraped by the cluster's existing Grafana k8s-monitoring (Alloy) deployment,
+# which has prometheusOperatorObjects enabled: the ServiceMonitor CRDs come
+# from the prometheus-operator-crds chart in
+# kubernetes/argocd/apps/monitoring/grafana-cloud. There is no Prometheus
+# instance in this cluster, so no PrometheusRule objects are created here —
+# alert evaluation happens in Grafana Cloud / Grafana Alerting instead
+# (deploy/grafana in paulkiernan/diff-logic-cells).
+#
+# The dashboard for these metrics is
+# deploy/grafana/dashboards/market-recorder.json in the source repository.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: market-recorder
+  namespace: market-measurement
+  labels:
+    app.kubernetes.io/name: market-recorder
+    app.kubernetes.io/part-of: market-measurement
+spec:
+  # No namespaceSelector: the Service lives in this namespace, which is where
+  # the recorder's metrics port is exposed.
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: market-recorder
+  endpoints:
+    - port: metrics
+      path: /metrics
+      scheme: http
+      interval: 30s
+      scrapeTimeout: 25s
+      # Static site label, because the alert rules and the dashboard are read per
+      # site and cloud capture hosts already carry the same label from their own
+      # Alloy configuration. Keep this value equal to the `site` key in
+      # market-measurement-config; without it, a per-site absence rule cannot
+      # distinguish the cluster's series from a cloud host's.
+      relabelings:
+        - targetLabel: site
+          replacement: homelab

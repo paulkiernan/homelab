@@ -1,0 +1,29 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: market-measurement
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/paulkiernan/homelab
+    targetRevision: HEAD
+    path: kubernetes/argocd/apps/workloads/market-measurement/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: market-measurement
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels:
+        # Pod Security Admission: the workloads here are non-root, drop all
+        # capabilities and use the RuntimeDefault seccomp profile, so the
+        # baseline policy is a real constraint rather than decoration.
+        pod-security.kubernetes.io/enforce: baseline

@@ -49,6 +49,48 @@ task --list
 **ArgoCD:**
 - `task argo:bootstrap` - Bootstrap ArgoCD and deploy the root app-of-apps
 
+#### Measurement Operations
+
+The public-data futures measurement workload (`kubernetes/argocd/apps/workloads/market-measurement`) has its own task namespace, `measurement:` (`.taskfiles/measurement`). It captures public Coinbase US futures data and runs hypothetical paper analysis only: no venue credentials, no order path, and no task here authorizes live trading — live capital stays $0.
+
+**Read-only tasks** (`render`, `diff`, `status`, `spool-node`, `logs`, `metrics`, `config-check`, `pull-secret-check`, `preflight`) inspect or render state; they write nothing to the cluster, the repository or a remote host.
+
+**Tasks that change things:**
+- `measurement:images` rewrites image tags in the kustomization (repository file).
+- `measurement:pull-secret` and `measurement:ghcr-pull-secret` write SOPS-encrypted Secret files and list them in the kustomization (repository files).
+- `measurement:report-run` and `measurement:pull-run` create one-off Jobs in the cluster.
+- `measurement:alerts-apply` creates or updates Grafana Cloud alert rules.
+- `measurement:vm-install` installs the recorder onto the capture VM over SSH.
+
+**Images and the private pull Secret (needed before any pod can run):**
+- Image tags must be a release published by `.github/workflows/measurement-images.yml` in `paulkiernan/diff-logic-cells` (manual `workflow_dispatch`), then pinned with `task measurement:images VERSION=vX.Y.Z`.
+- The images are private and stay private; the namespace needs the SOPS-encrypted GHCR Secret made by `task measurement:ghcr-pull-secret` (`GHCR_USER` plus a `read:packages` token, read from the environment and never logged). If it is missing, pods sit in `ImagePullBackOff` by design — there is no anonymous fallback and no plaintext Secret in git.
+
+**Read-only diagnostics:**
+- `task measurement:render` renders the manifests offline; `task measurement:diff` shows what ArgoCD would change.
+- `task measurement:status` lists pods, CronJobs, PVCs and the ArgoCD app; `task measurement:spool-node` names the node whose disk bounds the local capture spool.
+- `task measurement:logs SERVICE=market-recorder|market-archive|pull|report` follows workload logs or lists the pull/report Jobs.
+- `task measurement:metrics` port-forwards the recorder and prints `/healthz`, `/readyz` and `/metrics`.
+- `task measurement:config-check` compares the deployed study config with `config/futures-study.json` from the source repo (set `MSR_SOURCE_DIR` if it is not at `$HOME/workspace/github.com/paulkiernan/diff-logic-cells`); `task measurement:preflight` combines render, the pull-Secret check and ArgoCD/pod state.
+
+**Secret generators (encrypted output only; commit the encrypted file, never key material):**
+- `task measurement:pull-secret` needs `SSH_PULL_KEY_FILE`, `SSH_PULL_KNOWN_HOSTS_FILE` and `SSH_PULL_REMOTE=user@host`; it writes SOPS-encrypted `ssh-pull-secret.sops.yaml` and lists it in the kustomization. No remote path is stored: the capture host's forced command already roots rrsync at the spool, so the pull Job asks for `/`. `task measurement:pull-secret-check` verifies the synced Secret has every required key.
+- `task measurement:ghcr-pull-secret` writes the encrypted dockerconfigjson pull Secret described above.
+
+**Capture VM (cloud host):**
+- Provisioning is not a Taskfile task yet: after AWS credentials exist, run OpenTofu in `terraform/market-measurement` (`tofu init`, `tofu plan`, `tofu apply`; state is local and uncommitted). Resolve blueprint, bundle and availability zone with `aws lightsail get-*` first. The approved plan is the ~$7/month Lightsail class (2 vCPU / 1 GB / 40 GB SSD / 2 TB transfer), and that budget is documentation only — no AWS Budget, quota or IAM policy enforces it.
+- `task measurement:vm-install` then ships the binary and systemd units over SSH in one checksummed payload. It requires `MSR_VM_TARGET`, `MSR_VM_SITE` and `MSR_VM_BINARY` — a real locally built Linux binary, whose ELF architecture the wrapper verifies — plus a pinned host key: `MSR_VM_KNOWN_HOSTS` (preferred) or `MSR_VM_FINGERPRINT`; `MSR_VM_TOFU=1` is the last resort. `MSR_VM_PULL_KEY` authorizes the read-only rsync pull key on the host. The SSH-pull CronJob ships suspended (`spec.suspend: true`) until the cloud side actually exists, so a homelab-only deployment schedules no cloud pulls: activate it by Git change only, after the VM is provisioned, the pull key is authorized on it, the SOPS-encrypted `ssh-pull-secret.sops.yaml` and its kustomization entry are committed, and one `task measurement:pull-run` Job has succeeded — then set `suspend: false` and let ArgoCD sync. Once enabled, a missing Secret or an unreachable VM keeps failing the pull Job visibly; suspension is a deliberate pending state, never a substitute for a working transport.
+- Telemetry is on by default: with Alloy enabled, `MSR_VM_GRAFANA_ENV` (a local 0600 file holding `GRAFANA_CLOUD_PROM_URL`, `GRAFANA_CLOUD_PROM_USER` and `GRAFANA_CLOUD_TOKEN`) is mandatory, and the run fails if Alloy does not become active, so a blind host is never reported as deployed. `MSR_VM_ALLOY=0` opts out deliberately; `DRY_RUN=1` prints the plan and changes nothing.
+
+**One-off jobs and alerts:**
+- `task measurement:report-run` and `task measurement:pull-run` create one-off Jobs from the report and SSH-pull CronJobs and tail their logs; the pull path never writes to or deletes anything on the capture host.
+- `task measurement:alerts-apply` writes the Grafana Cloud alert rules (Grafana evaluates them; there is no in-cluster Prometheus). `GRAFANA_URL` and `GRAFANA_TOKEN` plus folder/datasource UIDs are required; `DRY_RUN=1` prints the payload without sending it.
+
+**Operational notes:**
+- Deploy by committing and pushing to `main`; ArgoCD auto-syncs (prune + selfHeal) within a few minutes. No measurement task applies manifests — do not `kubectl apply` them.
+- Add the cloud capture host's site id to `sites:` in the measurement ConfigMap only once that host is producing sealed chunks, one site per report run; never merge sites.
+- Raw capture is never deleted automatically: the node-local spool is the real disk bound, sealed chunks may be pruned only after verification on the NAS archive, and the archive's source copy stays intact. The measurement PVCs carry `Prune=false,Delete=false` so a sync cannot drop them.
+
 #### Adding New Tasks
 
 **When performing regular operations, consider adding them to the appropriate Taskfile:**
@@ -174,4 +216,4 @@ kubernetes/
 This repository demonstrates infrastructure-as-code practices, GitOps workflows, and practical Kubernetes administration in a real-world personal computing environment. The entire homelab state is version-controlled, making it reproducible, auditable, and a living portfolio of DevOps/SRE capabilities.
 
 ---
-*Last updated: 2025-12-30*
+*Last updated: 2026-09-17*

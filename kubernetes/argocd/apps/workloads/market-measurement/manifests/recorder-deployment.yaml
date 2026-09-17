@@ -1,0 +1,204 @@
+---
+# Single capture writer. One replica, Recreate: the spool has exactly one
+# writer, and the recorder holds its own per-site lock on top of that. A
+# RollingUpdate would briefly run two processes against the same spool.
+#
+# SIGTERM drains the bounded writer queue and seals the active chunk, so the
+# grace period is generous; new pods never start before the old one is gone.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: market-recorder
+  namespace: market-measurement
+  labels:
+    app.kubernetes.io/name: market-recorder
+    app.kubernetes.io/part-of: market-measurement
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: market-recorder
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: market-recorder
+        app.kubernetes.io/part-of: market-measurement
+    spec:
+      # The recorder never talks to the Kubernetes API, so it gets no service
+      # account token at all.
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # The images live in a private GHCR namespace (no public publication),
+      # so the namespace needs this dockerconfigjson Secret:
+      #   manifests/ghcr-pull-secret.sops.yaml -> `task measurement:ghcr-pull-secret`
+      # Until it exists the pod stays in ImagePullBackOff; that is deliberate,
+      # there is no anonymous fallback for a private package.
+      imagePullSecrets:
+        - name: market-measurement-ghcr
+      terminationGracePeriodSeconds: 90
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        # fsGroup is deliberately not used: ownership of the local spool and the
+        # NFS directories is fixed explicitly by the init containers, which is
+        # deterministic for both volume types.
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # openebs-hostpath creates the volume directory as root; make the spool
+        # and the site directory writable by the recorder's uid. Non-recursive
+        # on purpose: everything below is created by the recorder itself, so a
+        # large spool does not need a full tree walk on every restart.
+        - name: spool-permissions
+          image: busybox:1.37
+          command:
+            - sh
+            - -c
+            - mkdir -p "/spool/${MARKET_RECORDER_SITE}" && chown 65532:65532 /spool "/spool/${MARKET_RECORDER_SITE}"
+          env:
+            - name: MARKET_RECORDER_SITE
+              valueFrom:
+                configMapKeyRef:
+                  name: market-measurement-config
+                  key: site
+          securityContext:
+            # Pod-level runAsNonRoot would otherwise apply here too, but the
+            # volume directory is created by the provisioner as root and the
+            # chown to the runtime uid needs CAP_CHOWN. Everything else stays
+            # dropped; CHOWN and FOWNER are inside Pod Security baseline's
+            # capability allowlist.
+            runAsNonRoot: false
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - CHOWN
+                - FOWNER
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi
+          volumeMounts:
+            - name: spool
+              mountPath: /spool
+      containers:
+        - name: market-recorder
+          # Pinned by the images: block in kustomization.yaml. The tag must be a
+          # release from .github/workflows/measurement-images.yml.
+          image: ghcr.io/paulkiernan/diff-logic-cells/market-recorder:v0.1.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - record
+            - --output
+            - /var/lib/market-recorder
+            - --site
+            - $(MARKET_RECORDER_SITE)
+            - --underlying
+            - $(MARKET_RECORDER_UNDERLYING)
+            - --duration
+            - $(MARKET_RECORDER_DURATION)
+            - --metadata-interval
+            - $(MARKET_RECORDER_METADATA_INTERVAL)
+            - --discovery-interval
+            - $(MARKET_RECORDER_DISCOVERY_INTERVAL)
+            - --rotate-interval
+            # Bootstrap archive verification; restore the configured hourly
+            # cadence after the first end-to-end deployment check.
+            - 1m
+            - --sync-interval
+            - $(MARKET_RECORDER_SYNC_INTERVAL)
+            - --metrics-listen
+            - 0.0.0.0:9090
+          env:
+            # Values come from market-measurement-config; env (not envFrom) is
+            # used because args expansion reads this list.
+            - name: MARKET_RECORDER_SITE
+              valueFrom:
+                configMapKeyRef:
+                  name: market-measurement-config
+                  key: site
+            - name: MARKET_RECORDER_UNDERLYING
+              valueFrom:
+                configMapKeyRef:
+                  name: market-measurement-config
+                  key: underlying
+            - name: MARKET_RECORDER_DURATION
+              valueFrom:
+                configMapKeyRef:
+                  name: market-measurement-config
+                  key: duration
+            - name: MARKET_RECORDER_METADATA_INTERVAL
+              valueFrom:
+                configMapKeyRef:
+                  name: market-measurement-config
+                  key: metadata-interval
+            - name: MARKET_RECORDER_DISCOVERY_INTERVAL
+              valueFrom:
+                configMapKeyRef:
+                  name: market-measurement-config
+                  key: discovery-interval
+            - name: MARKET_RECORDER_ROTATE_INTERVAL
+              valueFrom:
+                configMapKeyRef:
+                  name: market-measurement-config
+                  key: rotate-interval
+            - name: MARKET_RECORDER_SYNC_INTERVAL
+              valueFrom:
+                configMapKeyRef:
+                  name: market-measurement-config
+                  key: sync-interval
+          ports:
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          # Liveness is process and writer health only: an upstream outage must
+          # not restart the pod. Readiness is the strict one — no healthy
+          # sequenced feed means unready, and the Service keeps publishing the
+          # address anyway so metrics stay scrapeable during an outage.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            # No CPU limit on purpose: CFS throttling would delay message
+            # receipt and record serialization. Memory is bounded because the
+            # queues are.
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: spool
+              mountPath: /var/lib/market-recorder
+      volumes:
+        - name: spool
+          persistentVolumeClaim:
+            claimName: market-recorder-spool

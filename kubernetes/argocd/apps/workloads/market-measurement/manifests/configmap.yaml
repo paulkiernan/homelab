@@ -1,0 +1,57 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: market-measurement-config
+  namespace: market-measurement
+data:
+  # --- capture identity -----------------------------------------------------
+  # Use one site id per capture host: the report selects exactly one site at a
+  # time and favourable quotes from different sites are never combined.
+  site: homelab
+  underlying: XLM
+  # Sites the daily report runs over, space separated, one output directory
+  # each. Add the cloud capture host's id (for example aws-us-east-1) once it is
+  # producing sealed chunks; never merge them into a single report run.
+  sites: homelab
+  # --- capture cadence ------------------------------------------------------
+  # Mirrors deploy/systemd/market-recorder.env.example so the VM and the
+  # cluster capture with the same shape. duration 0 = continuous.
+  duration: "0"
+  metadata-interval: 1m
+  discovery-interval: 5m
+  rotate-interval: 1h
+  sync-interval: 1s
+  # --- study configuration for the report CLI -------------------------------
+  # Byte-for-byte mirror of config/futures-study.json in
+  # paulkiernan/diff-logic-cells. The loader rejects unknown keys, so keep this
+  # file identical to the repository copy:
+  #   task measurement:config-check
+  # Every value is a DECLARED SCENARIO ASSUMPTION, not a verified fee, funding
+  # payment, interest rate or margin requirement.
+  futures-study.json: |
+    {
+      "schema_version": 1,
+      "quantities_contracts": [1, 5, 10],
+      "paper_cash_usd": "10000",
+      "fee_bps_per_side": "5",
+      "fee_per_contract_usd": "0",
+      "cash_hurdle_annual_rate": "0.04",
+      "cash_interest_annual_rate": "0",
+      "funding_scenarios_hourly": ["-0.000029", "0", "0.000029"],
+      "execution_delay_ms": 250,
+      "hedge_delay_ms": 250,
+      "maximum_slippage_bps": "50",
+      "feed_silence_seconds": 10,
+      "liquidity_sample_seconds": 60,
+      "default_funding_interval_seconds": 3600,
+      "underlying_filter": ["XLM"],
+      "scenario_warning": "Every monetary and rate input in this file is a declared scenario assumption, not a verified venue fee, funding payment, interest rate or margin requirement. The ledger is hypothetical paper execution on public L2 data; live capital is zero and no orders are placed."
+    }
+  # --- hypothetical trade intents -------------------------------------------
+  # Explicit intents only: {id, decision_utc_ns, dated_product,
+  # perpetual_product, contracts, hold_seconds}. Empty means "measurement and
+  # liquidity/funding reports with an explicitly empty ledger" — nothing here
+  # ever generates an order, and no strategy is invented by the deployment.
+  planned-trades.json: |
+    []
