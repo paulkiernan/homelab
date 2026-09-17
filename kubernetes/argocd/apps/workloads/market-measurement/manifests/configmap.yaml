@@ -11,9 +11,10 @@ data:
   site: homelab
   underlying: XLM
   # Sites the daily report runs over, space separated, one output directory
-  # each. Add the cloud capture host's id (for example aws-us-east-1) once it is
-  # producing sealed chunks; never merge them into a single report run.
-  sites: homelab
+  # each. aws-us-east-1 (Lightsail capture VM) was added on 2026-09-17 once
+  # its first sealed chunks were hash-verified on the NAS. Each site gets its
+  # own report run; they are never merged into one report run.
+  sites: homelab aws-us-east-1
   # --- capture cadence ------------------------------------------------------
   # Mirrors deploy/systemd/market-recorder.env.example so the VM and the
   # cluster capture with the same shape. duration 0 = continuous.
