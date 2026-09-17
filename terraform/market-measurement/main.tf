@@ -7,7 +7,7 @@ terraform {
       # Deliberately pinned. Lightsail resources used here are stable across
       # the 6.x line; verify https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lightsail_instance
       # before bumping. Installed by Main with `tofu init` once AWS credentials exist.
-      version = "6.64.0"
+      version = "6.65.0"
     }
   }
 
