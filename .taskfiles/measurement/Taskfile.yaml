@@ -9,9 +9,9 @@ version: "3"
 #   includes:
 #     measurement: .taskfiles/measurement
 # so KUBECONFIG and the repo-wide env come from the root taskfile. Everything
-# here is read-only except the three tasks that say so: images, pull-secret,
-# report-run and pull-run. No task applies manifests — ArgoCD owns the cluster
-# state, and this workload is deployed by committing to main.
+# here is read-only except the five tasks that say so: images, pull-secret,
+# ghcr-pull-secret, report-run and pull-run. No task applies manifests — ArgoCD
+# owns the cluster state, and this workload is deployed by committing to main.
 #
 # Some tasks need the source repository that publishes the images
 # (paulkiernan/diff-logic-cells) for config/futures-study.json and
@@ -343,8 +343,14 @@ tasks:
                             It travels inside the checksummed payload, is
                             installed as /etc/market-recorder/grafana-cloud.env
                             (0600 root), and the run fails if the Alloy unit did
-                            not come up active — a blind host is never reported
-                            as deployed.
+                            not come up active. Active means the local agent
+                            started; it does NOT prove remote ingestion or that
+                            alerts evaluate. While the Grafana Cloud tenant is
+                            over its active-series limit every push is rejected
+                            with HTTP 429 (observed 2026-09-17), so a deployed
+                            host can still be invisible in Grafana until the
+                            limit is lifted — check the Alloy log for
+                            "Failed to send batch" before claiming telemetry.
       Optional:
         MSR_VM_SSH_KEY, MSR_VM_PORT, MSR_VM_STAGING (default /opt/market-bootstrap),
         MSR_VM_PULL_KEY (client public key to authorize for read-only rsync pulls),
@@ -382,8 +388,10 @@ tasks:
         if [[ -n "${MSR_VM_PULL_KEY:-}" ]]; then args+=(--pull-public-key "$MSR_VM_PULL_KEY"); fi
         if [[ -n "${MSR_VM_WAIT_HEALTHY:-}" ]]; then args+=(--wait-healthy "$MSR_VM_WAIT_HEALTHY"); fi
         # Telemetry is the default for a capture VM, and it comes with a hard
-        # requirement for the credentials file, so a host can never be reported
-        # as deployed while it is blind. MSR_VM_ALLOY=0 is the explicit opt-out.
+        # requirement for the credentials file. An active Alloy unit proves
+        # local agent readiness only, never remote ingestion: the tenant-wide
+        # active-series limit can still reject every push (HTTP 429, observed
+        # 2026-09-17). MSR_VM_ALLOY=0 is the explicit opt-out.
         if [[ "${MSR_VM_ALLOY:-1}" == "1" ]]; then
           : "${MSR_VM_GRAFANA_ENV:?set MSR_VM_GRAFANA_ENV to the local 0600 file holding GRAFANA_CLOUD_PROM_URL, GRAFANA_CLOUD_PROM_USER and GRAFANA_CLOUD_TOKEN (or set MSR_VM_ALLOY=0 to deploy deliberately without telemetry)}"
           args+=(--with-alloy --grafana-env-file "$MSR_VM_GRAFANA_ENV")
