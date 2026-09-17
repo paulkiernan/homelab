@@ -25,7 +25,11 @@
       "Bash(dig paulynomial.com NS +short @8.8.8.8)",
       "Bash(dig paulynomial.com CNAME @1.1.1.1 +short)",
       "Bash(dig _cf-custom-hostname.paulynomial.com TXT @1.1.1.1 +short)",
-      "Bash(python3 -c \"import sys,json; body = json.loads\\(sys.stdin.read\\(\\)\\)['body']; print\\(body[:8000]\\)\")"
+      "Bash(python3 -c \"import sys,json; body = json.loads\\(sys.stdin.read\\(\\)\\)['body']; print\\(body[:8000]\\)\")",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.paperless-ngx.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(showmount -e 192.168.1.2)"
     ],
     "deny": [],
     "ask": []
