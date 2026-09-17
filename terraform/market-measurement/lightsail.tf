@@ -50,6 +50,18 @@ resource "aws_lightsail_instance" "this" {
     # (user_data, key_pair_name, blueprint_id, bundle_id and availability_zone
     # are all ForceNew). Removing this guard is a deliberate decision.
     prevent_destroy = true
+
+    # user_data is create-time bootstrap only. It runs once on first boot and
+    # can never be re-applied by Terraform, so a later edit (even a pure bug
+    # fix such as making the script POSIX sh) must not be read as "this
+    # instance is out of date and has to be replaced" - that would destroy the
+    # only copy of captured data. Post-creation configuration travels through
+    # the phase-2 installer (deploy/systemd/install-remote.sh) and manual
+    # remediation instead; fixing user_data only changes what FUTURE instances
+    # boot with. A deliberate rebuild stays possible by removing this
+    # ignore_changes together with prevent_destroy, as an explicit operator
+    # decision.
+    ignore_changes = [user_data]
   }
 }
 
