@@ -1,0 +1,67 @@
+---
+# Node-local spool for the capture writer.
+#
+# openebs-hostpath is deliberate: this volume must never be backed by NFS, or
+# a NAS stall would sit directly on the receive path. WaitForFirstConsumer
+# binds it to whichever node the recorder pod lands on, and the PV's node
+# affinity then pins the archive pod to the same node so both can mount it.
+#
+# Reclaim policy is Delete, so an ArgoCD prune must never touch this claim:
+# losing the node (or the claim) loses local capture until the report has
+# copied it to /archive.
+#
+# openebs-hostpath does not enforce a quota: the real bound is free space on
+# that node's disk, and raw data is never deleted automatically. Watch it, and
+# prune sealed chunks only after they are verified on the NAS.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: market-recorder-spool
+  namespace: market-measurement
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 100Gi
+---
+# NAS archive: sealed .jsonl.gz chunks plus their manifests, written by the
+# in-cluster archive helper and by the SSH pull from the cloud capture VM, read
+# by the report CronJob. ReadWriteMany because several pods on different nodes
+# touch it.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: market-archive
+  namespace: market-measurement
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nas-nfs
+  resources:
+    requests:
+      storage: 500Gi
+---
+# Report outputs (report.json, liquidity.parquet, funding.parquet,
+# ledger.parquet) per site, on the NAS so they survive the nodes and can be
+# read without cluster access. Kept separate from the archive so a bad report
+# run can never overwrite capture data.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: market-reports
+  namespace: market-measurement
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nas-nfs
+  resources:
+    requests:
+      storage: 50Gi

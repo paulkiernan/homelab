@@ -1,0 +1,201 @@
+---
+# Deployment glue for the archive path. These scripts run inside the
+# market-research image (bash, python3, rsync and openssh-client are present
+# there) and are mounted read-only at /scripts.
+#
+# Rules they enforce:
+#   * nothing downstream reads a chunk before its SHA256 matched the manifest
+#   * the pull path never writes to the capture host and never deletes data
+#   * raw market messages are never printed: only counts, paths and failures
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: market-measurement-scripts
+  namespace: market-measurement
+data:
+  # Verify every sealed chunk that has a manifest, read-only. Exit 0 means all
+  # present manifests matched; a chunk whose manifest has not been published
+  # yet is reported as pending, which is normal mid-rotation.
+  verify-archive.sh: |
+    #!/usr/bin/env bash
+    # Verify sealed capture chunks against their manifests, read-only.
+    #   MSR_ARCHIVE  archive root to verify (default /archive)
+    set -euo pipefail
+
+    ARCHIVE="${MSR_ARCHIVE:-/archive}"
+    [[ -d "${ARCHIVE}" ]] || { echo "error: ${ARCHIVE} is not a directory" >&2; exit 1; }
+
+    python3 - "${ARCHIVE}" <<'PY'
+    import hashlib
+    import json
+    import os
+    import sys
+
+    root = sys.argv[1]
+    verified = pending = bad = 0
+    problems = []
+
+    for dirpath, _dirs, files in os.walk(root):
+        names = set(files)
+        for name in sorted(files):
+            if name.endswith(".manifest.json"):
+                manifest_path = os.path.join(dirpath, name)
+                try:
+                    with open(manifest_path, "r", encoding="utf-8") as handle:
+                        manifest = json.load(handle)
+                except (OSError, ValueError) as error:
+                    problems.append(f"{manifest_path}: unreadable manifest: {error}")
+                    bad += 1
+                    continue
+
+                expected = str(manifest.get("sha256", ""))
+                target_name = manifest.get("file") or name[: -len(".manifest.json")] + ".jsonl.gz"
+                target = os.path.join(dirpath, os.path.basename(target_name))
+                if not expected or not os.path.isfile(target):
+                    problems.append(f"{manifest_path}: referenced chunk missing or manifest has no sha256")
+                    bad += 1
+                    continue
+
+                digest = hashlib.sha256()
+                size = 0
+                with open(target, "rb") as handle:
+                    for block in iter(lambda: handle.read(1024 * 1024), b""):
+                        digest.update(block)
+                        size += len(block)
+
+                if digest.hexdigest() != expected:
+                    problems.append(f"{target}: sha256 does not match its manifest")
+                    bad += 1
+                    continue
+                declared = manifest.get("compressed_bytes")
+                if declared is not None and int(declared) != size:
+                    problems.append(f"{target}: compressed_bytes {declared} != file size {size}")
+                    bad += 1
+                    continue
+                verified += 1
+            elif name.endswith(".jsonl.gz") and (name[: -len(".jsonl.gz")] + ".manifest.json") not in names:
+                pending += 1
+
+    print(f"archive {root}: verified {verified} sealed chunk(s), {pending} awaiting a manifest, {bad} failed")
+    for problem in problems:
+        print(f"FAIL {problem}", file=sys.stderr)
+    sys.exit(1 if bad else 0)
+    PY
+
+  # Pull sealed chunks and manifests from a cloud capture host over rsync/SSH
+  # and verify them. The remote account is a restricted, forced-command,
+  # read-only rrsync account (see deploy/systemd/authorize-pull-key.sh in
+  # paulkiernan/diff-logic-cells); this side only ever reads.
+  ssh-pull.sh: |
+    #!/usr/bin/env bash
+    # Required env: MSR_REMOTE_USER, MSR_REMOTE_HOST, MSR_REMOTE_PORT,
+    #               MSR_IDENTITY, MSR_KNOWN_HOSTS
+    # Optional env: MSR_REMOTE_PATH (default "/"), MSR_DEST (default /archive),
+    #               DRY_RUN=1 for rsync -n
+    #
+    # MSR_REMOTE_PATH is the path INSIDE the restricted account's root: the
+    # remote key is forced to `rrsync -ro /var/lib/market-recorder`, so rrsync
+    # already re-roots the client and "/" means the whole spool. Passing the
+    # absolute spool path here would resolve BELOW that root (the classic
+    # double-prefix bug) and copy nothing.
+    set -euo pipefail
+
+    : "${MSR_REMOTE_USER:?MSR_REMOTE_USER is required}"
+    : "${MSR_REMOTE_HOST:?MSR_REMOTE_HOST is required}"
+    : "${MSR_REMOTE_PORT:?MSR_REMOTE_PORT is required}"
+    : "${MSR_REMOTE_PATH:=/}"
+    : "${MSR_IDENTITY:?MSR_IDENTITY is required}"
+    : "${MSR_KNOWN_HOSTS:?MSR_KNOWN_HOSTS is required}"
+    DEST="${MSR_DEST:-/archive}"
+    DRY_RUN="${DRY_RUN:-0}"
+
+    for file in "${MSR_IDENTITY}" "${MSR_KNOWN_HOSTS}"; do
+      [[ -r "${file}" ]] || { echo "error: ${file} is not readable" >&2; exit 1; }
+    done
+    [[ -d "${DEST}" ]] || { echo "error: ${DEST} is not a mounted directory" >&2; exit 1; }
+
+    # Host key checking is pinned: no StrictHostKeyChecking=no, no accepting
+    # whatever the network offers.
+    SSH_COMMAND=(
+      ssh
+      -i "${MSR_IDENTITY}"
+      -o "UserKnownHostsFile=${MSR_KNOWN_HOSTS}"
+      -o StrictHostKeyChecking=yes
+      -o IdentitiesOnly=yes
+      -o BatchMode=yes
+      -o ConnectTimeout=15
+      -o ServerAliveInterval=15
+      -o ServerAliveCountMax=4
+      -p "${MSR_REMOTE_PORT}"
+    )
+
+    # Only complete sealed chunks and their manifests are selected; .partial
+    # and uncompressed work files stay on the capture host. Incomplete
+    # transfers are kept outside the archive tree so no reader can see a
+    # half-written chunk under its final name.
+    RSYNC_OPTIONS=(
+      -az
+      --no-perms --no-owner --no-group
+      --partial --partial-dir=/tmp/.rsync-partial
+      --timeout=120
+      --include=*/
+      --include=*.jsonl.gz
+      --include=*.manifest.json
+      --exclude=*
+    )
+    if [[ "${DRY_RUN}" == "1" ]]; then
+      RSYNC_OPTIONS+=(--dry-run --itemize-changes)
+    fi
+
+    # Normalise the requested path: "/" (the rrsync root itself) must not
+    # become "//", and a relative subdirectory keeps exactly one trailing
+    # slash so the include filters stay relative to it.
+    remote_path="${MSR_REMOTE_PATH%/}"
+    remote_source="${MSR_REMOTE_USER}@${MSR_REMOTE_HOST}:${remote_path}/"
+
+    echo "pulling ${remote_source} -> ${DEST} (rrsync root is the spool)"
+    rsync "${RSYNC_OPTIONS[@]}" \
+      -e "${SSH_COMMAND[*]}" \
+      "${remote_source}" \
+      "${DEST}/"
+
+    if [[ "${DRY_RUN}" == "1" ]]; then
+      echo "dry run: skipping verification"
+      exit 0
+    fi
+    MSR_ARCHIVE="${DEST}" exec /scripts/verify-archive.sh
+
+  # Run the deterministic report CLI once per configured site. Sites are never
+  # combined: each one gets its own input selection and its own output
+  # directory, and the whole job fails if any site fails.
+  report.sh: |
+    #!/usr/bin/env bash
+    # Required env: MSR_SITES (space separated), MSR_CONFIG, MSR_TRADES
+    # Optional env: MSR_ARCHIVE (default /archive), MSR_REPORTS (default /reports)
+    set -euo pipefail
+
+    : "${MSR_SITES:?MSR_SITES is required}"
+    : "${MSR_CONFIG:?MSR_CONFIG is required}"
+    : "${MSR_TRADES:?MSR_TRADES is required}"
+    ARCHIVE="${MSR_ARCHIVE:-/archive}"
+    REPORTS="${MSR_REPORTS:-/reports}"
+
+    # Ledger inputs are only published after every manifest verified.
+    MSR_ARCHIVE="${ARCHIVE}" /scripts/verify-archive.sh
+
+    [[ -r "${MSR_CONFIG}" ]] || { echo "error: study config ${MSR_CONFIG} is not readable" >&2; exit 1; }
+    [[ -r "${MSR_TRADES}" ]] || { echo "error: trade intents ${MSR_TRADES} are not readable" >&2; exit 1; }
+
+    status=0
+    for site in ${MSR_SITES}; do
+      output="${REPORTS}/${site}"
+      mkdir -p "${output}"
+      echo "=== futures_report site=${site} input=${ARCHIVE} output=${output}"
+      python -m difflogic_hft.futures_report \
+        --input "${ARCHIVE}" \
+        --output "${output}" \
+        --config "${MSR_CONFIG}" \
+        --site "${site}" \
+        --trades "${MSR_TRADES}" || status=1
+    done
+    exit "${status}"

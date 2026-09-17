@@ -1,0 +1,26 @@
+---
+# Metrics and probe endpoint for the recorder. ClusterIP only: the recorder
+# has no ingress and no public surface.
+#
+# publishNotReadyAddresses keeps the scrape alive while /readyz is failing,
+# which is exactly when telemetry matters: a venue outage makes the pod
+# unready on purpose, and dropping it from Endpoints would blind the dashboard
+# and the alerts at the worst moment.
+apiVersion: v1
+kind: Service
+metadata:
+  name: market-recorder
+  namespace: market-measurement
+  labels:
+    app.kubernetes.io/name: market-recorder
+    app.kubernetes.io/part-of: market-measurement
+spec:
+  type: ClusterIP
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: market-recorder
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: metrics
+      protocol: TCP

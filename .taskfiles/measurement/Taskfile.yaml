@@ -1,0 +1,451 @@
+---
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: "3"
+
+# Operations for the read-only futures measurement workload
+# (kubernetes/argocd/apps/workloads/market-measurement).
+#
+# Included from the root taskfile as:
+#   includes:
+#     measurement: .taskfiles/measurement
+# so KUBECONFIG and the repo-wide env come from the root taskfile. Everything
+# here is read-only except the three tasks that say so: images, pull-secret,
+# report-run and pull-run. No task applies manifests — ArgoCD owns the cluster
+# state, and this workload is deployed by committing to main.
+#
+# Some tasks need the source repository that publishes the images
+# (paulkiernan/diff-logic-cells) for config/futures-study.json and
+# deploy/grafana; point MSR_SOURCE_DIR at it when it is not checked out at
+# $HOME/workspace/github.com/paulkiernan/diff-logic-cells.
+
+vars:
+  MEASUREMENT_NAMESPACE: market-measurement
+  MEASUREMENT_APP_DIR: '{{.ROOT_DIR}}/kubernetes/argocd/apps/workloads/market-measurement'
+  MEASUREMENT_MANIFESTS: '{{.MEASUREMENT_APP_DIR}}/manifests'
+  MEASUREMENT_KUSTOMIZATION: '{{.MEASUREMENT_MANIFESTS}}/kustomization.yaml'
+
+tasks:
+
+  render:
+    desc: Render the measurement manifests offline (kustomize, no cluster access)
+    cmd: kubectl kustomize {{.MEASUREMENT_MANIFESTS}}
+
+  diff:
+    desc: Show what ArgoCD would change for the measurement workload (read-only)
+    cmds:
+      - |
+        set -uo pipefail
+        # kubectl diff exits 1 when there ARE differences (expected here) and
+        # >1 for a real error, so only the latter is a task failure.
+        kubectl diff -k {{.MEASUREMENT_MANIFESTS}}
+        status=$?
+        if ((status > 1)); then
+          exit "$status"
+        fi
+        exit 0
+
+  status:
+    desc: Show measurement pods, cronjobs, PVCs and the ArgoCD app state
+    cmds:
+      - kubectl -n {{.MEASUREMENT_NAMESPACE}} get pods -o wide
+      - kubectl -n {{.MEASUREMENT_NAMESPACE}} get cronjobs
+      - kubectl -n {{.MEASUREMENT_NAMESPACE}} get pvc
+      - kubectl -n argocd get application market-measurement -o wide
+
+  logs:
+    desc: 'Show logs (SERVICE=market-recorder or market-archive to follow; pull or report lists the jobs)'
+    cmds:
+      - |
+        case "{{.SERVICE}}" in
+          market-recorder|market-archive)
+            kubectl -n {{.MEASUREMENT_NAMESPACE}} logs -l "app.kubernetes.io/name={{.SERVICE}}" --tail=200 -f
+            ;;
+          pull|report)
+            kubectl -n {{.MEASUREMENT_NAMESPACE}} get jobs
+            echo "then: kubectl -n {{.MEASUREMENT_NAMESPACE}} logs job/<name> --tail=200"
+            ;;
+          *)
+            echo "SERVICE must be market-recorder, market-archive, pull or report" >&2
+            exit 1
+            ;;
+        esac
+
+  metrics:
+    desc: Port-forward the recorder and print healthz, readyz and metrics
+    cmds:
+      - |
+        set -euo pipefail
+        kubectl -n {{.MEASUREMENT_NAMESPACE}} port-forward svc/market-recorder 19090:9090 >/dev/null 2>&1 &
+        pf=$!
+        trap 'kill "$pf" 2>/dev/null || true' EXIT
+        for _ in $(seq 1 30); do
+          curl -fsS http://127.0.0.1:19090/healthz >/dev/null 2>&1 && break
+          sleep 0.5
+        done
+        echo "--- /healthz (process and writer health)"
+        curl -fsS http://127.0.0.1:19090/healthz || echo "(unreachable)"
+        echo
+        echo "--- /readyz (requires a healthy sequenced feed; unready means no usable snapshots)"
+        curl -fsS http://127.0.0.1:19090/readyz || echo "(not ready: upstream outage or no snapshot yet)"
+        echo
+        echo "--- /metrics"
+        curl -fsS http://127.0.0.1:19090/metrics || echo "(unreachable)"
+
+  spool-node:
+    desc: Show which node owns the local capture spool (that node's disk is the real bound)
+    cmd: kubectl -n {{.MEASUREMENT_NAMESPACE}} get pod -l app.kubernetes.io/name=market-recorder -o jsonpath='{.items[*].spec.nodeName}{"\n"}'
+
+  config-check:
+    desc: Compare the deployed study configuration with config/futures-study.json
+    cmds:
+      - |
+        set -euo pipefail
+        source_dir="${MSR_SOURCE_DIR:-$HOME/workspace/github.com/paulkiernan/diff-logic-cells}"
+        repo_file="${source_dir}/config/futures-study.json"
+        [[ -f "$repo_file" ]] || { echo "missing $repo_file (set MSR_SOURCE_DIR)" >&2; exit 1; }
+        tmp="$(mktemp -d)"
+        trap 'rm -rf "$tmp"' EXIT
+        jq -S . "$repo_file" > "$tmp/repo.json"
+        kubectl -n {{.MEASUREMENT_NAMESPACE}} get configmap market-measurement-config -o json \
+          | jq -S '.data["futures-study.json"] | fromjson' > "$tmp/deployed.json"
+        if diff -u "$tmp/repo.json" "$tmp/deployed.json"; then
+          echo "study configuration matches $repo_file"
+        else
+          echo "study configuration differs from $repo_file; fix the ConfigMap in git, not the repository file" >&2
+          exit 1
+        fi
+
+  images:
+    desc: 'Pin the released image tags (VERSION=v0.1.0)'
+    summary: |
+      Sets newTag for both measurement images in the kustomization. VERSION must
+      be a release tag published by
+      .github/workflows/measurement-images.yml in paulkiernan/diff-logic-cells.
+    requires:
+      vars: [VERSION]
+    cmds:
+      - |
+        set -euo pipefail
+        file="{{.MEASUREMENT_KUSTOMIZATION}}"
+        sed -i.bak -E "s|(newTag: ).*|\1{{.VERSION}}|" "$file"
+        rm -f "$file.bak"
+        echo "pinned image tags:"
+        grep -n "newTag" "$file"
+
+  pull-secret:
+    desc: Create the SOPS-encrypted SSH pull Secret from local key material
+    summary: |
+      Required environment:
+        SSH_PULL_KEY_FILE          private key of the restricted rrsync account
+        SSH_PULL_KNOWN_HOSTS_FILE  pinned host keys for the capture host
+        SSH_PULL_REMOTE            user@host of the capture host
+        SSH_PULL_PORT              ssh port (default 22)
+      Optional: FORCE=1 replaces an existing ssh-pull-secret.sops.yaml.
+
+      No remote path is stored: the forced command on the capture host already
+      roots rrsync at the spool (`restrict,command="rrsync -ro <spool>"`), so
+      the pull CronJob asks for "/" itself. Storing the absolute spool path here
+      is what caused the double-prefix bug this task is written to avoid.
+
+      Writes an isindir.github.com/v1alpha3 SopsSecret named
+      market-measurement-pull-ssh, encrypted for the repository's age
+      recipients (SOPS_AGE_KEY_FILE comes from the root taskfile), and lists it
+      in manifests/kustomization.yaml itself (idempotent). Commit both files:
+      the pull CronJob needs the Secret and fails visibly while it is missing.
+    cmds:
+      - |
+        set -euo pipefail
+        target="{{.MEASUREMENT_MANIFESTS}}/ssh-pull-secret.sops.yaml"
+        if [[ -f "$target" && "${FORCE:-0}" != "1" ]]; then
+          echo "refusing to overwrite $target (set FORCE=1 to replace)" >&2
+          exit 1
+        fi
+        : "${SSH_PULL_KEY_FILE:?set SSH_PULL_KEY_FILE to the private key}"
+        : "${SSH_PULL_KNOWN_HOSTS_FILE:?set SSH_PULL_KNOWN_HOSTS_FILE to the pinned known_hosts}"
+        : "${SSH_PULL_REMOTE:?set SSH_PULL_REMOTE to user@host}"
+        port="${SSH_PULL_PORT:-22}"
+        remote_user="${SSH_PULL_REMOTE%%@*}"
+        remote_host="${SSH_PULL_REMOTE#*@}"
+        [[ "$remote_user" != "$remote_host" ]] || { echo "SSH_PULL_REMOTE must be user@host" >&2; exit 1; }
+        tmp="$(mktemp)"
+        trap 'rm -f "$tmp"' EXIT
+        # Built line by line on purpose: a heredoc here would depend on the
+        # YAML block-scalar dedent staying exactly right, and the embedded key
+        # material is indentation-sensitive.
+        {
+          printf '%s\n' '---'
+          printf '%s\n' 'apiVersion: isindir.github.com/v1alpha3'
+          printf '%s\n' 'kind: SopsSecret'
+          printf '%s\n' 'metadata:'
+          printf '%s\n' '  name: market-measurement-pull-ssh'
+          printf '%s\n' '  namespace: market-measurement'
+          printf '%s\n' 'spec:'
+          printf '%s\n' '  secretTemplates:'
+          printf '%s\n' '    - name: market-measurement-pull-ssh'
+          printf '%s\n' '      stringData:'
+          printf '%s\n' '        id_ed25519: |'
+          sed 's/^/          /' "$SSH_PULL_KEY_FILE"
+          printf '%s\n' '        known_hosts: |'
+          sed 's/^/          /' "$SSH_PULL_KNOWN_HOSTS_FILE"
+          printf '        remote_host: "%s"\n' "$remote_host"
+          printf '        remote_user: "%s"\n' "$remote_user"
+          printf '        remote_port: "%s"\n' "$port"
+        } > "$tmp"
+        sops --encrypt --filename-override "$target" --output "$target" "$tmp"
+        kustomization="{{.MEASUREMENT_KUSTOMIZATION}}"
+        entry="  - ssh-pull-secret.sops.yaml"
+        if grep -qxF "$entry" "$kustomization"; then
+          echo "kustomization already lists ${entry#  - }"
+        else
+          tmp_k="$(mktemp)"
+          awk -v entry="$entry" '{ print } /^resources:/ && !done { print entry; done = 1 }' "$kustomization" > "$tmp_k"
+          mv "$tmp_k" "$kustomization"
+          grep -qxF "$entry" "$kustomization" \
+            || { echo "failed to add ${entry#  - } to $kustomization: no resources: section found" >&2; exit 1; }
+          echo "added ${entry#  - } to $kustomization"
+        fi
+        echo "wrote $target; both are ready to commit (secret is encrypted, resource is listed)"
+    preconditions:
+      - { msg: 'sops is required', sh: 'command -v sops' }
+
+  pull-secret-check:
+    desc: Verify the externally provisioned SSH pull Secret and its keys exist
+    cmds:
+      - |
+        set -euo pipefail
+        secret=market-measurement-pull-ssh
+        if ! kubectl -n {{.MEASUREMENT_NAMESPACE}} get secret "$secret" >/dev/null 2>&1; then
+          printf '%s\n' \
+            "Secret $secret is missing, so transport from the cloud capture host is" \
+            "skipped (the pull CronJob fails visibly; acquisition on the VM itself is" \
+            "unaffected). Required keys: id_ed25519, known_hosts, remote_host," \
+            "remote_user, remote_port. No remote path is stored: rrsync already" \
+            "roots the account at the spool." \
+            "" \
+            "Create it from local key material with:" \
+            "  task measurement:pull-secret \\" \
+            "    SSH_PULL_KEY_FILE=... SSH_PULL_KNOWN_HOSTS_FILE=... \\" \
+            "    SSH_PULL_REMOTE=market-pull@<capture-host>" >&2
+          exit 1
+        fi
+        # jq .data has(<key>) instead of a Go template: a missing key in a Go
+        # template renders as "<no value>" (which a non-empty test accepts), and
+        # raw {{ }} inside a Taskfile command would be parsed as a template by
+        # task itself.
+        data="$(kubectl -n {{.MEASUREMENT_NAMESPACE}} get secret "$secret" -o json | jq -c '.data // {}')"
+        missing=()
+        for key in id_ed25519 known_hosts remote_host remote_user remote_port; do
+          if ! jq -e --arg k "$key" 'has($k) and (.[$k] | length > 0)' <<<"$data" >/dev/null 2>&1; then
+            missing+=("$key")
+          fi
+        done
+        if (( ${#missing[@]} )); then
+          echo "Secret $secret is missing (or has empty) keys: ${missing[*]}" >&2
+          exit 1
+        fi
+        echo "Secret $secret has all required keys"
+
+  ghcr-pull-secret:
+    desc: Create the SOPS-encrypted GHCR pull Secret for the private measurement images
+    summary: |
+      The images are private and stay private, so this Secret is required before
+      the recorder, archive, report and pull pods can start (all four pod specs
+      already carry imagePullSecrets: market-measurement-ghcr).
+
+      Required environment: GHCR_USER (GitHub username) and GHCR_TOKEN (token
+      with read:packages). The token is read from the environment by jq and
+      never appears in argv, a sed replacement or any log output; the JSON is
+      written to a private 0600 temp file and removed afterwards. Optional
+      FORCE=1 to replace an existing file.
+
+      Writes an isindir.github.com/v1alpha3 SopsSecret of type
+      kubernetes.io/dockerconfigjson, encrypted for the repository's age
+      recipients (SOPS_AGE_KEY_FILE comes from the root taskfile), and lists it
+      in manifests/kustomization.yaml itself (idempotent). Commit both files;
+      until the Secret exists the pods sit in ImagePullBackOff by design.
+    cmds:
+      - |
+        set -euo pipefail
+        target="{{.MEASUREMENT_MANIFESTS}}/ghcr-pull-secret.sops.yaml"
+        if [[ -f "$target" && "${FORCE:-0}" != "1" ]]; then
+          echo "refusing to overwrite $target (set FORCE=1 to replace)" >&2
+          exit 1
+        fi
+        : "${GHCR_USER:?set GHCR_USER to the GitHub username}"
+        : "${GHCR_TOKEN:?set GHCR_TOKEN to a token with read:packages}"
+        # The token only ever exists in the environment: jq reads env.GHCR_* and
+        # emits properly escaped JSON, so it never appears in a process argument
+        # list (ps), in a sed replacement, or in any log line. The temp file is
+        # private (mktemp 0600) and is removed on exit.
+        tmp="$(mktemp)"
+        chmod 600 "$tmp"
+        trap 'rm -f "$tmp"' EXIT
+        {
+          printf '%s\n' '---'
+          printf '%s\n' 'apiVersion: isindir.github.com/v1alpha3'
+          printf '%s\n' 'kind: SopsSecret'
+          printf '%s\n' 'metadata:'
+          printf '%s\n' '  name: market-measurement-ghcr'
+          printf '%s\n' '  namespace: market-measurement'
+          printf '%s\n' 'spec:'
+          printf '%s\n' '  secretTemplates:'
+          printf '%s\n' '    - name: market-measurement-ghcr'
+          printf '%s\n' '      type: kubernetes.io/dockerconfigjson'
+          printf '%s\n' '      stringData:'
+          printf '%s\n' '        .dockerconfigjson: |'
+          jq -c -n '{
+            auths: {
+              "ghcr.io": {
+                username: env.GHCR_USER,
+                password: env.GHCR_TOKEN,
+                auth: ((env.GHCR_USER + ":" + env.GHCR_TOKEN) | @base64)
+              }
+            }
+          }' | sed 's/^/          /'
+        } > "$tmp"
+        sops --encrypt --filename-override "$target" --output "$target" "$tmp"
+        kustomization="{{.MEASUREMENT_KUSTOMIZATION}}"
+        entry="  - ghcr-pull-secret.sops.yaml"
+        if grep -qxF "$entry" "$kustomization"; then
+          echo "kustomization already lists ${entry#  - }"
+        else
+          tmp_k="$(mktemp)"
+          awk -v entry="$entry" '{ print } /^resources:/ && !done { print entry; done = 1 }' "$kustomization" > "$tmp_k"
+          mv "$tmp_k" "$kustomization"
+          grep -qxF "$entry" "$kustomization" \
+            || { echo "failed to add ${entry#  - } to $kustomization: no resources: section found" >&2; exit 1; }
+          echo "added ${entry#  - } to $kustomization"
+        fi
+        echo "wrote $target; both are ready to commit (secret is encrypted, resource is listed)"
+    preconditions:
+      - { msg: 'sops is required', sh: 'command -v sops' }
+
+  vm-install:
+    desc: Deploy the capture binary and systemd units to the capture VM over SSH
+    summary: |
+      Required environment:
+        MSR_VM_TARGET       admin@host of the capture VM (passwordless sudo)
+        MSR_VM_SITE         site id for that host, e.g. aws-us-east-1
+        MSR_VM_BINARY       locally built linux binary (GOOS=linux GOARCH=amd64)
+        one of:
+          MSR_VM_KNOWN_HOSTS   pinned known_hosts file (preferred; read the host
+                               key from the provider console out-of-band)
+          MSR_VM_FINGERPRINT   SHA256:... of the VM's ed25519 host key
+          MSR_VM_TOFU=1        record the scanned host key locally and verify it
+                               afterwards (least preferred)
+      Required for telemetry (the default; MSR_VM_ALLOY=0 opts out):
+        MSR_VM_GRAFANA_ENV  local file, mode 0600, holding
+                            GRAFANA_CLOUD_PROM_URL, GRAFANA_CLOUD_PROM_USER and
+                            GRAFANA_CLOUD_TOKEN for the Grafana Cloud stack.
+                            It travels inside the checksummed payload, is
+                            installed as /etc/market-recorder/grafana-cloud.env
+                            (0600 root), and the run fails if the Alloy unit did
+                            not come up active — a blind host is never reported
+                            as deployed.
+      Optional:
+        MSR_VM_SSH_KEY, MSR_VM_PORT, MSR_VM_STAGING (default /opt/market-bootstrap),
+        MSR_VM_PULL_KEY (client public key to authorize for read-only rsync pulls),
+        MSR_VM_WAIT_HEALTHY (seconds; informational only), MSR_VM_FORCE_SITE=1,
+        DRY_RUN=1 (print the plan, change nothing).
+
+      Runs deploy/systemd/install-remote.sh from the source repository: the
+      binary and units travel over SSH in one SHA256-verified payload, the site
+      id is seeded into /etc/market-recorder/market-recorder.env and re-read to
+      prove it stuck, then install.sh installs and starts the service. Neither
+      the VM nor this task needs GitHub access, a cloud API or a registry.
+    cmds:
+      - |
+        set -euo pipefail
+        source_dir="${MSR_SOURCE_DIR:-$HOME/workspace/github.com/paulkiernan/diff-logic-cells}"
+        wrapper="${source_dir}/deploy/systemd/install-remote.sh"
+        [[ -x "$wrapper" ]] || { echo "missing $wrapper (set MSR_SOURCE_DIR)" >&2; exit 1; }
+        : "${MSR_VM_TARGET:?set MSR_VM_TARGET=admin@host}"
+        : "${MSR_VM_SITE:?set MSR_VM_SITE=<site id for this host>}"
+        : "${MSR_VM_BINARY:?set MSR_VM_BINARY=<locally built linux binary>}"
+        args=(--target "$MSR_VM_TARGET" --site "$MSR_VM_SITE" --binary "$MSR_VM_BINARY")
+        if [[ -n "${MSR_VM_KNOWN_HOSTS:-}" ]]; then
+          args+=(--known-hosts "$MSR_VM_KNOWN_HOSTS")
+        elif [[ -n "${MSR_VM_FINGERPRINT:-}" ]]; then
+          args+=(--host-key-fingerprint "$MSR_VM_FINGERPRINT")
+        elif [[ "${MSR_VM_TOFU:-0}" == "1" ]]; then
+          args+=(--trust-on-first-use)
+        else
+          echo "one of MSR_VM_KNOWN_HOSTS, MSR_VM_FINGERPRINT or MSR_VM_TOFU=1 is required" >&2
+          exit 1
+        fi
+        if [[ -n "${MSR_VM_SSH_KEY:-}" ]]; then args+=(--ssh-key "$MSR_VM_SSH_KEY"); fi
+        if [[ -n "${MSR_VM_PORT:-}" ]]; then args+=(--port "$MSR_VM_PORT"); fi
+        if [[ -n "${MSR_VM_STAGING:-}" ]]; then args+=(--staging-dir "$MSR_VM_STAGING"); fi
+        if [[ -n "${MSR_VM_PULL_KEY:-}" ]]; then args+=(--pull-public-key "$MSR_VM_PULL_KEY"); fi
+        if [[ -n "${MSR_VM_WAIT_HEALTHY:-}" ]]; then args+=(--wait-healthy "$MSR_VM_WAIT_HEALTHY"); fi
+        # Telemetry is the default for a capture VM, and it comes with a hard
+        # requirement for the credentials file, so a host can never be reported
+        # as deployed while it is blind. MSR_VM_ALLOY=0 is the explicit opt-out.
+        if [[ "${MSR_VM_ALLOY:-1}" == "1" ]]; then
+          : "${MSR_VM_GRAFANA_ENV:?set MSR_VM_GRAFANA_ENV to the local 0600 file holding GRAFANA_CLOUD_PROM_URL, GRAFANA_CLOUD_PROM_USER and GRAFANA_CLOUD_TOKEN (or set MSR_VM_ALLOY=0 to deploy deliberately without telemetry)}"
+          args+=(--with-alloy --grafana-env-file "$MSR_VM_GRAFANA_ENV")
+        elif [[ -n "${MSR_VM_GRAFANA_ENV:-}" ]]; then
+          args+=(--grafana-env-file "$MSR_VM_GRAFANA_ENV")
+        fi
+        if [[ "${MSR_VM_FORCE_SITE:-0}" == "1" ]]; then args+=(--force-site); fi
+        if [[ "${DRY_RUN:-0}" == "1" ]]; then args+=(--dry-run); fi
+        exec "$wrapper" "${args[@]}"
+
+  report-run:
+    desc: Start a one-off report Job from the CronJob and show its logs
+    cmds:
+      - |
+        set -uo pipefail
+        name="market-reports-manual-$(date +%s)"
+        kubectl -n {{.MEASUREMENT_NAMESPACE}} create job --from=cronjob/market-reports "$name"
+        status=0
+        kubectl -n {{.MEASUREMENT_NAMESPACE}} wait --for=condition=complete --timeout=2h "job/$name" || status=$?
+        kubectl -n {{.MEASUREMENT_NAMESPACE}} logs "job/$name" --tail=200 || true
+        if ((status != 0)); then
+          echo "report job $name did not complete (wait exited $status); inspect the logs above" >&2
+          exit "$status"
+        fi
+
+  pull-run:
+    desc: Start a one-off SSH pull Job from the CronJob and show its logs
+    cmds:
+      - |
+        set -uo pipefail
+        name="market-archive-pull-manual-$(date +%s)"
+        kubectl -n {{.MEASUREMENT_NAMESPACE}} create job --from=cronjob/market-archive-pull "$name"
+        status=0
+        kubectl -n {{.MEASUREMENT_NAMESPACE}} wait --for=condition=complete --timeout=30m "job/$name" || status=$?
+        kubectl -n {{.MEASUREMENT_NAMESPACE}} logs "job/$name" --tail=200 || true
+        if ((status != 0)); then
+          echo "pull job $name did not complete (wait exited $status); transport is not working yet" >&2
+          exit "$status"
+        fi
+
+  alerts-apply:
+    desc: Apply the Grafana alert rules (needs GRAFANA_* env and the source repo)
+    summary: |
+      Evaluated by Grafana itself (Grafana Cloud Alerting), never by the cluster:
+      there is no Prometheus here to evaluate PrometheusRule objects.
+      Required environment: GRAFANA_URL, GRAFANA_TOKEN, GRAFANA_FOLDER_UID,
+      GRAFANA_DATASOURCE_UID. Optional: GRAFANA_CONTACT_POINT,
+      GRAFANA_RULE_GROUP. Set DRY_RUN=1 to print the payload without sending it.
+    cmds:
+      - |
+        set -euo pipefail
+        source_dir="${MSR_SOURCE_DIR:-$HOME/workspace/github.com/paulkiernan/diff-logic-cells}"
+        script="${source_dir}/deploy/grafana/apply-market-recorder-alerts.py"
+        [[ -x "$script" ]] || { echo "missing $script (set MSR_SOURCE_DIR)" >&2; exit 1; }
+        args=()
+        [[ "${DRY_RUN:-0}" == "1" ]] && args+=(--dry-run)
+        exec "$script" "${args[@]}"
+    preconditions:
+      - { msg: 'GRAFANA_URL is required', sh: 'test -n "${GRAFANA_URL:-}"' }
+      - { msg: 'GRAFANA_TOKEN is required', sh: 'test -n "${GRAFANA_TOKEN:-}"' }
+
+  preflight:
+    desc: Check the workload can run (render, pull Secret, ArgoCD state, pods)
+    cmds:
+      - task: render
+      - task: pull-secret-check
+      - kubectl -n argocd get application market-measurement -o jsonpath='{.status.sync.status}{" "}{.status.health.status}{"\n"}'
+      - kubectl -n {{.MEASUREMENT_NAMESPACE}} get pods -o wide

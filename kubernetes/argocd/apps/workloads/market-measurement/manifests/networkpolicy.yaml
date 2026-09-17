@@ -1,0 +1,159 @@
+---
+# Cilium enforces NetworkPolicy in this cluster, so these are real
+# restrictions, not decoration.
+#
+# Egress rules exist to keep every workload on its own contract:
+#   * recorder: cluster DNS + public HTTPS only. It must never reach the NAS,
+#     the Kubernetes API or any cluster service — the spool is local and the
+#     venue endpoints are public.
+#   * archive / report / pull: cluster DNS + the NAS only. The pull job
+#     additionally needs SSH to the cloud capture host.
+# 192.168.1.2 is the same NAS address the paperless and immich NFS mounts use;
+# if the NAS moves, these rules move with it.
+#
+# Ingress is only restricted on the recorder's metrics port. Note that kubelet
+# probes and the Alloy scrape arrive from sources that cannot be expressed
+# reliably in a portable NetworkPolicy, so the rule pins the port instead of
+# the source; the Service is ClusterIP and has no external exposure.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: market-recorder
+  namespace: market-measurement
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: market-recorder
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - port: 9090
+          protocol: TCP
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Fixed public endpoints: api.coinbase.com and
+    # advanced-trade-ws.coinbase.com, both on 443.
+    - ports:
+        - port: 443
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: market-archive
+  namespace: market-measurement
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: market-archive
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # NFS to the NAS: port 2049 plus rpcbind, which some NFSv3 mounts still
+    # use for discovery.
+    - to:
+        - ipBlock:
+            cidr: 192.168.1.2/32
+      ports:
+        - port: 2049
+          protocol: TCP
+        - port: 111
+          protocol: TCP
+        - port: 111
+          protocol: UDP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: market-research
+  namespace: market-measurement
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: market-research
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 192.168.1.2/32
+      ports:
+        - port: 2049
+          protocol: TCP
+        - port: 111
+          protocol: TCP
+        - port: 111
+          protocol: UDP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: market-archive-pull
+  namespace: market-measurement
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: market-archive-pull
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # The cloud capture host's address is intentionally not pinned here: it
+    # lives in the externally provisioned Secret, and the remote account is
+    # already forced-command read-only. SSH to anywhere except this cluster's
+    # own pod and service ranges.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.69.0.0/16
+              - 10.96.0.0/16
+      ports:
+        - port: 22
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 192.168.1.2/32
+      ports:
+        - port: 2049
+          protocol: TCP
+        - port: 111
+          protocol: TCP
+        - port: 111
+          protocol: UDP

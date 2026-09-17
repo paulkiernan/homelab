@@ -1,0 +1,156 @@
+---
+# Daily deterministic report over the verified NAS archive, one output
+# directory per configured site. Batch only: no network, no venue access, no
+# orders. The job verifies every sealed chunk's SHA256 against its manifest
+# before the report runs, so the ledger can never consume a truncated or
+# modified chunk.
+#
+# Outputs land in /reports/<site>/ (report.json, liquidity.parquet,
+# funding.parquet, ledger.parquet) on the NAS.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: market-reports
+  namespace: market-measurement
+  labels:
+    app.kubernetes.io/name: market-research
+    app.kubernetes.io/part-of: market-measurement
+spec:
+  # 03:23 UTC daily, a few minutes after the hourly rotation boundary so a
+  # fresh chunk and its manifest exist.
+  schedule: "23 3 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 1800
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # ttlSecondsAfterFinished belongs to the Job spec, not the CronJob spec:
+      # the CronJob field is invalid and kubeconform rejects it.
+      ttlSecondsAfterFinished: 604800
+      backoffLimit: 1
+      activeDeadlineSeconds: 7200
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: market-research
+            app.kubernetes.io/part-of: market-measurement
+        spec:
+          restartPolicy: OnFailure
+          # Batch job: local volumes only, no Kubernetes API, no SA token.
+          automountServiceAccountToken: false
+          enableServiceLinks: false
+          # Private GHCR package: the Secret is created by
+          # `task measurement:ghcr-pull-secret` (see kustomization.yaml).
+          imagePullSecrets:
+            - name: market-measurement-ghcr
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            # The NAS subdirectory is created by the provisioner as root.
+            - name: reports-permissions
+              image: busybox:1.37
+              command:
+                - sh
+                - -c
+                - chown 65532:65532 /reports
+              securityContext:
+                # See recorder-deployment.yaml: CAP_CHOWN is required to take
+                # ownership of the provisioner-created NFS directory; the
+                # pod-level runAsNonRoot is overridden for this init step only.
+                runAsNonRoot: false
+                runAsUser: 0
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+                  add:
+                    - CHOWN
+                    - FOWNER
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 16Mi
+                limits:
+                  memory: 32Mi
+              volumeMounts:
+                - name: reports
+                  mountPath: /reports
+          containers:
+            - name: report
+              image: ghcr.io/paulkiernan/diff-logic-cells/market-research:v0.1.0
+              imagePullPolicy: IfNotPresent
+              command:
+                - /scripts/report.sh
+              env:
+                - name: MSR_SITES
+                  valueFrom:
+                    configMapKeyRef:
+                      name: market-measurement-config
+                      key: sites
+                - name: MSR_CONFIG
+                  value: /etc/market-measurement/futures-study.json
+                - name: MSR_TRADES
+                  value: /etc/market-measurement/planned-trades.json
+                - name: MSR_ARCHIVE
+                  value: /archive
+                - name: MSR_REPORTS
+                  value: /reports
+              resources:
+                # DuckDB stages in bounded batches with a 512MB engine limit.
+                # The 967,680-row synthetic grid peaked at 1.04GiB RSS; allow
+                # headroom here. No CPU limit on the full-archive batch scan.
+                requests:
+                  cpu: 500m
+                  memory: 1Gi
+                limits:
+                  memory: 2Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+                - name: study
+                  mountPath: /etc/market-measurement
+                  readOnly: true
+                - name: archive
+                  mountPath: /archive
+                  readOnly: true
+                - name: reports
+                  mountPath: /reports
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: scripts
+              configMap:
+                name: market-measurement-scripts
+                defaultMode: 0555
+            - name: study
+              configMap:
+                name: market-measurement-config
+                defaultMode: 0444
+                items:
+                  - key: futures-study.json
+                    path: futures-study.json
+                  - key: planned-trades.json
+                    path: planned-trades.json
+            - name: archive
+              persistentVolumeClaim:
+                claimName: market-archive
+            - name: reports
+              persistentVolumeClaim:
+                claimName: market-reports
+            - name: tmp
+              emptyDir:
+                sizeLimit: 8Gi

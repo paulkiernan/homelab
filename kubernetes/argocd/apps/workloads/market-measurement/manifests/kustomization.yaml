@@ -1,0 +1,58 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Read-only Coinbase US futures measurement: one capture writer, one archive
+# helper, a batch report job and the SSH pull that lands sealed chunks from the
+# cloud capture VM on the NAS. No venue credentials, no order interface, no
+# trading, and raw market messages never reach pod logs.
+#
+# REQUIRED INPUTS before this syncs usefully:
+#   1. image tags below must be a release produced by
+#      .github/workflows/measurement-images.yml in paulkiernan/diff-logic-cells
+#      (manual workflow_dispatch). Any private registry works: change the image
+#      names here and in the workloads, or use `task measurement:images`.
+#   2. the GHCR packages are PRIVATE and stay private (no public publication).
+#      All four pod specs already reference the pull Secret:
+#        imagePullSecrets:
+#          - name: market-measurement-ghcr
+#      The Secret itself is created only when credentials exist:
+#        task measurement:ghcr-pull-secret \
+#          GHCR_USER=<github username> GHCR_TOKEN=<token with read:packages>
+#      which writes manifests/ghcr-pull-secret.sops.yaml and lists it in the
+#      resources below by itself (idempotent; SOPS-encrypted per the
+#      repository's secret convention). Until the Secret exists in this
+#      namespace the pods stay in ImagePullBackOff — there is deliberately no
+#      anonymous fallback and no placeholder Secret in git.
+#   3. Secret market-measurement-pull-ssh, externally provisioned (SOPS) with
+#      keys: id_ed25519, known_hosts, remote_host, remote_user, remote_port.
+#      No remote path is stored: the forced command on the capture host already
+#      roots rrsync at the spool, so the client asks for "/" and the CronJob
+#      hardcodes it. The Secret file is intentionally absent from this
+#      kustomization until it exists, because the pull CronJob fails visibly
+#      without it.
+#
+# Layout after a sync:
+#   /var/lib/market-recorder  node-local spool, single writer, never on NFS
+#   /archive                  NAS archive of sealed chunks (gzip + manifest)
+#   /reports/<site>/          NAS report outputs (report.json + parquet)
+
+resources:
+  - ghcr-pull-secret.sops.yaml
+  - configmap.yaml
+  - pvc.yaml
+  - recorder-deployment.yaml
+  - recorder-service.yaml
+  - archive-deployment.yaml
+  - reports-cronjob.yaml
+  - ssh-pull-cronjob.yaml
+  - scripts-configmap.yaml
+  - servicemonitor.yaml
+  - networkpolicy.yaml
+
+images:
+  # Single place to pin the release that everything runs.
+  - name: ghcr.io/paulkiernan/diff-logic-cells/market-recorder
+    newTag: v0.1.0
+  - name: ghcr.io/paulkiernan/diff-logic-cells/market-research
+    newTag: v0.1.0

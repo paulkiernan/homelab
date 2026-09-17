@@ -1,0 +1,8 @@
+# Local-only OpenTofu state, provider cache and variable files: ignored by
+# default. Committing state is only acceptable if TF_ENCRYPTION enforcement is
+# a deliberate decision for this root; the parent terraform/ root's committed
+# state is not a convention to copy blindly.
+*.tfstate*
+.terraform/
+*.tfvars
+*.tfvars.json

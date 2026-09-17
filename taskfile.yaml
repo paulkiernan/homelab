@@ -26,6 +26,7 @@ env:
 includes:
   argo: .taskfiles/argo
   kubernetes: .taskfiles/kubernetes
+  measurement: .taskfiles/measurement
   sops: .taskfiles/sops
   talos: .taskfiles/talos
   tailscale: .taskfiles/tailscale

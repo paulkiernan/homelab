@@ -1,0 +1,123 @@
+---
+# Archive helper as its own process, so an unreachable or slow NAS can never
+# block acquisition: the recorder keeps writing to the local spool while this
+# pod retries, and the two never share a container lifecycle.
+#
+# It mounts the same ReadWriteOnce spool as the recorder. Kubernetes allows
+# that only on the same node, and the PV's node affinity for a
+# WaitForFirstConsumer openebs-hostpath volume pins this pod there, so no
+# extra affinity is configured.
+#
+# Mounted read-write: the helper's contract is that the source stays intact
+# (nothing is deleted in this version), and the single-writer boundary is the
+# recorder's own lock — not the mount mode. A read-only mount would turn any
+# future helper bookkeeping write into a crash loop.
+#
+# No probes: the helper exposes no HTTP endpoint, so its health is observed
+# through the recorder's durable-write metric plus this pod's restart count.
+# `market-recorder archive --once` is available for a manual catch-up run.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: market-archive
+  namespace: market-measurement
+  labels:
+    app.kubernetes.io/name: market-archive
+    app.kubernetes.io/part-of: market-measurement
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: market-archive
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: market-archive
+        app.kubernetes.io/part-of: market-measurement
+    spec:
+      # No Kubernetes API access and no service account token.
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # Private GHCR package: the Secret is created by
+      # `task measurement:ghcr-pull-secret` (see kustomization.yaml).
+      imagePullSecrets:
+        - name: market-measurement-ghcr
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        # Ownership is fixed by the init container; fsGroup is not honoured
+        # consistently for hostpath-local and NFS-backed volumes.
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # The NAS subdir arrives owned by root; the helper runs as 65532.
+        - name: archive-permissions
+          image: busybox:1.37
+          command:
+            - sh
+            - -c
+            - chown 65532:65532 /archive
+          securityContext:
+            # See recorder-deployment.yaml: this step needs CAP_CHOWN to make
+            # the provisioner-created NAS directory writable by the runtime
+            # uid, so the pod-level runAsNonRoot is overridden here.
+            runAsNonRoot: false
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - CHOWN
+                - FOWNER
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi
+          volumeMounts:
+            - name: archive
+              mountPath: /archive
+      containers:
+        - name: market-archive
+          image: ghcr.io/paulkiernan/diff-logic-cells/market-recorder:v0.1.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - archive
+            - --source
+            - /var/lib/market-recorder
+            - --destination
+            - /archive
+            - --interval
+            - 1m
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: spool
+              mountPath: /var/lib/market-recorder
+            - name: archive
+              mountPath: /archive
+      volumes:
+        - name: spool
+          persistentVolumeClaim:
+            claimName: market-recorder-spool
+        - name: archive
+          persistentVolumeClaim:
+            claimName: market-archive
