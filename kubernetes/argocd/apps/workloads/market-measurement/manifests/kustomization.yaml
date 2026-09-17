@@ -28,9 +28,9 @@ kind: Kustomization
 #      keys: id_ed25519, known_hosts, remote_host, remote_user, remote_port.
 #      No remote path is stored: the forced command on the capture host already
 #      roots rrsync at the spool, so the client asks for "/" and the CronJob
-#      hardcodes it. The Secret file is intentionally absent from this
-#      kustomization until it exists, because the pull CronJob fails visibly
-#      without it.
+#      hardcodes it. The Secret is committed as
+#      manifests/ssh-pull-secret.sops.yaml (encrypted); while it is missing the
+#      pull CronJob fails visibly instead of skipping transport.
 #
 # Layout after a sync:
 #   /var/lib/market-recorder  node-local spool, single writer, never on NFS
