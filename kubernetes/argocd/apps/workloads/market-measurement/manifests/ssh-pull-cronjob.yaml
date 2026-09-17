@@ -5,11 +5,13 @@
 # without any cloud API, agent or anonymous file service, and nothing is ever
 # deleted on the remote side.
 #
-# SUSPENDED, deliberately: cloud provisioning and AWS authentication are still
-# pending, so the VM this pulls from, the authorized pull key on it and the
-# pull Secret do not exist yet. While spec.suspend below is true no Jobs are
-# scheduled, so a homelab-only deployment does not create failing pull Jobs.
-# Activate by Git change, in this order, only as each step really completes:
+# ACTIVE since 2026-09-17. The capture VM exists (Lightsail market-measurement,
+# 107.21.239.171, site aws-us-east-1), the read-only pull key is authorized on
+# it, the SOPS-encrypted Secret has synced, and one manual
+# `task measurement:pull-run` Job proved the transport (all sealed chunks on
+# the VM arrived on the NAS with matching SHA256s) before suspend was lifted.
+# The activation order that was followed, each step only after the previous
+# one really completed:
 #   1. provision the capture VM (terraform/market-measurement) and authorize
 #      the read-only pull key on it with deploy/systemd/authorize-pull-key.sh
 #      in paulkiernan/diff-logic-cells;
@@ -18,9 +20,9 @@
 #      let ArgoCD auto-sync;
 #   3. confirm one successful `task measurement:pull-run` Job;
 #   4. set spec.suspend to false in Git and let ArgoCD sync it.
-# Once suspended is lifted, failures stay visible: a missing Secret, an
-# unpinned host key or an unreachable VM fails the pod. The transport never
-# skips a missing Secret and never reports success without copying.
+# Failures stay visible: a missing Secret, an unpinned host key or an
+# unreachable VM fails the pod. The transport never skips a missing Secret and
+# never reports success without copying.
 #
 # The remote account is a forced-command, read-only rrsync account created by
 # deploy/systemd/authorize-pull-key.sh in paulkiernan/diff-logic-cells. The
@@ -34,8 +36,9 @@
 #   (the remote path is not a Secret value: rrsync already roots the account at
 #    the spool, so the client always asks for "/")
 #
-# `task measurement:pull-run` starts a one-off pull from this CronJob (allowed
-# even while suspended) and is the transport check for step 3.
+# `task measurement:pull-run` starts a one-off pull from this CronJob and is
+# the routine transport check; it was used to prove the path before the
+# schedule was enabled.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -45,10 +48,10 @@ metadata:
     app.kubernetes.io/name: market-archive-pull
     app.kubernetes.io/part-of: market-measurement
 spec:
-  # Pending deployment: the cloud capture VM and the pull Secret do not exist
-  # yet, so scheduled Jobs could only fail. Flip to false in Git following the
-  # activation sequence in the header above; never edit the live object.
-  suspend: true
+  # Active transport: one manual Job proved the pull path (Secret synced,
+  # pinned host keys accepted, chunks hash-verified on the NAS) before this was
+  # enabled in Git. Keep this in Git; never edit the live object.
+  suspend: false
   # Every 15 minutes: the pull is incremental, and sealed chunks are only a
   # rotation behind at worst. The cloud VM keeps its spool until an operator
   # prunes it, so a failed pull window is recoverable, never lost.
