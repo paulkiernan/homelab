@@ -74,6 +74,8 @@ tasks:
     desc: Port-forward the recorder and print healthz, readyz and metrics
     cmds:
       - |
+        # Task's embedded shell has no background PID; Bash owns this tunnel.
+        bash <<'BASH'
         set -euo pipefail
         kubectl -n {{.MEASUREMENT_NAMESPACE}} port-forward svc/market-recorder 19090:9090 >/dev/null 2>&1 &
         pf=$!
@@ -90,6 +92,7 @@ tasks:
         echo
         echo "--- /metrics"
         curl -fsS http://127.0.0.1:19090/metrics || echo "(unreachable)"
+        BASH
 
   spool-node:
     desc: Show which node owns the local capture spool (that node's disk is the real bound)

@@ -111,9 +111,7 @@ spec:
             - --discovery-interval
             - $(MARKET_RECORDER_DISCOVERY_INTERVAL)
             - --rotate-interval
-            # Bootstrap archive verification; restore the configured hourly
-            # cadence after the first end-to-end deployment check.
-            - 1m
+            - $(MARKET_RECORDER_ROTATE_INTERVAL)
             - --sync-interval
             - $(MARKET_RECORDER_SYNC_INTERVAL)
             - --metrics-listen
