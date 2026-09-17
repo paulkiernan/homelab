@@ -1,39 +1,50 @@
-#!/bin/bash
+#!/bin/sh
 # Market-measurement capture VM base bootstrap (Lightsail launch script / user_data).
 #
 # Phase 1 of two. This script prepares only the base host: prerequisites,
 # sshd hardening, unattended security upgrades and the phase-2 staging
 # directory. It deliberately fetches nothing and installs no application: the
 # diff-logic-cells repository is private, so the recorder binary plus
-# deploy/systemd are transferred in phase 2 by DeployMeasure's
+# deploy/systemd are transferred in phase 2 by
 # deploy/systemd/install-remote.sh over SCP/SSH after host-key verification and
 # installed with install.sh --binary ... --start on this host.
 #
+# POSIX sh ONLY, on purpose. Lightsail concatenates its own instance-init
+# script (which starts with `#!/bin/sh`) ahead of this user-data, so the
+# combined /var/lib/cloud/instance/scripts/part-001 never keeps this shebang
+# and every command here is interpreted by /bin/sh (dash on Ubuntu). A first
+# version used `set -euo pipefail` and aborted with "set: Illegal option -o
+# pipefail" before installing the sshd drop-in, which left cloud-init in
+# status: error and the host half-hardened. Do not add bashisms (pipefail,
+# arrays, [[ ]], (( )) with bare variables) to this file.
+#
 # Nothing here pretends the recorder is installed, and re-running it over SSH
 # is safe. The launch log is /var/log/cloud-init-output.log.
-set -euo pipefail
+set -eu
 
 readonly BOOTSTRAP_DIR="/opt/market-bootstrap"
 
 log() { printf 'market-base-bootstrap: %s\n' "$*"; }
 die() { printf 'market-base-bootstrap: error: %s\n' "$*" >&2; exit 1; }
 
-[[ "$(id -u)" -eq 0 ]] || die "launch script must run as root"
+[ "$(id -u)" -eq 0 ] || die "launch script must run as root"
 command -v systemctl >/dev/null || die "systemd not found: use a systemd-based Ubuntu/Debian Lightsail blueprint"
 
 # --- 1. base prerequisites --------------------------------------------------
 # rsync ships rrsync, used by the phase-2 read-only pull access. openssh-server,
 # tar, sha256sum and coreutils ship with the Ubuntu base image.
 export DEBIAN_FRONTEND=noninteractive
-missing_packages=()
+missing_packages=""
 for pkg in rsync openssh-server; do
   dpkg -s "$pkg" 2>/dev/null | grep -q '^Status: install ok installed' \
-    || missing_packages+=("$pkg")
+    || missing_packages="${missing_packages}${missing_packages:+ }${pkg}"
 done
-if (( ${#missing_packages[@]} )); then
-  log "installing packages: ${missing_packages[*]}"
+if [ -n "${missing_packages}" ]; then
+  log "installing packages: ${missing_packages}"
   apt-get update -qq
-  apt-get install -y -qq --no-install-recommends "${missing_packages[@]}"
+  # Word splitting is intended: missing_packages is a plain space-separated list.
+  # shellcheck disable=SC2086
+  apt-get install -y -qq --no-install-recommends ${missing_packages}
 fi
 
 # --- 2. hardening -----------------------------------------------------------
@@ -71,6 +82,13 @@ install -d -m 0755 -o root -g root "$BOOTSTRAP_DIR"
 for pkg in rsync openssh-server; do
   dpkg -s "$pkg" 2>/dev/null | grep -q '^Status: install ok installed' \
     || die "$pkg missing after installation"
+done
+# The drop-in must be in place, or the host is not hardened despite a clean exit.
+[ -f /etc/ssh/sshd_config.d/00-market-measurement.conf ] \
+  || die "sshd hardening drop-in missing"
+for setting in 'PermitRootLogin no' 'PasswordAuthentication no' 'AllowGroups sudo market-recorder'; do
+  grep -qF "$setting" /etc/ssh/sshd_config.d/00-market-measurement.conf \
+    || die "hardening drop-in does not set: $setting"
 done
 if systemctl is-active --quiet ssh.service || systemctl is-active --quiet ssh.socket; then
   log "sshd is active with the hardened drop-in"
