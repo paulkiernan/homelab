@@ -38,6 +38,7 @@ kind: Kustomization
 #   /reports/<site>/          NAS report outputs (report.json + parquet)
 
 resources:
+  - ssh-pull-secret.sops.yaml
   - ghcr-pull-secret.sops.yaml
   - configmap.yaml
   - pvc.yaml
