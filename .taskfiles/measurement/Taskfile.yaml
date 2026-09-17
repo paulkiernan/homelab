@@ -8,10 +8,9 @@ version: "3"
 # Included from the root taskfile as:
 #   includes:
 #     measurement: .taskfiles/measurement
-# so KUBECONFIG and the repo-wide env come from the root taskfile. Everything
-# here is read-only except the five tasks that say so: images, pull-secret,
-# ghcr-pull-secret, report-run and pull-run. No task applies manifests — ArgoCD
-# owns the cluster state, and this workload is deployed by committing to main.
+# so KUBECONFIG and the repo-wide env come from the root taskfile.
+# Task effects and prerequisites are documented in AGENTS.md. No task applies
+# manifests — ArgoCD owns the cluster state.
 #
 # Some tasks need the source repository that publishes the images
 # (paulkiernan/diff-logic-cells) for config/futures-study.json and
