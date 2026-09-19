@@ -57,7 +57,7 @@ spec:
       initContainers:
         # The NAS subdir arrives owned by root; the helper runs as 65532.
         - name: archive-permissions
-          image: busybox:1.37
+          image: busybox:1.38
           command:
             - sh
             - -c

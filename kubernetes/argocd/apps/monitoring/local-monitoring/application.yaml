@@ -130,7 +130,7 @@ spec:
             # it must be re-checked when the chart is upgraded.
             extraInitContainers:
               - name: data-permissions
-                image: busybox:1.37
+                image: busybox:1.38
                 command:
                   - sh
                   - -c
