@@ -19,11 +19,21 @@ spec:
       repoURL: https://grafana.github.io/helm-charts
       targetRevision: 4.5.2
       helm:
+        # k8s-monitoring 4.x values layout (destinations map, collectors map with presets).
+        # Migration: https://grafana.com/docs/grafana-cloud/observe-and-act/monitor-infrastructure/kubernetes-monitoring/configuration/helm-chart-config/helm-chart/migrate-helm-chart/
         valuesObject:
           cluster:
             name: paulynomial
           destinations:
-            - name: grafana-cloud-metrics
+            # Local Prometheus is the primary metrics store; it receives every metric
+            # currently collected by the cluster features.
+            local-prometheus:
+              type: prometheus
+              url: http://prometheus-server.monitoring.svc.cluster.local/api/v1/write
+            # Grafana Cloud keeps only the bounded health allowlist below. 4.x features
+            # with an empty `destinations` filter write to all capable destinations, so
+            # both destinations receive the full metric set and this rule bounds Cloud.
+            grafana-cloud-metrics:
               type: prometheus
               url: https://prometheus-prod-36-prod-us-west-0.grafana.net/api/prom/push
               auth:
@@ -34,7 +44,13 @@ spec:
                 create: false
                 name: grafana-cloud
                 namespace: monitoring
-            - name: grafana-cloud-logs
+              metricProcessingRules: |-
+                write_relabel_config {
+                  source_labels = ["__name__"]
+                  regex         = "market_recorder_.*|market_research_capture_end_timestamp_seconds|market_research_report_available|market_research_report_timestamp_seconds|up|kube_node_status_condition|kube_pod_status_phase|kube_pod_container_status_restarts_total|kube_persistentvolumeclaim_status_phase|kubelet_volume_stats_available_bytes|kubelet_volume_stats_capacity_bytes|node_filesystem_avail_bytes|node_filesystem_size_bytes|node_filesystem_readonly|kube_job_status_failed|kube_job_status_succeeded|kube_cronjob_status_last_successful_time"
+                  action        = "keep"
+                }
+            grafana-cloud-logs:
               type: loki
               url: https://logs-prod-021.grafana.net/loki/api/v1/push
               auth:
@@ -45,7 +61,7 @@ spec:
                 create: false
                 name: grafana-cloud
                 namespace: monitoring
-            - name: grafana-cloud-traces
+            grafana-cloud-traces:
               type: otlp
               url: https://tempo-prod-15-prod-us-west-0.grafana.net:443
               protocol: grpc
@@ -65,28 +81,35 @@ spec:
                 enabled: true
           clusterMetrics:
             enabled: true
-            opencost:
+            collector: alloy-metrics
+          hostMetrics:
+            enabled: true
+            collector: alloy-metrics
+            linuxHosts:
               enabled: true
-              metricsSource: grafana-cloud-metrics
-              opencost:
-                exporter:
-                  defaultClusterId: paulynomial
-                prometheus:
-                  existingSecretName: grafana-cloud
-                  username_key: "prom-username"
-                  password_key: "access-token"
-                  external:
-                    url: https://prometheus-prod-36-prod-us-west-0.grafana.net/api/prom
-            kepler:
-              enabled: true
+          costMetrics:
+            enabled: true
+            collector: alloy-metrics
           prometheusOperatorObjects:
             enabled: true
+            collector: alloy-metrics
           clusterEvents:
             enabled: true
-          podLogs:
+            collector: alloy-singleton
+          podLogsViaLoki:
             enabled: true
+            collector: alloy-logs
           applicationObservability:
             enabled: true
+            collector: alloy-receiver
+            # The OTLP destination carries traces only (metrics/logs disabled above),
+            # so the metrics and logs pipelines stay off to match its capabilities.
+            metrics:
+              enabled: false
+            logs:
+              enabled: false
+            traces:
+              enabled: true
             receivers:
               otlp:
                 grpc:
@@ -98,124 +121,146 @@ spec:
               zipkin:
                 enabled: true
                 port: 9411
-          alloy-metrics:
-            enabled: true
-            alloy:
-              extraEnv:
-                - name: CLUSTER_NAME
-                  value: paulynomial
-                - name: GCLOUD_RW_API_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      name: grafana-cloud
-                      key: access-token
-                - name: NAMESPACE
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: metadata.namespace
-                - name: POD_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: metadata.name
-                - name: GCLOUD_FM_COLLECTOR_ID
-                  value: grafana-k8s-monitoring-$(CLUSTER_NAME)-$(NAMESPACE)-$(POD_NAME)
-            remoteConfig:
-              enabled: false
-          alloy-singleton:
-            enabled: true
-            alloy:
-              extraEnv:
-                - name: CLUSTER_NAME
-                  value: paulynomial
-                - name: GCLOUD_RW_API_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      name: grafana-cloud
-                      key: access-token
-                - name: NAMESPACE
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: metadata.namespace
-                - name: POD_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: metadata.name
-                - name: GCLOUD_FM_COLLECTOR_ID
-                  value: grafana-k8s-monitoring-$(CLUSTER_NAME)-$(NAMESPACE)-$(POD_NAME)
-            remoteConfig:
-              enabled: false
-          alloy-logs:
-            enabled: true
-            alloy:
-              extraEnv:
-                - name: CLUSTER_NAME
-                  value: paulynomial
-                - name: GCLOUD_RW_API_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      name: grafana-cloud
-                      key: access-token
-                - name: NAMESPACE
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: metadata.namespace
-                - name: POD_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: metadata.name
-                - name: NODE_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: spec.nodeName
-                - name: GCLOUD_FM_COLLECTOR_ID
-                  value: grafana-k8s-monitoring-$(CLUSTER_NAME)-$(NAMESPACE)-alloy-logs-$(NODE_NAME)
-            remoteConfig:
-              enabled: false
-          alloy-receiver:
-            enabled: true
-            alloy:
-              extraPorts:
-                - name: otlp-grpc
-                  port: 4317
-                  targetPort: 4317
-                  protocol: TCP
-                - name: otlp-http
-                  port: 4318
-                  targetPort: 4318
-                  protocol: TCP
-                - name: zipkin
-                  port: 9411
-                  targetPort: 9411
-                  protocol: TCP
-              extraEnv:
-                - name: CLUSTER_NAME
-                  value: paulynomial
-                - name: GCLOUD_RW_API_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      name: grafana-cloud
-                      key: access-token
-                - name: NAMESPACE
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: metadata.namespace
-                - name: POD_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: metadata.name
-                - name: NODE_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: spec.nodeName
-                - name: GCLOUD_FM_COLLECTOR_ID
-                  value: grafana-k8s-monitoring-$(CLUSTER_NAME)-$(NAMESPACE)-alloy-receiver-$(NODE_NAME)
+          # v3 deployed these telemetry services from inside clusterMetrics; 4.x splits
+          # deployment out and requires it explicitly. Same services as before.
+          telemetryServices:
+            kube-state-metrics:
+              deploy: true
+            node-exporter:
+              deploy: true
+            kepler:
+              deploy: true
+            opencost:
+              deploy: true
+              metricsSource: local-prometheus
+              opencost:
+                exporter:
+                  defaultClusterId: paulynomial
+                prometheus:
+                  external:
+                    # OpenCost builds the query URL itself: PROMETHEUS_SERVER_ENDPOINT is
+                    # passed to client_golang, which joins it with /api/v1/query. Keep this
+                    # as the base URL; adding /api/v1/query here would double the path.
+                    url: http://prometheus-server.monitoring.svc.cluster.local
+          collectors:
+            alloy-metrics:
+              presets: [clustered, statefulset]
+              alloy:
+                extraEnv:
+                  - name: CLUSTER_NAME
+                    value: paulynomial
+                  - name: GCLOUD_RW_API_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: grafana-cloud
+                        key: access-token
+                  - name: NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.namespace
+                  - name: POD_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.name
+                  - name: GCLOUD_FM_COLLECTOR_ID
+                    value: grafana-k8s-monitoring-$(CLUSTER_NAME)-$(NAMESPACE)-$(POD_NAME)
+              remoteConfig:
+                enabled: false
+            alloy-singleton:
+              presets: [singleton]
+              alloy:
+                extraEnv:
+                  - name: CLUSTER_NAME
+                    value: paulynomial
+                  - name: GCLOUD_RW_API_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: grafana-cloud
+                        key: access-token
+                  - name: NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.namespace
+                  - name: POD_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.name
+                  - name: GCLOUD_FM_COLLECTOR_ID
+                    value: grafana-k8s-monitoring-$(CLUSTER_NAME)-$(NAMESPACE)-$(POD_NAME)
+              remoteConfig:
+                enabled: false
+            alloy-logs:
+              presets: [filesystem-log-reader, daemonset]
+              alloy:
+                extraEnv:
+                  - name: CLUSTER_NAME
+                    value: paulynomial
+                  - name: GCLOUD_RW_API_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: grafana-cloud
+                        key: access-token
+                  - name: NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.namespace
+                  - name: POD_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.name
+                  - name: NODE_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: spec.nodeName
+                  - name: GCLOUD_FM_COLLECTOR_ID
+                    value: grafana-k8s-monitoring-$(CLUSTER_NAME)-$(NAMESPACE)-alloy-logs-$(NODE_NAME)
+              remoteConfig:
+                enabled: false
+            alloy-receiver:
+              presets: [daemonset]
+              # The receiver Service name is fixed at `alloy-receiver` for callers.
+              # In 4.x this is a collector-level key (sibling of `alloy`), not `alloy.extraService`.
               extraService:
                 enabled: true
-                # -- If set, the full name of the extra service to create. This will result in the format `<fullname>`.
-                # @section -- Collectors - Alloy Receiver
-                fullName: "alloy-receiver"
-            remoteConfig:
-              enabled: false
+                fullname: "alloy-receiver"
+              alloy:
+                extraPorts:
+                  - name: otlp-grpc
+                    port: 4317
+                    targetPort: 4317
+                    protocol: TCP
+                  - name: otlp-http
+                    port: 4318
+                    targetPort: 4318
+                    protocol: TCP
+                  - name: zipkin
+                    port: 9411
+                    targetPort: 9411
+                    protocol: TCP
+                extraEnv:
+                  - name: CLUSTER_NAME
+                    value: paulynomial
+                  - name: GCLOUD_RW_API_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: grafana-cloud
+                        key: access-token
+                  - name: NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.namespace
+                  - name: POD_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.name
+                  - name: NODE_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: spec.nodeName
+                  - name: GCLOUD_FM_COLLECTOR_ID
+                    value: grafana-k8s-monitoring-$(CLUSTER_NAME)-$(NAMESPACE)-alloy-receiver-$(NODE_NAME)
+              remoteConfig:
+                enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

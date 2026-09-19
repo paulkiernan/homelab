@@ -1,0 +1,27 @@
+---
+# Manifests for the local-monitoring ArgoCD app (see ../application.yaml for the
+# architecture and the boundary with the grafana-cloud collector app).
+#
+# The two ConfigMaps are generated files: regenerate them from the canonical
+# definitions in paulkiernan/diff-logic-cells with
+#
+#   python3 generate-assets.py            # write
+#   python3 generate-assets.py --check    # fail if they drifted from source
+#
+# They are checked in because ArgoCD must provision from this repository alone.
+# Neither the dashboards nor the alert rules may be hand-edited here; change the
+# source assets and re-run the generator.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: monitoring
+
+resources:
+  # SOPS-encrypted Grafana admin credentials (isindir.github.com/v1alpha3).
+  - grafana-admin-secret.sops.yaml
+  # Grafana dashboard JSON + unified-alerting rule groups (generated).
+  - grafana-dashboards-configmap.yaml
+  - grafana-alerting-configmap.yaml
+  # Private tailnet access: grafana UI, and the metrics-ingest receiver for the
+  # capture VM's Alloy. No public hostname anywhere.
+  - tailscale-ingress.yaml

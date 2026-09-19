@@ -52,11 +52,11 @@ tasks:
       - kubectl -n argocd get application market-measurement -o wide
 
   logs:
-    desc: 'Show logs (SERVICE=market-recorder or market-archive to follow; pull or report lists the jobs)'
+    desc: 'Show logs (SERVICE=market-recorder, market-archive or market-research-metrics to follow; pull or report lists the jobs)'
     cmds:
       - |
         case "{{.SERVICE}}" in
-          market-recorder|market-archive)
+          market-recorder|market-archive|market-research-metrics)
             kubectl -n {{.MEASUREMENT_NAMESPACE}} logs -l "app.kubernetes.io/name={{.SERVICE}}" --tail=200 -f
             ;;
           pull|report)
@@ -64,33 +64,45 @@ tasks:
             echo "then: kubectl -n {{.MEASUREMENT_NAMESPACE}} logs job/<name> --tail=200"
             ;;
           *)
-            echo "SERVICE must be market-recorder, market-archive, pull or report" >&2
+            echo "SERVICE must be market-recorder, market-archive, market-research-metrics, pull or report" >&2
             exit 1
             ;;
         esac
 
   metrics:
-    desc: Port-forward the recorder and print healthz, readyz and metrics
+    desc: 'Port-forward a metrics endpoint and print healthz, readyz and metrics (SERVICE=market-recorder, the default, or market-research-metrics)'
     cmds:
       - |
+        case "{{.SERVICE}}" in
+          ""|market-recorder)
+            service=market-recorder; remote_port=9090; local_port=19090
+            ;;
+          market-research-metrics)
+            service=market-research-metrics; remote_port=9091; local_port=19091
+            ;;
+          *)
+            echo "SERVICE must be market-recorder or market-research-metrics" >&2
+            exit 1
+            ;;
+        esac
         # Task's embedded shell has no background PID; Bash owns this tunnel.
-        bash <<'BASH'
+        SERVICE="$service" REMOTE_PORT="$remote_port" LOCAL_PORT="$local_port" bash <<'BASH'
         set -euo pipefail
-        kubectl -n {{.MEASUREMENT_NAMESPACE}} port-forward svc/market-recorder 19090:9090 >/dev/null 2>&1 &
+        kubectl -n {{.MEASUREMENT_NAMESPACE}} port-forward "svc/${SERVICE}" "${LOCAL_PORT}:${REMOTE_PORT}" >/dev/null 2>&1 &
         pf=$!
         trap 'kill "$pf" 2>/dev/null || true' EXIT
         for _ in $(seq 1 30); do
-          curl -fsS http://127.0.0.1:19090/healthz >/dev/null 2>&1 && break
+          curl -fsS "http://127.0.0.1:${LOCAL_PORT}/healthz" >/dev/null 2>&1 && break
           sleep 0.5
         done
-        echo "--- /healthz (process and writer health)"
-        curl -fsS http://127.0.0.1:19090/healthz || echo "(unreachable)"
+        echo "--- /healthz (process health)"
+        curl -fsS "http://127.0.0.1:${LOCAL_PORT}/healthz" || echo "(unreachable)"
         echo
-        echo "--- /readyz (requires a healthy sequenced feed; unready means no usable snapshots)"
-        curl -fsS http://127.0.0.1:19090/readyz || echo "(not ready: upstream outage or no snapshot yet)"
+        echo "--- /readyz (recorder: healthy sequenced feed; exporter: reports root readable)"
+        curl -fsS "http://127.0.0.1:${LOCAL_PORT}/readyz" || echo "(not ready)"
         echo
         echo "--- /metrics"
-        curl -fsS http://127.0.0.1:19090/metrics || echo "(unreachable)"
+        curl -fsS "http://127.0.0.1:${LOCAL_PORT}/metrics" || echo "(unreachable)"
         BASH
 
   spool-node:
@@ -251,8 +263,9 @@ tasks:
     desc: Create the SOPS-encrypted GHCR pull Secret for the private measurement images
     summary: |
       The images are private and stay private, so this Secret is required before
-      the recorder, archive, report and pull pods can start (all four pod specs
-      already carry imagePullSecrets: market-measurement-ghcr).
+      the recorder, archive, report, pull and metrics exporter pods can start
+      (all five pod specs already carry imagePullSecrets:
+      market-measurement-ghcr).
 
       Required environment: GHCR_USER (GitHub username) and GHCR_TOKEN (token
       with read:packages). The token is read from the environment by jq and

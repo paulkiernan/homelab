@@ -1,0 +1,677 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Coinbase US futures capture health for the market-recorder process. Measurement only: this system never holds venue credentials, sends orders or moves capital. Metrics come from the recorder's own /metrics endpoint via the ServiceMonitor in kubernetes/argocd/apps/workloads/market-measurement.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Market research — progress and data quality",
+      "tooltip": "Open the research progress and data-quality dashboard",
+      "type": "link",
+      "url": "/d/market-research-progress"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Market research — paper economics (scenarios)",
+      "tooltip": "Open the paper economics dashboard (scenario values only)",
+      "type": "link",
+      "url": "/d/market-research-economics"
+    },
+    {
+      "asDropdown": false,
+      "icon": "doc",
+      "includeVars": false,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Measurement review plan",
+      "tooltip": "research/MEASUREMENT_REVIEW_PLAN.md (repo requires access)",
+      "type": "link",
+      "url": "https://github.com/paulkiernan/diff-logic-cells/blob/main/research/MEASUREMENT_REVIEW_PLAN.md"
+    }
+  ],
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Per instance: 1 = a live venue WebSocket connection with the expected subscriptions, 0 = disconnected and reconnecting. No global max/min, so one host losing its feed cannot be hidden by another that is healthy.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "disconnected"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "connected"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_recorder_connected{instance=~\"$instance\"}",
+          "instant": true,
+          "legendFormat": "{{instance}} {{site}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Feed connected",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Per instance: wall-clock seconds since the last venue message was received. This is feed health, not market activity: a quiet product still refreshes it while the sequenced stream is healthy.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 30
+              },
+              {
+                "color": "red",
+                "value": 120
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 4,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "time() - market_recorder_last_message_unixtime_seconds{instance=~\"$instance\"}",
+          "instant": true,
+          "legendFormat": "{{instance}} {{site}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Last venue message",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Per instance: wall-clock seconds since the last record was flushed to durable storage. Rising while messages keep arriving means that host's spool is not being written.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 600
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 9,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "time() - market_recorder_last_durable_record_unixtime_seconds{instance=~\"$instance\"}",
+          "instant": true,
+          "legendFormat": "{{instance}} {{site}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Last durable record",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Bounded writer queue depth. Sustained growth means the writer cannot keep up with the feed; a full queue increments the overflow counter and must never be treated as healthy capture.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 14,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_recorder_queue_depth{instance=~\"$instance\"}",
+          "legendFormat": "{{instance}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Writer queue depth",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Venue messages received per second and application payload bytes per second, by instance.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "pps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "application bytes/s"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "Bps"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 0,
+        "y": 4
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (instance) (rate(market_recorder_messages_total{instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{instance}} messages/s",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (instance) (rate(market_recorder_application_bytes_total{instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{instance}} application bytes/s",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Counters that must stay flat during healthy capture. Sequence gaps force a resnapshot; queue overflows mean records were dropped rather than written; errors include parse failures and rejected redirects.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            }
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 10,
+        "y": 4
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (instance) (increase(market_recorder_sequence_gaps_total{instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{instance}} sequence gaps",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (instance) (increase(market_recorder_queue_overflows_total{instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{instance}} queue overflows",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (instance) (increase(market_recorder_reconnects_total{instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{instance}} reconnects",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (instance) (increase(market_recorder_errors_total{instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{instance}} errors",
+          "range": true,
+          "refId": "D"
+        }
+      ],
+      "title": "Feed defects",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Percent free per filesystem, pushed by each capture host's Alloy unit (filesystem collector only). The spool is never pruned automatically and on a cloud capture host shares the root filesystem, so this is the early warning before capture stops on a full disk.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 25
+              },
+              {
+                "color": "red",
+                "value": 15
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 20,
+        "x": 0,
+        "y": 12
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "100 * node_filesystem_avail_bytes{job=\"market-capture-host\",fstype!~\"tmpfs|ramfs|overlay\"} / node_filesystem_size_bytes{job=\"market-capture-host\",fstype!~\"tmpfs|ramfs|overlay\"}",
+          "legendFormat": "{{instance}} {{mountpoint}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Capture host disk free",
+      "type": "timeseries"
+    },
+    {
+      "gridPos": {
+        "h": 4,
+        "w": 20,
+        "x": 0,
+        "y": 18
+      },
+      "id": 7,
+      "options": {
+        "content": "**Measurement only.** This system captures public market data and computes conditional, explicitly labelled paper scenarios. It holds no venue credentials, exposes no order interface, moves no capital, and does not claim to know real funding cashflows or fee schedules. Sealed chunks live in the recorder spool and are copied to the archive/ledger pipeline; raw messages are never written to logs or to Loki.",
+        "mode": "markdown"
+      },
+      "title": "Scope",
+      "type": "text"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "market-measurement",
+    "futures"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "market-prometheus"
+        },
+        "definition": "label_values(market_recorder_connected, instance)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "instance",
+        "multi": true,
+        "name": "instance",
+        "options": [],
+        "query": {
+          "query": "label_values(market_recorder_connected, instance)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "utc",
+  "title": "Market measurement — Coinbase futures capture",
+  "uid": "market-recorder-capture",
+  "version": 1,
+  "weekStart": ""
+}

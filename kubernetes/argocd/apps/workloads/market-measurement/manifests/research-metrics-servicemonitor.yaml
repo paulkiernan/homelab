@@ -1,0 +1,39 @@
+---
+# Scraped by the cluster's existing Grafana k8s-monitoring (Alloy) deployment,
+# which has prometheusOperatorObjects enabled: the ServiceMonitor CRDs come
+# from the prometheus-operator-crds chart in
+# kubernetes/argocd/apps/monitoring/grafana-cloud. There is no Prometheus
+# instance in this cluster, so no PrometheusRule objects are created here —
+# alert evaluation happens in Grafana Cloud / Grafana Alerting instead
+# (deploy/grafana in paulkiernan/diff-logic-cells).
+#
+# jobLabel makes the scrape job exactly `market-research` (the value of the
+# Service's app.kubernetes.io/name label); without it the job name would
+# default to the Service name. The dashboards live in
+# deploy/grafana/dashboards/market-research-*.json in the source repository.
+#
+# Unlike the recorder there is no static site relabeling here: every exported
+# series already carries its own site label from the report it was derived
+# from, and overriding it would merge the sites into one series.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: market-research-metrics
+  namespace: market-measurement
+  labels:
+    app.kubernetes.io/name: market-research-metrics
+    app.kubernetes.io/part-of: market-measurement
+spec:
+  jobLabel: app.kubernetes.io/name
+  # No namespaceSelector: the Service lives in this namespace, which is where
+  # the exporter exposes its metrics port.
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: market-research
+      app.kubernetes.io/component: metrics-exporter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      scheme: http
+      interval: 30s
+      scrapeTimeout: 25s

@@ -3,9 +3,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 # Read-only Coinbase US futures measurement: one capture writer, one archive
-# helper, a batch report job and the SSH pull that lands sealed chunks from the
-# cloud capture VM on the NAS. No venue credentials, no order interface, no
-# trading, and raw market messages never reach pod logs.
+# helper, a batch report job, the SSH pull that lands sealed chunks from the
+# cloud capture VM on the NAS, and a read-only metrics exporter over the report
+# outputs. No venue credentials, no order interface, no trading, and raw market
+# messages never reach pod logs.
 #
 # REQUIRED INPUTS before this syncs usefully:
 #   1. image tags below must be a release produced by
@@ -13,7 +14,7 @@ kind: Kustomization
 #      (manual workflow_dispatch). Any private registry works: change the image
 #      names here and in the workloads, or use `task measurement:images`.
 #   2. the GHCR packages are PRIVATE and stay private (no public publication).
-#      All four pod specs already reference the pull Secret:
+#      All five pod specs already reference the pull Secret:
 #        imagePullSecrets:
 #          - name: market-measurement-ghcr
 #      The Secret itself is created only when credentials exist:
@@ -49,11 +50,22 @@ resources:
   - ssh-pull-cronjob.yaml
   - scripts-configmap.yaml
   - servicemonitor.yaml
+  - research-metrics-deployment.yaml
+  - research-metrics-service.yaml
+  - research-metrics-servicemonitor.yaml
   - networkpolicy.yaml
 
 images:
-  # Single place to pin the release that everything runs.
+  # Single place to pin the images. The market-research entry must be a
+  # release whose package contains difflogic_hft.futures_metrics
+  # (research-metrics-deployment.yaml): v0.2.0 (diff-logic-cells 847af2c) is
+  # the first such release and is pinned by digest, so the report CronJob, the
+  # SSH pull and the exporter all run the same verified bytes. The recorder
+  # image and pods are not tied to the research release; repin entries
+  # individually, since `task measurement:images VERSION=...` rewrites every
+  # image in this block.
   - name: ghcr.io/paulkiernan/diff-logic-cells/market-recorder
     newTag: v0.1.0
   - name: ghcr.io/paulkiernan/diff-logic-cells/market-research
-    newTag: v0.1.0
+    newTag: v0.2.0
+    digest: sha256:a2d355c0af8a6c5a12985a254e4e6caac7e6ef29d004922319945f8ffa6f9014

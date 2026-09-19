@@ -1,0 +1,32 @@
+---
+# Metrics and probe endpoint for the research exporter. ClusterIP only: no
+# ingress, no public surface.
+#
+# publishNotReadyAddresses keeps the scrape alive while /readyz is failing.
+# A missing or stale report makes the availability gauge 0 — the exact signal
+# the alerts need — so the exporter must not drop out of Endpoints when the
+# report set is bad; the gauge, not the endpoint, carries that state.
+#
+# The Service metadata label app.kubernetes.io/name is market-research (the
+# application) and is what the ServiceMonitor's jobLabel reads, so the scrape
+# job is exactly `market-research`. The pod selector below uses the workload's
+# own name label, market-research-metrics.
+apiVersion: v1
+kind: Service
+metadata:
+  name: market-research-metrics
+  namespace: market-measurement
+  labels:
+    app.kubernetes.io/name: market-research
+    app.kubernetes.io/component: metrics-exporter
+    app.kubernetes.io/part-of: market-measurement
+spec:
+  type: ClusterIP
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: market-research-metrics
+  ports:
+    - name: metrics
+      port: 9091
+      targetPort: metrics
+      protocol: TCP

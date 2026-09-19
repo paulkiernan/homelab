@@ -1,0 +1,56 @@
+---
+# Private access through the Tailscale operator, matching the pattern used by
+# the other apps in this repository (ingressClassName: tailscale, hostname
+# annotation, tailnet-issued certificate). Nothing here is reachable from the
+# public internet and no LoadBalancer/IP is allocated.
+#
+# The FQDN of each ingress is <tailscale.com/hostname>.<tailnet>.ts.net; this
+# tailnet is border-enigmatic.ts.net, so:
+#   grafana.border-enigmatic.ts.net          Grafana UI
+#   metrics-ingest.border-enigmatic.ts.net   Prometheus remote-write receiver
+#
+# The operator proxies TCP to the Service, so request paths are passed through
+# unchanged and the usual Prometheus endpoints work behind it:
+#   https://metrics-ingest.border-enigmatic.ts.net/api/v1/write    (remote-write)
+#   https://metrics-ingest.border-enigmatic.ts.net/-/ready         (readiness)
+# Exposure is tailnet-wide by default, so restrict who may reach
+# `metrics-ingest` with tailnet ACLs if the capture VM should be the only
+# writer; adding an HTTP credential in front of the receiver would mean
+# --web.config.file plus a SOPS Secret, which is deliberately not done yet.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-tailscale
+  annotations:
+    tailscale.com/hostname: "grafana"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: grafana
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - grafana
+---
+# Remote-write entrance for capture hosts that are not in the cluster (today:
+# the Lightsail capture VM running its own Alloy unit with the site
+# aws-us-east-1). The VM agent pushes to the URL below; service name, port and
+# path are fixed by the local-monitoring contract.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: metrics-ingest-tailscale
+  annotations:
+    tailscale.com/hostname: "metrics-ingest"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: prometheus-server
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - metrics-ingest

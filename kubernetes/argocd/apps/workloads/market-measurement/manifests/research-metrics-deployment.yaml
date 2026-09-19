@@ -1,0 +1,136 @@
+---
+# Read-only metrics exporter for the research report outputs. It reads
+# /reports/<site>/report.json from the market-reports PVC (written by the
+# market-reports CronJob) and exposes the per-site progress/economics gauges on
+# /metrics, plus /healthz and /readyz. Every series is derived from the
+# committed report; the exporter never writes, never opens a venue connection
+# and has no Kubernetes API access.
+#
+# IMAGE DEPENDENCY (must be resolved before this pod can run):
+# The pinned market-research image must be a release of
+# paulkiernan/diff-logic-cells that contains difflogic_hft.futures_metrics;
+# v0.1.0 as published does not. Repin the market-research entry in the
+# kustomization images: block (published tag or digest) before this syncs —
+# `task measurement:images` rewrites every image in that block, so do not use
+# it when only the research image should move. This manifest deliberately does
+# not invent a tag that does not exist yet.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: market-research-metrics
+  namespace: market-measurement
+  labels:
+    app.kubernetes.io/name: market-research-metrics
+    app.kubernetes.io/part-of: market-measurement
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: market-research-metrics
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: market-research-metrics
+        app.kubernetes.io/part-of: market-measurement
+    spec:
+      # Stateless reader of the report volume: no API access, no SA token.
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # Private GHCR package; the Secret is created by
+      # `task measurement:ghcr-pull-secret` (see kustomization.yaml).
+      imagePullSecrets:
+        - name: market-measurement-ghcr
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: market-research-metrics
+          # Pinned by the images: block in kustomization.yaml. See the IMAGE
+          # DEPENDENCY note above: the tag must contain the futures_metrics
+          # module, which v0.1.0 does not.
+          image: ghcr.io/paulkiernan/diff-logic-cells/market-research:v0.1.0
+          imagePullPolicy: IfNotPresent
+          # The image's entrypoint is the report CLI, so the exporter is
+          # invoked explicitly as a module of the same locked environment
+          # (python resolves via /opt/venv/bin from the image PATH).
+          command:
+            - python
+          args:
+            - -m
+            - difflogic_hft.futures_metrics
+            - --reports-root
+            - /reports
+            - --sites
+            - $(MARKET_RESEARCH_SITES)
+            - --host
+            - 0.0.0.0
+            - --port
+            - "9091"
+          env:
+            # The same site list the daily report runs over, one report
+            # directory per site. It is passed to --sites as a single
+            # space-separated argument, exactly as documented for the CLI;
+            # sites are reported separately and never merged.
+            - name: MARKET_RESEARCH_SITES
+              valueFrom:
+                configMapKeyRef:
+                  name: market-measurement-config
+                  key: sites
+          ports:
+            - name: metrics
+              containerPort: 9091
+              protocol: TCP
+          # Liveness is process health only. Readiness is the module's own
+          # judgement; the Service deliberately publishes both states so a
+          # stale or missing report (availability gauge 0) stays scrapeable
+          # instead of disappearing from the scrape at the moment it matters.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            # A small HTTP exposition server over a handful of JSON files; no
+            # CPU limit for the same reason as the recorder (avoid CFS
+            # throttling stalls), memory bounded by the report sizes.
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: reports
+              mountPath: /reports
+              # Reports are an input: the exporter must never be able to
+              # overwrite a report generation.
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: reports
+          persistentVolumeClaim:
+            claimName: market-reports
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

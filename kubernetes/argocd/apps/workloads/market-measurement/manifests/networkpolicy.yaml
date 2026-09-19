@@ -157,3 +157,47 @@ spec:
           protocol: TCP
         - port: 111
           protocol: UDP
+---
+# The research metrics exporter only reads the report PVC and answers scrapes.
+# Ingress is pinned to its metrics port (kubelet probes and the Alloy scrape
+# arrive from sources a portable NetworkPolicy cannot express reliably, and the
+# Service is ClusterIP with no external exposure). Egress is cluster DNS plus
+# the NAS only: the report volume is NFS-backed, so it follows the same rule as
+# the report job — and nothing else, in particular no Kubernetes API and no
+# venue access.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: market-research-metrics
+  namespace: market-measurement
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: market-research-metrics
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - port: 9091
+          protocol: TCP
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 192.168.1.2/32
+      ports:
+        - port: 2049
+          protocol: TCP
+        - port: 111
+          protocol: TCP
+        - port: 111
+          protocol: UDP

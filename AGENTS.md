@@ -51,7 +51,7 @@ task --list
 
 #### Measurement Operations
 
-The public-data futures measurement workload (`kubernetes/argocd/apps/workloads/market-measurement`) has its own task namespace, `measurement:` (`.taskfiles/measurement`). It captures public Coinbase US futures data and runs hypothetical paper analysis only: no venue credentials, no order path, and no task here authorizes live trading — live capital stays $0.
+The public-data futures measurement workload (`kubernetes/argocd/apps/workloads/market-measurement`) has its own task namespace, `measurement:` (`.taskfiles/measurement`). It captures public Coinbase US futures data and runs hypothetical paper analysis only: no venue credentials, no order path, and no task here authorizes live trading — live capital stays $0. A read-only Deployment, `market-research-metrics`, additionally serves report-derived progress/economics gauges to the cluster's k8s-monitoring: it only reads the report PVC and never writes, produces trade intents or contacts a venue.
 
 **Read-only tasks** (`render`, `diff`, `status`, `spool-node`, `logs`, `metrics`, `config-check`, `pull-secret-check`, `preflight`) inspect or render state; they write nothing to the cluster, the repository or a remote host.
 
@@ -69,8 +69,8 @@ The public-data futures measurement workload (`kubernetes/argocd/apps/workloads/
 **Read-only diagnostics:**
 - `task measurement:render` renders the manifests offline; `task measurement:diff` shows what ArgoCD would change.
 - `task measurement:status` lists pods, CronJobs, PVCs and the ArgoCD app; `task measurement:spool-node` names the node whose disk bounds the local capture spool.
-- `task measurement:logs SERVICE=market-recorder|market-archive|pull|report` follows workload logs or lists the pull/report Jobs.
-- `task measurement:metrics` port-forwards the recorder and prints `/healthz`, `/readyz` and `/metrics`.
+- `task measurement:logs SERVICE=market-recorder|market-archive|market-research-metrics|pull|report` follows workload logs or lists the pull/report Jobs.
+- `task measurement:metrics` port-forwards the recorder (default) or `SERVICE=market-research-metrics` and prints `/healthz`, `/readyz` and `/metrics`.
 - `task measurement:config-check` compares the deployed study config with `config/futures-study.json` from the source repo (set `MSR_SOURCE_DIR` if it is not at `$HOME/workspace/github.com/paulkiernan/diff-logic-cells`); `task measurement:preflight` combines render, the pull-Secret check and ArgoCD/pod state.
 
 **Secret generators (encrypted output only; commit the encrypted file, never key material):**

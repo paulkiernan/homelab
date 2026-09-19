@@ -1,0 +1,1253 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Paper economics as declared scenarios from evaluated ledger reports only. NOT EVALUATED is shown when there are no explicit intents — never a zero-profit fallback. Values exclude unmodeled infrastructure/account costs, use scenario fees and funding sensitivities, and are not investment performance or annualized returns.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Market research — progress and data quality",
+      "tooltip": "Open this dashboard",
+      "type": "link",
+      "url": "/d/market-research-progress"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Market measurement — Coinbase futures capture",
+      "tooltip": "Open this dashboard",
+      "type": "link",
+      "url": "/d/market-recorder-capture"
+    },
+    {
+      "asDropdown": false,
+      "icon": "doc",
+      "includeVars": false,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Measurement review plan",
+      "tooltip": "research/MEASUREMENT_REVIEW_PLAN.md (repo requires access)",
+      "type": "link",
+      "url": "https://github.com/paulkiernan/diff-logic-cells/blob/main/research/MEASUREMENT_REVIEW_PLAN.md"
+    }
+  ],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 200,
+      "panels": [],
+      "title": "Paper evaluation state — read this first",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "1 only when the ledger status is executed_explicit_intents. 0 = empty_no_trade_intents = NOT EVALUATED: no explicit intents, so no performance exists. Production adds no fake intents and no zero-profit fallback — every N/A below means unknown or not evaluated, never 0.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "dark-orange",
+                  "index": 0,
+                  "text": "NOT EVALUATED"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "EVALUATED"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "no series — exporter not reporting this site",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-orange",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_evaluated{site=~\"$site\"}",
+          "instant": true,
+          "legendFormat": "{{site}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Paper ledger state",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Total explicit intents in the evaluated ledger. 0 with NOT EVALUATED is the expected measurement-only state; it yields no economics anywhere on this dashboard.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "unit": "short",
+          "noValue": "N/A — ledger not evaluated"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 6,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_intents{site=~\"$site\"}",
+          "instant": true,
+          "legendFormat": "{{site}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Explicit intents",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Intent counts per bounded ledger status (e.g. closed, open_unresolved, open_partially_hedged, expired_with_open_exposure). Statuses are never collapsed into 'closed': partial and unresolved exposure stays visible. Empty when no intents were evaluated.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 14,
+        "x": 10,
+        "y": 1
+      },
+      "id": 3,
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_intent_status{site=~\"$site\"}",
+          "instant": true,
+          "legendFormat": "{{site}} {{status}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Intents by status",
+      "type": "bargauge"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "id": 201,
+      "panels": [],
+      "title": "Realized and scenario components (account level once; per site)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Realized price PnL from observed L2 walk fills only (ledger totals realized_price_pnl_usd), account level once. Declared paper execution on public data — not a live or venue result. N/A = ledger not evaluated.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "unit": "currencyUSD",
+          "noValue": "N/A — ledger not evaluated"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 7
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_realized_price_pnl_usd{site=~\"$site\"}",
+          "instant": true,
+          "legendFormat": "{{site}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Realized price PnL (USD)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Fees charged once per fill under the declared scenario (study config: 5 bps/side, 0 USD/contract) — not a venue schedule, and regulatory components/eligibility are unverified. N/A = ledger not evaluated; fees are never assumed zero.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "unit": "currencyUSD",
+          "noValue": "N/A — ledger not evaluated"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 4,
+        "y": 7
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_fees_usd{site=~\"$site\"}",
+          "instant": true,
+          "legendFormat": "{{site}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Fees charged (USD, declared scenario)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Mark-to-last-observed-mid PnL on open positions, published only when every open position has a usable current mark. These single-site last mids are scenario marks, not executable exits. Absent (N/A) whenever any mark is unknown — never coerced to zero.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "unit": "currencyUSD",
+          "noValue": "N/A — unknown marks or not evaluated"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 8,
+        "y": 7
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_unrealized_price_pnl_usd{site=~\"$site\"}",
+          "instant": true,
+          "legendFormat": "{{site}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Unrealized marks (USD, scenario marks)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Count of intents whose unrealized valuation is unknown (missing/stale/blocked mark or expired exposure). When > 0 the exporter withholds unrealized and net excess; this dashboard then shows N/A, never a reduced number.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "0 — all open marks known"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "unit": "short",
+          "noValue": "N/A — not evaluated",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 12,
+        "y": 7
+      },
+      "id": 7,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_unknown_valuation_intents{site=~\"$site\"}",
+          "instant": true,
+          "legendFormat": "{{site}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Unknown-valuation intents",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Selected declared hourly funding-rate scenario applied over signed perpetual notional × contract time for the evaluated intents. Scenarios are mutually exclusive and never summed; public funding observations are not verified payments, so this is a sensitivity, not cashflow. Choose the scenario in the selector above.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "unit": "currencyUSD",
+          "noValue": "N/A — scenario not evaluated"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 7
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_funding_scenario_usd{site=~\"$site\", funding_rate_hourly=~\"^${funding_scenario}$\"}",
+          "instant": true,
+          "legendFormat": "{{site}} — {{funding_rate_hourly}}/h (scenario)",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Funding scenario (selected, USD)",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "id": 202,
+      "panels": [],
+      "title": "Capital and scenario net excess (selected funding scenario)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Account-level committed paper cash, counted once and including the idle buffer — not a margin requirement and not per-leg notional. N/A = ledger not evaluated.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "unit": "currencyUSD",
+          "noValue": "N/A — ledger not evaluated"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 13
+      },
+      "id": 9,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_reserved_cash_usd{site=~\"$site\"}",
+          "instant": true,
+          "legendFormat": "{{site}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Reserved paper cash (USD)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "First intent decision to last intent resolution (or capture end while unresolved), seconds, including idle time between intents. N/A across a clock ambiguity — duration-derived fields are withheld, never approximated.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "decimals": 0,
+          "unit": "s",
+          "noValue": "N/A — window unknown or not evaluated"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 4,
+        "y": 13
+      },
+      "id": 10,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_capital_window_seconds{site=~\"$site\"}",
+          "instant": true,
+          "legendFormat": "{{site}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Capital window",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Scenario opportunity-cost hurdle: reserved paper cash × capital window × declared annual rate (study config 4 %/yr, 365-day simple, no compounding). Account level, once. N/A when the window is unknown.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "unit": "currencyUSD",
+          "noValue": "N/A — window unknown or not evaluated"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 8,
+        "y": 13
+      },
+      "id": 11,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_hurdle_usd{site=~\"$site\"}",
+          "instant": true,
+          "legendFormat": "{{site}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Account hurdle (USD, scenario)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Declared scenario interest on the same reserved cash and window (study config 0 %); the ledger nets hurdle − interest. Not a posting, venue credit or verified rate. N/A when the window is unknown.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "unit": "currencyUSD",
+          "noValue": "N/A — window unknown or not evaluated"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 12,
+        "y": 13
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_interest_usd{site=~\"$site\"}",
+          "instant": true,
+          "legendFormat": "{{site}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Interest (USD, scenario)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Exporter-computed net excess for the selected scenario: realized + fully-known unrealized − fees + funding(scenario) + interest − hurdle, in Decimal. Shown only when every component is known, the unknown-mark list is empty and no clock ambiguity applies. BEFORE unmodeled infrastructure/account-specific costs; not investment performance and never annualized.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "unit": "currencyUSD",
+          "noValue": "N/A — incomplete components or not evaluated"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 13
+      },
+      "id": 13,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_net_excess_usd{site=~\"$site\", funding_rate_hourly=~\"^${funding_scenario}$\"}",
+          "instant": true,
+          "legendFormat": "{{site}} — {{funding_rate_hourly}}/h (selected scenario)",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Net excess (USD, selected scenario)",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "id": 203,
+      "panels": [],
+      "title": "Open exposure (never netted)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Count of open positions across intents — a position count, never a net of signed legs; open, partial and expired exposure remain distinct statuses.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "unit": "short",
+          "noValue": "N/A — not evaluated"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 19
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_open_positions{site=~\"$site\"}",
+          "instant": true,
+          "legendFormat": "{{site}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Open positions",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Sum of |contracts| across open positions — gross exposure; opposing legs are never cancelled to hide size.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "unit": "short",
+          "noValue": "N/A — not evaluated"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 19
+      },
+      "id": 15,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_gross_open_contracts{site=~\"$site\"}",
+          "instant": true,
+          "legendFormat": "{{site}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Gross open contracts",
+      "type": "stat"
+    },
+    {
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 19
+      },
+      "id": 16,
+      "options": {
+        "content": "Open exposure is shown gross: positions are counted per intent and contracts are absolute-summed; signed netting is never used to shrink reported exposure. Unresolved, partially hedged or expired legs stay visible and are never reported flat.",
+        "mode": "markdown"
+      },
+      "title": "Why gross",
+      "type": "text"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "id": 204,
+      "panels": [],
+      "title": "Scenario history — report refreshes over the selected range",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "description": "Component history at report refreshes, per site: realized PnL, fees (positive = charged cost), unrealized scenario marks, selected funding scenario, interest and hurdle — plus net excess for the selected scenario. Signs are the ledger's own; this is a decomposition, not a stacked total, and scenarios are never summed. A missing line means unknown/not evaluated at that time — not zero.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_realized_price_pnl_usd{site=~\"$site\"}",
+          "instant": false,
+          "legendFormat": "{{site}} — realized",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_fees_usd{site=~\"$site\"}",
+          "instant": false,
+          "legendFormat": "{{site}} — fees (cost, positive)",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_unrealized_price_pnl_usd{site=~\"$site\"}",
+          "instant": false,
+          "legendFormat": "{{site}} — unrealized (scenario marks)",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_funding_scenario_usd{site=~\"$site\", funding_rate_hourly=~\"^${funding_scenario}$\"}",
+          "instant": false,
+          "legendFormat": "{{site}} — funding {{funding_rate_hourly}}/h (scenario)",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_interest_usd{site=~\"$site\"}",
+          "instant": false,
+          "legendFormat": "{{site}} — interest (scenario)",
+          "range": true,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_hurdle_usd{site=~\"$site\"}",
+          "instant": false,
+          "legendFormat": "{{site}} — hurdle (scenario)",
+          "range": true,
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "market_research_paper_net_excess_usd{site=~\"$site\", funding_rate_hourly=~\"^${funding_scenario}$\"}",
+          "instant": false,
+          "legendFormat": "{{site}} — net excess {{funding_rate_hourly}}/h (selected)",
+          "range": true,
+          "refId": "G"
+        }
+      ],
+      "title": "Component history (gauges at each report refresh, USD)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "id": 205,
+      "panels": [],
+      "title": "How to read these numbers",
+      "type": "row"
+    },
+    {
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "id": 18,
+      "options": {
+        "content": "**N/A on any panel means unknown or not evaluated — never zero.** No panel uses a zero fallback, and no profit series is fabricated when components are missing. Every panel is an instantaneous gauge snapshot of the latest valid report (the history panel simply repeats those snapshots over time): these are not return series, and nothing here is annualized.\n\n- **Fees** are a declared scenario (study config: 5 bps/side, 0 USD/contract), charged once per fill — not a venue schedule; regulatory components and eligibility are unverified.\n- **Funding** is a declared hourly-rate sensitivity over signed perpetual notional × contract time. Public funding observations do not establish published-vs-projected, payment reference or actual postings — this is not cashflow, and scenarios are never summed.\n- **Settlement** is never inferred: dated positions never settle in this pipeline; expiry with open exposure stays `expired_with_open_exposure` and contributes no settlement PnL.\n- **Marks** are last observed single-site L2 mids — scenario marks, not executable exits; a missing mark withholds unrealized and net excess instead of writing zero.\n- **Capital** is account-level committed paper cash including the idle buffer, not a margin requirement; span/hurdle/interest are withheld across clock ambiguity.\n- **Outside these numbers:** unmodeled infrastructure/cloud and account-specific costs are subtracted nowhere here.\n- **No annualized return** is claimed anywhere; net excess is a scenario decomposition for one explicit intent set and one selected funding rate, before the costs above.\n\nProgress and quality evidence: [progress and data quality](/d/market-research-progress) · Operational capture: [capture health](/d/market-recorder-capture) · Method: [review plan §6](https://github.com/paulkiernan/diff-logic-cells/blob/main/research/MEASUREMENT_REVIEW_PLAN.md)",
+        "mode": "markdown"
+      },
+      "title": "Unknowns, limits and exclusions",
+      "type": "text"
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": [
+    "market-measurement",
+    "futures",
+    "research",
+    "economics"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "market-prometheus"
+        },
+        "definition": "label_values(market_research_report_available, site)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "site",
+        "multi": true,
+        "name": "site",
+        "options": [],
+        "query": {
+          "query": "label_values(market_research_report_available, site)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "0",
+          "value": "0"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "market-prometheus"
+        },
+        "definition": "label_values(market_research_paper_funding_scenario_usd, funding_rate_hourly)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "funding scenario",
+        "multi": false,
+        "name": "funding_scenario",
+        "options": [],
+        "query": {
+          "query": "label_values(market_research_paper_funding_scenario_usd, funding_rate_hourly)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "utc",
+  "title": "Market research — paper economics (scenarios)",
+  "uid": "market-research-economics",
+  "version": 1,
+  "weekStart": ""
+}

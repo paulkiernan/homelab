@@ -1,0 +1,406 @@
+---
+# Local monitoring backend for the market-measurement capture stack.
+#
+# WHY THIS APP EXISTS
+# Grafana Cloud is the fallback, not the primary: the SaaS tenant hit its
+# active-series limit and remote-write pushes were rejected with HTTP 429 in
+# the observed 2026-09-17 window, so an active Alloy is never proof that
+# metrics arrive; it is also a paid dependency. This app keeps the metrics
+# store, the dashboards and the alert evaluation inside the cluster, on
+# node-local disks, and leaves only a small bounded health signal in Grafana
+# Cloud. No paid upgrade is assumed anywhere here.
+#
+# BOUNDARY WITH THE SIBLING APP
+# kubernetes/argocd/apps/monitoring/grafana-cloud (owned by the cloud-routing
+# change) still ships the Grafana k8s-monitoring Alloy collectors and decides
+# what continues to Grafana Cloud. Alloy remote-writes the full cluster metric
+# set to prometheus-server.monitoring.svc.cluster.local/api/v1/write, exactly
+# like the capture VM's Alloy unit pushes market_recorder_* and the report
+# exporter's market_research_* series through the private metrics-ingest
+# ingress below. This app only receives, stores and evaluates: it must not
+# create a second node-exporter, kube-state-metrics, pushgateway or a
+# Prometheus Operator, because the collectors that already exist own that.
+#
+# WHAT IS IN HERE
+#   * prometheus-community/prometheus 29.30.1 (Prometheus v3.14.0), release
+#     name `prometheus` so the Service is exactly `prometheus-server`
+#   * grafana 13.2.5 (Grafana 13.2.2), release name `grafana`, from the
+#     community-maintained chart repository. The chart published from
+#     grafana.github.io is deprecated at its final version (10.5.15,
+#     2026-01-30) and stopped receiving Grafana releases; the community
+#     repository is the maintained continuation of the same chart.
+#   * manifests/: SOPS admin Secret, the two Grafana provisioning ConfigMaps
+#     (generated from deploy/grafana in paulkiernan/diff-logic-cells by
+#     generate-assets.py) and the two private Tailscale ingresses
+#
+# PROVISIONED GRAFANA IS DISPOSABLE
+# Datasources, dashboards and alert rules are provisioned from this
+# repository on every sync; there is no state to migrate from the Grafana
+# Cloud side and no object is imported. Dashboards and alerts may be discarded
+# and re-created freely; only the Prometheus TSDB (openebs-hostpath PVC) and
+# Grafana's own small sqlite volume matter.
+#
+# PRIVATE ACCESS ONLY
+# Neither UI nor receiver is exposed publicly: the Prometheus Service is
+# ClusterIP and the only outside path is the Tailscale operator's tailnet
+# ingress, which authenticates by tailnet membership (and then by whatever the
+# tailnet ACLs allow). No basic auth or bearer token sits in front of
+# remote-write for the VM; if a credential is ever wanted there, add
+# --web.config.file to `server.extraFlags` and a SOPS Secret together.
+#
+# NOTIFICATION DEPENDENCY (deliberately not invented here)
+# Grafana unified alerting evaluates the provisioned rules and shows their
+# state in the UI, but no contact point or notification policy is provisioned
+# by this app: there is no Slack/webhook/e-mail destination for this stack in
+# git, and inventing one would silently produce an alert path that never
+# delivers. Delivery needs (1) a destination, (2) its credential as a SOPS
+# Secret, (3) a provisioned contact point + notification policy. Until then,
+# fired alerts are visible only in Grafana itself. The Grafana Cloud Secret
+# (monitoring/grafana-cloud) holds no notification credential either, so
+# nothing existing can be reused.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: local-monitoring
+  namespace: argocd
+  annotations:
+    # After the collectors' app (grafana-cloud, wave 1) so the namespace exists
+    # and the routing that feeds this backend is in place first.
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    - path: kubernetes/argocd/apps/monitoring/local-monitoring/manifests
+      repoURL: https://github.com/paulkiernan/homelab
+      targetRevision: HEAD
+    - chart: prometheus
+      repoURL: https://prometheus-community.github.io/helm-charts
+      targetRevision: 29.30.1
+      helm:
+        releaseName: prometheus
+        valuesObject:
+          server:
+            # --- receiver, not scraper -------------------------------------
+            # Alloy already discovers ServiceMonitors/exporters and pushes the
+            # full set; enabling the receiver is the only ingestion path, so
+            # every bundled scrape job is switched off below instead of
+            # duplicating the collectors the grafana-cloud app owns.
+            extraFlags:
+              - web.enable-remote-write-receiver
+            global:
+              scrape_interval: 1m
+              scrape_timeout: 10s
+              evaluation_interval: 1m
+            # --- retention and disk ----------------------------------------
+            # openebs-hostpath on purpose: a local disk path, never NFS, for
+            # the same reason the capture spool refuses NFS (a NAS stall must
+            # not sit on the write path). The volume is node-local, so this pod
+            # is pinned to the worker set below and data survives pods, not
+            # node loss.
+            #
+            # The 20Gi claim with 14GB retentionSize is the hard bound here:
+            # Prometheus keeps WAL and compaction headroom on top of the
+            # retained blocks, and openebs-hostpath does not enforce the claim
+            # size (the node's free disk is the real bound), so retentionSize
+            # wins if the two bounds ever disagree. 60d is best-effort within
+            # that cap — what the 8-week measurement review needs, not a
+            # guarantee.
+            retention: 60d
+            retentionSize: 14GB
+            persistentVolume:
+              enabled: true
+              accessModes:
+                - ReadWriteOnce
+              size: 20Gi
+              storageClass: openebs-hostpath
+              annotations:
+                # A sync, prune or future helm release must never delete TSDB.
+                argocd.argoproj.io/sync-options: Prune=false,Delete=false
+                helm.sh/resource-policy: keep
+            # openebs-hostpath creates the volume directory root-owned and
+            # fsGroup does not apply to hostPath volumes, while the chart runs
+            # Prometheus as nobody (65534). Hand the directory over once,
+            # non-recursively: everything below it is created by Prometheus.
+            #
+            # The chart renders server.extraInitContainers verbatim — it injects
+            # neither a volumeMount nor capabilities — so both are spelled out
+            # here: without the mount the chown sees no /data (ENOENT) and
+            # without CAP_CHOWN it fails EPERM. The volume name is the chart's
+            # storage volume for this release (no statefulSetNameOverride set);
+            # it must be re-checked when the chart is upgraded.
+            extraInitContainers:
+              - name: data-permissions
+                image: busybox:1.37
+                command:
+                  - sh
+                  - -c
+                  - chown 65534:65534 /data
+                securityContext:
+                  runAsNonRoot: false
+                  runAsUser: 0
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  capabilities:
+                    drop:
+                      - ALL
+                    add:
+                      - CHOWN
+                      - FOWNER
+                volumeMounts:
+                  - name: storage-volume
+                    mountPath: /data
+            # --- placement ------------------------------------------------
+            # Small cluster: workers 01-03 only. The leader is already at ~82%
+            # memory and worker-04 is unavailable, so neither may be selected.
+            # Worker-03 has the most headroom today, hence the preference.
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                    - matchExpressions:
+                        - key: kubernetes.io/hostname
+                          operator: In
+                          values:
+                            - k8s-worker-01
+                            - k8s-worker-02
+                            - k8s-worker-03
+                preferredDuringSchedulingIgnoredDuringExecution:
+                  - weight: 100
+                    preference:
+                      matchExpressions:
+                        - key: kubernetes.io/hostname
+                          operator: In
+                          values:
+                            - k8s-worker-03
+            resources:
+              requests:
+                cpu: 250m
+                memory: 512Mi
+              limits:
+                cpu: "1"
+                memory: 1536Mi
+            # --- surface --------------------------------------------------
+            # The only Service in front of it; ClusterIP, port 80 -> 9090.
+            # Remote-write: http://prometheus-server.monitoring.svc.cluster.local/api/v1/write
+            service:
+              type: ClusterIP
+              servicePort: 80
+            # The server does not talk to the Kubernetes API at all here (no
+            # kubernetes_sd scrape configs below), so it gets no token.
+            automountServiceAccountToken: false
+          # No ClusterRole/ClusterRoleBinding: nothing scrapes through the API.
+          rbac:
+            create: false
+          # Every chart-bundled scrape job is for a Prometheus that discovers
+          # the cluster itself: API servers, nodes, cAdvisor, pods, pod/service
+          # endpoints, service probes, both pushgateway jobs and the chart's
+          # own self job. Alloy already covers exactly that ground and
+          # remote-writes the result, so each one is disabled explicitly — the
+          # values merge would keep them enabled otherwise. Anything the chart
+          # adds later must be disabled here on upgrade.
+          scrapeConfigs:
+            kubernetes-api-servers:
+              enabled: false
+            kubernetes-nodes:
+              enabled: false
+            kubernetes-nodes-cadvisor:
+              enabled: false
+            kubernetes-pods:
+              enabled: false
+            kubernetes-pods-slow:
+              enabled: false
+            kubernetes-service-endpoints:
+              enabled: false
+            kubernetes-service-endpoints-slow:
+              enabled: false
+            kubernetes-services:
+              enabled: false
+            prometheus:
+              enabled: false
+            prometheus-pushgateway:
+              enabled: false
+          # --- self-scrape only -------------------------------------------
+          # Exactly one scrape job, the server itself, so Grafana can show
+          # TSDB/receiver health. Everything else arrives by remote-write.
+          serverFiles:
+            prometheus.yml:
+              rule_files: []
+              scrape_configs:
+                - job_name: prometheus
+                  static_configs:
+                    - targets:
+                        - localhost:9090
+          # --- no bundled duplicates, no Prometheus-side alerting ---------
+          # The collectors are owned by grafana-cloud; alert evaluation is
+          # Grafana unified alerting, so Prometheus needs neither Alertmanager
+          # nor rule files.
+          alertmanager:
+            enabled: false
+          kube-state-metrics:
+            enabled: false
+          prometheus-node-exporter:
+            enabled: false
+          prometheus-pushgateway:
+            enabled: false
+    - chart: grafana
+      repoURL: https://grafana-community.github.io/helm-charts
+      targetRevision: 13.2.5
+      helm:
+        releaseName: grafana
+        valuesObject:
+          replicas: 1
+          deploymentStrategy:
+            type: Recreate
+          # --- admin credentials ------------------------------------------
+          # Created by manifests/grafana-admin-secret.sops.yaml (a SopsSecret
+          # whose plaintext is never in git and never printed). Grafana chart
+          # keys: admin-user / admin-password.
+          admin:
+            existingSecret: local-monitoring-grafana-admin
+            userKey: admin-user
+            passwordKey: admin-password
+          grafana.ini:
+            server:
+              root_url: https://grafana.border-enigmatic.ts.net
+            analytics:
+              reporting_enabled: false
+              check_for_updates: false
+            security:
+              disable_gravatar: true
+            users:
+              allow_sign_up: false
+            unified_alerting:
+              # Grafana evaluates the canonical capture rules itself, against
+              # the local Prometheus datasource. There is no in-cluster
+              # Alertmanager and no Prometheus rule evaluation anywhere.
+              enabled: true
+          # --- datasource --------------------------------------------------
+          # UID market-prometheus is the contract shared with the alert rules,
+          # the dashboards and the capture VM's Alloy config. Datasource files
+          # are read at Grafana start, so a change here needs a pod restart;
+          # dashboards and alert rules reload by themselves (below).
+          datasources:
+            datasources.yaml:
+              apiVersion: 1
+              datasources:
+                - name: Prometheus
+                  uid: market-prometheus
+                  type: prometheus
+                  access: proxy
+                  url: http://prometheus-server.monitoring.svc.cluster.local
+                  isDefault: true
+                  editable: false
+                  jsonData:
+                    timeInterval: 30s
+          # --- dashboards ---------------------------------------------------
+          # The ConfigMap is generated from every deploy/grafana/dashboards/*.json
+          # (see generate-assets.py), mounted at /var/lib/grafana/dashboards/market
+          # by dashboardsConfigMaps below; the file provider reloads it.
+          dashboardProviders:
+            dashboards.yaml:
+              apiVersion: 1
+              providers:
+                - name: market
+                  orgId: 1
+                  folder: Market measurement
+                  type: file
+                  disableDeletion: true
+                  allowUiUpdates: false
+                  options:
+                    path: /var/lib/grafana/dashboards/market
+          dashboardsConfigMaps:
+            market: local-monitoring-grafana-dashboards
+          # --- alert rules --------------------------------------------------
+          # The chart's k8s-sidecar watches ConfigMaps labelled grafana_alert
+          # and calls Grafana's provisioning reload API, so rule changes apply
+          # on sync instead of only at pod start. RBAC is namespace-scoped:
+          # that sidecar is granted configmaps (not secrets) in this namespace.
+          sidecar:
+            alerts:
+              enabled: true
+              label: grafana_alert
+              resource: configmap
+              searchNamespace: null
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                cpu: 100m
+                memory: 64Mi
+          rbac:
+            namespaced: true
+            extraRoleRules:
+              - apiGroups:
+                  - ""
+                resources:
+                  - configmaps
+                verbs:
+                  - get
+                  - watch
+                  - list
+          # --- state --------------------------------------------------------
+          # Grafana's own sqlite database (users, alert state, annotations) is
+          # node-local too, exactly like the TSDB: the monitoring stack must not
+          # lose its database when the NAS it monitors is unavailable, and a
+          # single-replica sqlite file has nothing to gain from NFS. The chart's
+          # init-chown-data init container hands the openebs-hostpath directory
+          # to uid 472. Never pruned by a sync.
+          persistence:
+            enabled: true
+            type: pvc
+            storageClassName: openebs-hostpath
+            accessModes:
+              - ReadWriteOnce
+            size: 2Gi
+            annotations:
+              argocd.argoproj.io/sync-options: Prune=false,Delete=false
+              helm.sh/resource-policy: keep
+          # --- placement ----------------------------------------------------
+          # Same never-leader/never-worker-04 rule as Prometheus. Both volumes
+          # are node-local now, so the pod is pinned to the node that binds the
+          # claim; preferring workers 01/02 keeps the node hosting the TSDB
+          # lighter, and the hard rule keeps the workload off the leader (~82%
+          # memory) and off the unavailable worker-04.
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: In
+                        values:
+                          - k8s-worker-01
+                          - k8s-worker-02
+                          - k8s-worker-03
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 60
+                  preference:
+                    matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: In
+                        values:
+                          - k8s-worker-01
+                          - k8s-worker-02
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          service:
+            type: ClusterIP
+            port: 80
+          testFramework:
+            enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
