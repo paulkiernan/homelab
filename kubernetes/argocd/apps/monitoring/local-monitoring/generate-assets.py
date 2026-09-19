@@ -67,6 +67,9 @@ DEFAULT_SOURCE = Path(
 # dashboards reach it through the ${DS_PROMETHEUS} substitution below.
 DATASOURCE_UID = "market-prometheus"
 
+# Grafana's hard limit on alert rule UIDs (pkg/services/ngalert validation).
+GRAFANA_UID_MAX = 40
+
 # Folder title for dashboards and alert rules. File provisioning creates it.
 FOLDER_TITLE = "Market measurement"
 
@@ -191,6 +194,14 @@ def render_alerts(template: Path, sites: list[str]) -> dict:
     uids = [rule["uid"] for rule in expanded]
     if len(set(uids)) != len(uids):
         die(f"{template} produced duplicate rule uids: {sorted(uids)}")
+    # Grafana rejects rule UIDs longer than 40 characters, and a rejected
+    # provisioning file is fatal for the whole Grafana process at startup
+    # (observed 2026-09-19: CrashLoopBackOff on a 44-character per-site uid).
+    # Fail here, where the author can shorten the template uid, not there.
+    too_long = [uid for uid in uids if len(uid) > GRAFANA_UID_MAX]
+    if too_long:
+        die(f"{template} produced rule uids longer than {GRAFANA_UID_MAX} characters "
+            f"(shorten the template uid; site suffixes are appended): {too_long}")
     for rule in expanded:
         if not rule.get("condition"):
             die(f"{template}: rule {rule.get('title')!r} has no condition refId")
