@@ -321,16 +321,19 @@ spec:
               label: grafana_alert
               resource: configmap
               searchNamespace: null
-            # kiwigrid/k8s-sidecar is a Python Kubernetes client: at a 64Mi limit
-            # it was OOMKilled during startup (exit 137, 2026-09-19 01:29 UTC)
-            # before writing the rules file, so no alert rule ever provisioned.
+            # kiwigrid/k8s-sidecar is a Python Kubernetes client. At a 64Mi limit
+            # it was OOMKilled during startup (exit 137, 2026-09-19 01:29 UTC),
+            # and at a 100m CPU limit it stayed pegged for >10 minutes without
+            # finishing its initial list (no log line, empty folder), so no
+            # alert rule ever provisioned. Startup needs a real core briefly;
+            # steady state is idle.
             resources:
               requests:
-                cpu: 10m
+                cpu: 50m
                 memory: 64Mi
               limits:
-                cpu: 100m
-                memory: 160Mi
+                cpu: 1000m
+                memory: 256Mi
           rbac:
             namespaced: true
             extraRoleRules:
