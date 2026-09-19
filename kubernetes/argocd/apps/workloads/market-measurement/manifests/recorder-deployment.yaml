@@ -54,7 +54,7 @@ spec:
         # on purpose: everything below is created by the recorder itself, so a
         # large spool does not need a full tree walk on every restart.
         - name: spool-permissions
-          image: busybox:1.37
+          image: busybox:1.38
           command:
             - sh
             - -c
