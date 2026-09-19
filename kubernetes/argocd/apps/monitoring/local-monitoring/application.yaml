@@ -75,7 +75,7 @@ spec:
       targetRevision: HEAD
     - chart: prometheus
       repoURL: https://prometheus-community.github.io/helm-charts
-      targetRevision: 29.30.1
+      targetRevision: 29.30.2
       helm:
         releaseName: prometheus
         valuesObject:
