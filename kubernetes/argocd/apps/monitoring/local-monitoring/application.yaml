@@ -259,6 +259,17 @@ spec:
             existingSecret: local-monitoring-grafana-admin
             userKey: admin-user
             passwordKey: admin-password
+          # --- alert delivery ---------------------------------------------
+          # manifests/grafana-notifications-configmap.yaml provisions one
+          # Discord contact point whose url is written as $DISCORD_WEBHOOK_URL;
+          # Grafana expands environment variables in provisioning files, so the
+          # secret reaches it only through this env var, from the SopsSecret in
+          # manifests/grafana-alerting-secret.sops.yaml (key discord-webhook-url).
+          envValueFrom:
+            DISCORD_WEBHOOK_URL:
+              secretKeyRef:
+                name: local-monitoring-grafana-alerting
+                key: discord-webhook-url
           grafana.ini:
             server:
               root_url: https://grafana.border-enigmatic.ts.net

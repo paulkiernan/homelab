@@ -1,0 +1,46 @@
+---
+# Where the provisioned alert rules go. Hand-maintained (not generated): the
+# rules come from diff-logic-cells via generate-assets.py, the delivery target
+# is a homelab decision.
+#
+# One Discord contact point, wired as the root notification policy so every
+# rule in the "Market measurement" folder reaches it without per-rule routing.
+# The webhook URL is a secret: Grafana expands $DISCORD_WEBHOOK_URL from the
+# environment at provisioning time (envValueFrom in ../application.yaml reads
+# it from the SOPS-managed Secret local-monitoring-grafana-alerting), so this
+# file never contains the URL and the ConfigMap is safe to read.
+#
+# The grafana_alert label is what the chart's k8s-sidecar watches; each key
+# becomes a file under /etc/grafana/provisioning/alerting and Grafana's
+# provisioning reload is called on change.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: local-monitoring-grafana-notifications
+  labels:
+    grafana_alert: "1"
+data:
+  notifications.yaml: |
+    apiVersion: 1
+    contactPoints:
+      - orgId: 1
+        name: discord-market-measurement
+        receivers:
+          - uid: discord-market-measurement
+            type: discord
+            disableResolveMessage: false
+            settings:
+              url: $DISCORD_WEBHOOK_URL
+              use_discord_username: true
+              title: '{{ template "default.title" . }}'
+              message: '{{ template "default.message" . }}'
+    policies:
+      - orgId: 1
+        receiver: discord-market-measurement
+        group_by:
+          - grafana_folder
+          - alertname
+          - site
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 4h

@@ -19,9 +19,14 @@ namespace: monitoring
 resources:
   # SOPS-encrypted Grafana admin credentials (isindir.github.com/v1alpha3).
   - grafana-admin-secret.sops.yaml
+  # SOPS-encrypted alert delivery secret (Discord webhook URL), exposed to
+  # Grafana as $DISCORD_WEBHOOK_URL for the notifications ConfigMap below.
+  - grafana-alerting-secret.sops.yaml
   # Grafana dashboard JSON + unified-alerting rule groups (generated).
   - grafana-dashboards-configmap.yaml
   - grafana-alerting-configmap.yaml
+  # Contact point + root notification policy (hand-maintained, no secrets).
+  - grafana-notifications-configmap.yaml
   # Private tailnet access: grafana UI, and the metrics-ingest receiver for the
   # capture VM's Alloy. No public hostname anywhere.
   - tailscale-ingress.yaml
