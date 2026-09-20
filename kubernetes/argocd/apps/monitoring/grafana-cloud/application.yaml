@@ -72,6 +72,12 @@ spec:
           # metrics, and kubelet evictions plus the histogram buckets behind the
           # kubelet/runtime panels. `includeMetrics` entries are joined into the chart's
           # `keep` regex alongside its default list.
+          #
+          # `kube_pod_status_unschedulable` is the only direct signal that the cluster can
+          # no longer accept workload: it backs the `HomelabPodUnschedulable` alert added
+          # in the sibling `local-monitoring` app. It is absent from the chart's
+          # kube-state-metrics default allow-list, so without this entry the alert would be
+          # permanently silent, which is worse than having no alert at all.
           clusterMetrics:
             enabled: true
             collector: alloy-metrics
@@ -80,6 +86,7 @@ spec:
                 includeMetrics:
                   - kube_persistentvolume_capacity_bytes
                   - kube_pod_status_ready
+                  - kube_pod_status_unschedulable
                   - kube_poddisruptionbudget_status_current_healthy
                   - kube_poddisruptionbudget_status_desired_healthy
                   - kube_state_metrics_list_total
