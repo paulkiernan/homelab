@@ -1,14 +1,34 @@
 ---
 # Where the provisioned alert rules go. Hand-maintained (not generated): the
-# rules come from diff-logic-cells via generate-assets.py, the delivery target
-# is a homelab decision.
+# rules come from generate-assets.py (market assets from diff-logic-cells,
+# Kubernetes rules vendored from kube-prometheus), the delivery target is a
+# homelab decision.
 #
-# One Discord contact point, wired as the root notification policy so every
-# rule in the "Market measurement" folder reaches it without per-rule routing.
-# The webhook URL is a secret: Grafana expands $DISCORD_WEBHOOK_URL from the
-# environment at provisioning time (envValueFrom in ../application.yaml reads
-# it from the SOPS-managed Secret local-monitoring-grafana-alerting), so this
-# file never contains the URL and the ConfigMap is safe to read.
+# TWO Discord contact points, one per audience, so cluster noise and
+# market-measurement alerts land in different channels:
+#   - discord-market-measurement: the existing webhook, $DISCORD_WEBHOOK_URL
+#   - discord-cluster: the new cluster-alerts webhook, $DISCORD_CLUSTER_WEBHOOK_URL
+# Both URLs are secrets: Grafana expands the variables from the environment at
+# provisioning time (envValueFrom in ../application.yaml reads them from the
+# SOPS-managed Secret local-monitoring-grafana-alerting, keys discord-webhook-url
+# and discord-cluster-webhook-url), so this file never contains a URL and the
+# ConfigMap is safe to read.
+#
+# The root receiver is discord-cluster deliberately: it is the catch-all, so
+# anything that matches no route below -- including Grafana's own
+# DatasourceError/NoData alerts for the cluster rules -- reaches the cluster
+# channel rather than the market one (Grafana always has a root receiver, so
+# the alternative to this choice was misrouting, not silence). Routing is by
+# the grafana_folder label, which Grafana attaches to every alert and which
+# both rule sets already honour through provisioning: the market rules land in
+# the `Market measurement` folder and the converted kube-prometheus rules in
+# `Kubernetes`. The market rules do carry a system label (market-measurement
+# x11, market-research x6), but routing on it would mean adding a label to all
+# 79 converted rules just to re-describe a folder that provisioning already
+# assigns, and it would not cover the DatasourceError/NoData alerts above,
+# which carry no system label. The severity=info route exists only to slow the
+# repeat interval to 24h for the low-severity kube-prometheus alerts; it points
+# at the same receiver as the root.
 #
 # The grafana_alert label is what the chart's k8s-sidecar watches; each key
 # becomes a file under /etc/grafana/provisioning/alerting and Grafana's
@@ -34,9 +54,20 @@ data:
               use_discord_username: true
               title: '{{ template "default.title" . }}'
               message: '{{ template "default.message" . }}'
+      - orgId: 1
+        name: discord-cluster
+        receivers:
+          - uid: discord-cluster
+            type: discord
+            disableResolveMessage: false
+            settings:
+              url: $DISCORD_CLUSTER_WEBHOOK_URL
+              use_discord_username: true
+              title: '{{ template "default.title" . }}'
+              message: '{{ template "default.message" . }}'
     policies:
       - orgId: 1
-        receiver: discord-market-measurement
+        receiver: discord-cluster
         group_by:
           - grafana_folder
           - alertname
@@ -44,3 +75,11 @@ data:
         group_wait: 30s
         group_interval: 5m
         repeat_interval: 4h
+        routes:
+          - receiver: discord-market-measurement
+            object_matchers:
+              - [grafana_folder, "=", "Market measurement"]
+          - receiver: discord-cluster
+            object_matchers:
+              - [severity, "=", "info"]
+            repeat_interval: 24h

@@ -1,6 +1,7 @@
 *.agekey*
 *.key
 *.pub
+__pycache__/
 .DS_Store
 .bin
 .config.env

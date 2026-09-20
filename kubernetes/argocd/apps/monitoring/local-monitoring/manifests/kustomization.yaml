@@ -2,11 +2,17 @@
 # Manifests for the local-monitoring ArgoCD app (see ../application.yaml for the
 # architecture and the boundary with the grafana-cloud collector app).
 #
-# The two ConfigMaps are generated files: regenerate them from the canonical
-# definitions in paulkiernan/diff-logic-cells with
+# Five of the ConfigMaps here are generated files. The market ones
+# (grafana-dashboards-, grafana-alerting-) come from the canonical definitions
+# in paulkiernan/diff-logic-cells; the Kubernetes dashboards, cluster alert
+# rules and Prometheus recording rules come from the upstream files vendored
+# under ../upstream/ by ../fetch-upstream.py. Regenerate from this app's
+# directory with
 #
-#   python3 generate-assets.py            # write
-#   python3 generate-assets.py --check    # fail if they drifted from source
+#   python3 fetch-upstream.py            # re-vendor and re-verify upstream/
+#   python3 fetch-upstream.py --check    # re-hash the vendored files, no network
+#   python3 generate-assets.py           # write
+#   python3 generate-assets.py --check   # fail if they drifted from source
 #
 # They are checked in because ArgoCD must provision from this repository alone.
 # Neither the dashboards nor the alert rules may be hand-edited here; change the
@@ -25,6 +31,12 @@ resources:
   # Grafana dashboard JSON + unified-alerting rule groups (generated).
   - grafana-dashboards-configmap.yaml
   - grafana-alerting-configmap.yaml
+  # Kubernetes dashboards, Grafana-managed cluster alert rules and Prometheus
+  # recording rules, generated from ../upstream/ by generate-assets.py — do not
+  # hand-edit these three.
+  - grafana-dashboards-kubernetes-configmap.yaml
+  - grafana-alerting-kubernetes-configmap.yaml
+  - prometheus-rules-configmap.yaml
   # Contact point + root notification policy (hand-maintained, no secrets).
   - grafana-notifications-configmap.yaml
   # Private tailnet access: grafana UI, and the metrics-ingest receiver for the

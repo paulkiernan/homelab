@@ -1,20 +1,23 @@
 ---
-# Local monitoring backend for the market-measurement capture stack.
+# Cluster monitoring backend: metrics, logs, dashboards and alert evaluation.
 #
 # WHY THIS APP EXISTS
 # Grafana Cloud is the fallback, not the primary: the SaaS tenant hit its
 # active-series limit and remote-write pushes were rejected with HTTP 429 in
 # the observed 2026-09-17 window, so an active Alloy is never proof that
 # metrics arrive; it is also a paid dependency. This app keeps the metrics
-# store, the dashboards and the alert evaluation inside the cluster, on
-# node-local disks, and leaves only a small bounded health signal in Grafana
-# Cloud. No paid upgrade is assumed anywhere here.
+# store, the log store, the dashboards and the alert evaluation inside the
+# cluster, on node-local disks, and leaves only a small bounded health signal
+# in Grafana Cloud. No paid upgrade is assumed anywhere here.
 #
 # BOUNDARY WITH THE SIBLING APP
-# kubernetes/argocd/apps/monitoring/grafana-cloud (owned by the cloud-routing
-# change) still ships the Grafana k8s-monitoring Alloy collectors and decides
-# what continues to Grafana Cloud. Alloy remote-writes the full cluster metric
-# set to prometheus-server.monitoring.svc.cluster.local/api/v1/write, exactly
+# kubernetes/argocd/apps/monitoring/grafana-cloud owns the collectors and the
+# telemetry services: the k8s-monitoring Alloy DaemonSet/StatefulSet, the
+# kube-state-metrics, node-exporter, kepler and opencost workloads it deploys,
+# and the bounded metrics subset that still remote-writes off-site to Grafana
+# Cloud. Alloy remote-writes the full cluster metric set to
+# prometheus-server.monitoring.svc.cluster.local/api/v1/write and pushes pod
+# logs and cluster events to loki.monitoring.svc.cluster.local:3100, exactly
 # like the capture VM's Alloy unit pushes market_recorder_* and the report
 # exporter's market_research_* series through the private metrics-ingest
 # ingress below. This app only receives, stores and evaluates: it must not
@@ -22,23 +25,48 @@
 # Prometheus Operator, because the collectors that already exist own that.
 #
 # WHAT IS IN HERE
-#   * prometheus-community/prometheus 29.30.1 (Prometheus v3.14.0), release
-#     name `prometheus` so the Service is exactly `prometheus-server`
+# This app is the primary for everything about the cluster, not only for the
+# market capture stack: Kubernetes, node, cost and energy dashboards, the
+# kube-prometheus alert set, pod logs and cluster events all live here.
+#   * prometheus-community/prometheus 29.31.1 (Prometheus v3.14.0), release
+#     name `prometheus` so the Service is exactly `prometheus-server`. It
+#     holds the TSDB and evaluates the generated recording rules; alerting is
+#     not its job.
 #   * grafana 13.2.5 (Grafana 13.2.2), release name `grafana`, from the
 #     community-maintained chart repository. The chart published from
 #     grafana.github.io is deprecated at its final version (10.5.15,
 #     2026-01-30) and stopped receiving Grafana releases; the community
 #     repository is the maintained continuation of the same chart.
-#   * manifests/: SOPS admin Secret, the two Grafana provisioning ConfigMaps
-#     (generated from deploy/grafana in paulkiernan/diff-logic-cells by
-#     generate-assets.py) and the two private Tailscale ingresses
+#   * grafana/loki 7.3.0, release name `loki`, SingleBinary with a filesystem
+#     store: pod logs and cluster events, node-local for the same reason as
+#     the TSDB. The chart's appVersion is 3.6.12, but its values pin
+#     loki.image.tag to 3.6.11 and nothing here overrides that, so the
+#     StatefulSet runs docker.io/grafana/loki:3.6.11.
+#   * manifests/: the SOPS admin and alerting Secrets, the generated Grafana
+#     provisioning ConfigMaps and the generated Prometheus rules ConfigMap
+#     (produced by generate-assets.py from the vendored upstream/ files, and
+#     from deploy/grafana in paulkiernan/diff-logic-cells for the market
+#     assets), plus the two private Tailscale ingresses.
+#
+# Grafana serves two folders, both provisioned from this repository with
+# nothing imported by hand: `Market measurement` (the capture-stack dashboards
+# and rules, the presentation contract shared with diff-logic-cells) and
+# `Kubernetes` (the vendored upstream Kubernetes/node/OpenCost/Kepler
+# dashboards plus the converted kube-prometheus alert rules).
+#
+# ALERT DELIVERY
+# Grafana unified alerting evaluates every rule and delivers through two
+# provisioned Discord contact points: market-measurement alerts to
+# $DISCORD_WEBHOOK_URL and cluster alerts to $DISCORD_CLUSTER_WEBHOOK_URL,
+# both expanded from the alerting SopsSecret. No Alertmanager is involved.
 #
 # PROVISIONED GRAFANA IS DISPOSABLE
 # Datasources, dashboards and alert rules are provisioned from this
 # repository on every sync; there is no state to migrate from the Grafana
 # Cloud side and no object is imported. Dashboards and alerts may be discarded
-# and re-created freely; only the Prometheus TSDB (openebs-hostpath PVC) and
-# Grafana's own small sqlite volume matter.
+# and re-created freely; only the Prometheus TSDB (openebs-hostpath PVC), the
+# Loki chunks (openebs-hostpath PVC) and Grafana's own small sqlite volume
+# matter.
 #
 # PRIVATE ACCESS ONLY
 # Neither UI nor receiver is exposed publicly: the Prometheus Service is
@@ -47,17 +75,6 @@
 # tailnet ACLs allow). No basic auth or bearer token sits in front of
 # remote-write for the VM; if a credential is ever wanted there, add
 # --web.config.file to `server.extraFlags` and a SOPS Secret together.
-#
-# NOTIFICATION DEPENDENCY (deliberately not invented here)
-# Grafana unified alerting evaluates the provisioned rules and shows their
-# state in the UI, but no contact point or notification policy is provisioned
-# by this app: there is no Slack/webhook/e-mail destination for this stack in
-# git, and inventing one would silently produce an alert path that never
-# delivers. Delivery needs (1) a destination, (2) its credential as a SOPS
-# Secret, (3) a provisioned contact point + notification policy. Until then,
-# fired alerts are visible only in Grafana itself. The Grafana Cloud Secret
-# (monitoring/grafana-cloud) holds no notification credential either, so
-# nothing existing can be reused.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -117,10 +134,13 @@ spec:
                 # A sync, prune or future helm release must never delete TSDB.
                 argocd.argoproj.io/sync-options: Prune=false,Delete=false
                 helm.sh/resource-policy: keep
-            # openebs-hostpath creates the volume directory root-owned and
-            # fsGroup does not apply to hostPath volumes, while the chart runs
-            # Prometheus as nobody (65534). Hand the directory over once,
-            # non-recursively: everything below it is created by Prometheus.
+            # openebs-hostpath serves this claim as a `local` volume (the PV is
+            # spec.local, provisioner openebs.io/local), and kubelet does apply
+            # the pod's fsGroup to local volumes — hostPath is the volume type
+            # that ignores it. The chart runs Prometheus as nobody (65534) and
+            # the provisioner creates the directory root-owned, so hand it over
+            # once, non-recursively and independently of kubelet's mount-time
+            # ownership pass: everything below it is created by Prometheus.
             #
             # The chart renders server.extraInitContainers verbatim — it injects
             # neither a volumeMount nor capabilities — so both are spelled out
@@ -172,13 +192,34 @@ spec:
                           operator: In
                           values:
                             - k8s-worker-03
+            # --- resources -------------------------------------------------
+            # Sized for the full cluster series set, not just the market
+            # capture stack: the collectors now also ship the node-exporter,
+            # kube-state-metrics and kepler additions that the vendored
+            # dashboards and rules need, so series grow from ~14.5k to roughly
+            # 22-25k, and the 53 generated recording rules evaluate every 1m
+            # against them. The previous 512Mi/1536Mi sized a receiver-only
+            # server.
             resources:
               requests:
                 cpu: 250m
-                memory: 512Mi
+                memory: 768Mi
               limits:
                 cpu: "1"
-                memory: 1536Mi
+                memory: 2Gi
+            # --- generated recording rules ----------------------------------
+            # generate-assets.py writes the rules converted from the
+            # kube-prometheus PrometheusRules into the
+            # local-monitoring-prometheus-rules ConfigMap; `serverFiles` below
+            # loads every *.yml in it, and the chart turns this mount into the
+            # volume `<server.name>-rules`. Alerting rules are not in there:
+            # Grafana unified alerting owns them.
+            extraConfigmapMounts:
+              - name: rules
+                mountPath: /etc/prometheus-rules
+                subPath: ""
+                configMap: local-monitoring-prometheus-rules
+                readOnly: true
             # --- surface --------------------------------------------------
             # The only Service in front of it; ClusterIP, port 80 -> 9090.
             # Remote-write: http://prometheus-server.monitoring.svc.cluster.local/api/v1/write
@@ -219,21 +260,42 @@ spec:
               enabled: false
             prometheus-pushgateway:
               enabled: false
-          # --- self-scrape only -------------------------------------------
+          # --- self-scrape plus the generated recording rules --------------
           # Exactly one scrape job, the server itself, so Grafana can show
           # TSDB/receiver health. Everything else arrives by remote-write.
+          # rule_files loads the generated recording rules — the upstream
+          # kube-prometheus ones with their selectors rewritten to the Alloy
+          # job labels; there are no alerting rules here.
           serverFiles:
             prometheus.yml:
-              rule_files: []
+              rule_files:
+                - /etc/prometheus-rules/*.yml
               scrape_configs:
                 - job_name: prometheus
                   static_configs:
                     - targets:
                         - localhost:9090
+          # --- reload in place on rule change -----------------------------
+          # The chart renders one --watched-dir= per extraVolumeDirs entry and
+          # mounts extraConfigmapMounts into the reloader container, so both
+          # keys are needed: the reloader only sees what it has mounted. With
+          # them, a recording-rule ConfigMap change calls Prometheus' reload
+          # endpoint instead of needing a pod restart.
+          configmapReload:
+            prometheus:
+              extraConfigmapMounts:
+                - name: rules
+                  mountPath: /etc/prometheus-rules
+                  subPath: ""
+                  configMap: local-monitoring-prometheus-rules
+                  readOnly: true
+              extraVolumeDirs:
+                - /etc/prometheus-rules
           # --- no bundled duplicates, no Prometheus-side alerting ---------
-          # The collectors are owned by grafana-cloud; alert evaluation is
-          # Grafana unified alerting, so Prometheus needs neither Alertmanager
-          # nor rule files.
+          # The collectors are owned by grafana-cloud, and Grafana unified
+          # alerting evaluates every alert rule. Prometheus itself evaluates
+          # only the RECORDING rules loaded above, so there is still no
+          # Alertmanager here and no alerting rule file anywhere.
           alertmanager:
             enabled: false
           kube-state-metrics:
@@ -260,16 +322,24 @@ spec:
             userKey: admin-user
             passwordKey: admin-password
           # --- alert delivery ---------------------------------------------
-          # manifests/grafana-notifications-configmap.yaml provisions one
-          # Discord contact point whose url is written as $DISCORD_WEBHOOK_URL;
-          # Grafana expands environment variables in provisioning files, so the
-          # secret reaches it only through this env var, from the SopsSecret in
-          # manifests/grafana-alerting-secret.sops.yaml (key discord-webhook-url).
+          # manifests/grafana-notifications-configmap.yaml provisions two
+          # Discord contact points whose urls are written as
+          # $DISCORD_WEBHOOK_URL and $DISCORD_CLUSTER_WEBHOOK_URL; Grafana
+          # expands environment variables in provisioning files, so the two
+          # secrets reach it only through these env vars, from the SopsSecret
+          # in manifests/grafana-alerting-secret.sops.yaml (keys
+          # discord-webhook-url and discord-cluster-webhook-url). The market
+          # measurement rules and the cluster rules are routed to their own
+          # contact point, so one noisy stream cannot drown the other.
           envValueFrom:
             DISCORD_WEBHOOK_URL:
               secretKeyRef:
                 name: local-monitoring-grafana-alerting
                 key: discord-webhook-url
+            DISCORD_CLUSTER_WEBHOOK_URL:
+              secretKeyRef:
+                name: local-monitoring-grafana-alerting
+                key: discord-cluster-webhook-url
           grafana.ini:
             server:
               root_url: https://grafana.border-enigmatic.ts.net
@@ -281,15 +351,19 @@ spec:
             users:
               allow_sign_up: false
             unified_alerting:
-              # Grafana evaluates the canonical capture rules itself, against
-              # the local Prometheus datasource. There is no in-cluster
-              # Alertmanager and no Prometheus rule evaluation anywhere.
+              # Grafana evaluates the canonical capture rules and the
+              # converted kube-prometheus rules itself, against the local
+              # Prometheus datasource. There is no in-cluster Alertmanager;
+              # Prometheus evaluates recording rules only, every alert rule
+              # is evaluated here.
               enabled: true
-          # --- datasource --------------------------------------------------
+          # --- datasources --------------------------------------------------
           # UID market-prometheus is the contract shared with the alert rules,
-          # the dashboards and the capture VM's Alloy config. Datasource files
-          # are read at Grafana start, so a change here needs a pod restart;
-          # dashboards and alert rules reload by themselves (below).
+          # the dashboards and the capture VM's Alloy config; uid local-loki is
+          # the same kind of contract with the Alloy loki destination, and it
+          # is also the path Explore and the log/event panels use. Datasource
+          # files are read at Grafana start, so a change here needs a pod
+          # restart; dashboards and alert rules reload by themselves (below).
           datasources:
             datasources.yaml:
               apiVersion: 1
@@ -303,10 +377,20 @@ spec:
                   editable: false
                   jsonData:
                     timeInterval: 30s
+                - name: Loki
+                  uid: local-loki
+                  type: loki
+                  access: proxy
+                  url: http://loki.monitoring.svc.cluster.local:3100
+                  editable: false
           # --- dashboards ---------------------------------------------------
-          # The ConfigMap is generated from every deploy/grafana/dashboards/*.json
-          # (see generate-assets.py), mounted at /var/lib/grafana/dashboards/market
-          # by dashboardsConfigMaps below; the file provider reloads it.
+          # Both ConfigMaps are generated: the market one from every
+          # deploy/grafana/dashboards/*.json in paulkiernan/diff-logic-cells,
+          # the Kubernetes one from the vendored upstream/ files (see
+          # fetch-upstream.py for the pins). The chart mounts each
+          # dashboardsConfigMaps entry at /var/lib/grafana/dashboards/<key>,
+          # which is why those keys must match the provider names below; the
+          # file provider reloads them.
           dashboardProviders:
             dashboards.yaml:
               apiVersion: 1
@@ -319,13 +403,25 @@ spec:
                   allowUiUpdates: false
                   options:
                     path: /var/lib/grafana/dashboards/market
+                - name: kubernetes
+                  orgId: 1
+                  folder: Kubernetes
+                  type: file
+                  disableDeletion: true
+                  allowUiUpdates: false
+                  options:
+                    path: /var/lib/grafana/dashboards/kubernetes
           dashboardsConfigMaps:
             market: local-monitoring-grafana-dashboards
+            kubernetes: local-monitoring-grafana-dashboards-kubernetes
           # --- alert rules --------------------------------------------------
           # The chart's k8s-sidecar watches ConfigMaps labelled grafana_alert
           # and calls Grafana's provisioning reload API, so rule changes apply
-          # on sync instead of only at pod start. RBAC is namespace-scoped:
-          # that sidecar is granted configmaps (not secrets) in this namespace.
+          # on sync instead of only at pod start. The selector is a label, not
+          # one ConfigMap, so the generated
+          # local-monitoring-grafana-alerting-kubernetes rules are picked up
+          # with no change here. RBAC is namespace-scoped: that sidecar is
+          # granted configmaps (not secrets) in this namespace.
           sidecar:
             alerts:
               enabled: true
@@ -399,18 +495,177 @@ spec:
                         values:
                           - k8s-worker-01
                           - k8s-worker-02
+          # --- resources ----------------------------------------------------
+          # The Kubernetes folder adds 18 dashboards and the cluster alert set
+          # adds 79 provisioned rules to what the market folder already loads;
+          # the previous 512Mi limit was sized for the market folder alone.
           resources:
             requests:
               cpu: 100m
               memory: 256Mi
             limits:
               cpu: 500m
-              memory: 512Mi
+              memory: 768Mi
           service:
             type: ClusterIP
             port: 80
           testFramework:
             enabled: false
+    # --- log store ---------------------------------------------------------
+    # Pod logs and cluster events, shipped here by the grafana-cloud app's
+    # Alloy (its loki destination points at this Service) and queried from
+    # Grafana through datasource uid local-loki. Nothing else writes to it, so
+    # there is no second log pipeline to keep in sync.
+    - chart: loki
+      repoURL: https://grafana.github.io/helm-charts
+      targetRevision: 7.3.0
+      helm:
+        releaseName: loki
+        valuesObject:
+          # --- one process, one filesystem ---------------------------------
+          # SingleBinary: one small cluster with one writer (Alloy) and one
+          # reader (Grafana) has nothing to gain from the microservice
+          # topology, and there is no object store to put chunks in. The store
+          # is the node-local filesystem for the same reason the TSDB is on
+          # openebs-hostpath — a NAS stall must not sit on the log write path.
+          # The release name makes the Service exactly `loki`, so Alloy and
+          # Grafana address it as loki.monitoring.svc.cluster.local on port
+          # 3100.
+          deploymentMode: SingleBinary
+          loki:
+            auth_enabled: false
+            commonConfig:
+              # One ingester, so one copy of every chunk.
+              replication_factor: 1
+            storage:
+              type: filesystem
+              filesystem:
+                chunks_directory: /var/loki/chunks
+                rules_directory: /var/loki/rules
+            schemaConfig:
+              configs:
+                # tsdb + v13 is the schema family Loki 3.x writes; the start
+                # date predates the first log line this cluster ever ships.
+                - from: "2024-04-01"
+                  store: tsdb
+                  object_store: filesystem
+                  schema: v13
+                  index:
+                    prefix: loki_index_
+                    period: 24h
+            limits_config:
+              # 30d, but the PVC bound below is what really stops growth: Loki
+              # has no size-based retention (only time), so with 20Gi on the
+              # node and the observed ~22KB/s of logs this is roughly 6-12GB
+              # of compressed chunks. If the claim fills before 30d, lower this
+              # rather than moving the volume off node-local disk.
+              retention_period: 720h
+              reject_old_samples: true
+              reject_old_samples_max_age: 168h
+              max_cache_freshness_per_query: 10m
+              split_queries_by_interval: 15m
+              query_timeout: 300s
+              volume_enabled: true
+            compactor:
+              working_directory: /var/loki/compactor
+              # Retention only ever runs through the compactor, and deleting
+              # filesystem chunks needs the store named explicitly.
+              retention_enabled: true
+              retention_delete_delay: 2h
+              delete_request_store: filesystem
+            ingester:
+              chunk_encoding: snappy
+            querier:
+              # Two concurrent queries is what a single Grafana user consumes.
+              max_concurrent: 2
+            analytics:
+              reporting_enabled: false
+          # --- no Loki-side alerting ---------------------------------------
+          # Alert rules are Grafana-managed, so neither the ruler nor the
+          # rules sidecar is started.
+          ruler:
+            enabled: false
+          sidecar:
+            rules:
+              enabled: false
+          # --- the single binary pod ---------------------------------------
+          # The chart's podSecurityContext (fsGroup 10001, fsGroupChangePolicy
+          # OnRootMismatch) is what makes /var/loki writable for uid 10001: the
+          # claim is a `local` volume (PV spec.local), and kubelet applies a
+          # pod's fsGroup to local volumes when it mounts them. Grafana is not
+          # the precedent for that — its chart ships an explicit init-chown-data
+          # running `chown -R 472:472 /var/lib/grafana` (Grafana sets fsGroup
+          # 472 as well, but the init container is what owns the directory). If
+          # this pod ever logs `permission denied` on /var/loki, the fix is an
+          # init container shaped exactly like the Prometheus `data-permissions`
+          # one above (chown 10001:10001 /var/loki, volume `storage` mounted
+          # there) wired in through singleBinary.initContainers — not loosening
+          # the securityContext.
+          singleBinary:
+            replicas: 1
+            persistence:
+              enabled: true
+              # openebs-hostpath does not enforce the claim size (the node's
+              # free disk is the real bound); retention above is the other
+              # bound and wins if the two disagree.
+              size: 20Gi
+              storageClass: openebs-hostpath
+              # A sync, prune or future helm release must never delete chunks.
+              whenDeleted: Retain
+              whenScaled: Retain
+              annotations:
+                argocd.argoproj.io/sync-options: Prune=false,Delete=false
+            # Same rule as Prometheus and Grafana: workers 01-03 only, never
+            # the leader (~82% memory) and never the unavailable worker-04.
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                    - matchExpressions:
+                        - key: kubernetes.io/hostname
+                          operator: In
+                          values:
+                            - k8s-worker-01
+                            - k8s-worker-02
+                            - k8s-worker-03
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: "1"
+                memory: 1Gi
+            extraEnv:
+              # Keeps Go's heap under the container limit so the runtime
+              # collects instead of the pod being OOM-killed.
+              - name: GOMEMLIMIT
+                value: 900MiB
+          # --- subcharts and modes that must stay off ----------------------
+          # Each of these deploys pods of its own: memcached for the two
+          # caches, an nginx gateway in front of Loki, the canary, a minio
+          # StatefulSet and the helm test hook. One cluster's log store needs
+          # none of them, and Alloy and Grafana address loki:3100 directly (a
+          # gateway would be a second entry point to keep in step).
+          chunksCache:
+            enabled: false
+          resultsCache:
+            enabled: false
+          gateway:
+            enabled: false
+          lokiCanary:
+            enabled: false
+          test:
+            enabled: false
+          minio:
+            enabled: false
+          # SingleBinary renders the one StatefulSet above; these three are the
+          # scalable-mode components and must not also render here.
+          backend:
+            replicas: 0
+          read:
+            replicas: 0
+          write:
+            replicas: 0
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

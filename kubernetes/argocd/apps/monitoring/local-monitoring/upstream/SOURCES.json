@@ -1,0 +1,90 @@
+{
+  "kepler/kepler-exporter.json": {
+    "sha256": "937e5e5850c290fd63e359f41c8dacf7bbe3b3e962a154b879f446a42abc6afe",
+    "url": "https://raw.githubusercontent.com/sustainable-computing-io/kepler/v0.8.0/grafana-dashboards/Kepler-Exporter.json"
+  },
+  "kube-prometheus/dashboards/cluster-total.json": {
+    "sha256": "ea2edc93ac2f49b55b63819feab1e0c36b57196383a607fa6abefb1d8680ab74",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/dashboards/k8s-resources-cluster.json": {
+    "sha256": "37a6ba0e60d97c7e0535f5615f7e3242a706c67195688fba1a59cb48ce55c4d3",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/dashboards/k8s-resources-namespace.json": {
+    "sha256": "d1a4142e91a91827994ba53e2e410afaec07e845bb44548a01059058de2cb98b",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/dashboards/k8s-resources-node.json": {
+    "sha256": "5ab31515f6b1750267ac5fc06eccdee0317c6f282d1f640ebf3f631ec9dd274d",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/dashboards/k8s-resources-pod.json": {
+    "sha256": "edb2e31de3ccbb152a82dd405b01f79dd71adc5f82240d38612c640cede40d61",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/dashboards/k8s-resources-workload.json": {
+    "sha256": "d1d6abe96929076089c3869fd205cfaefc4ef150f69ede9d3af02252ac994a40",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/dashboards/k8s-resources-workloads-namespace.json": {
+    "sha256": "4c51dd5f58bd0adc437716d121c69021eac6d05e0a4c1b0e2278ec5fca0f1dd9",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/dashboards/kubelet.json": {
+    "sha256": "8d9d3bd084307a5142ed7ee6aa33c625f38b892a63e4eac1fd000fd327aedaab",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/dashboards/namespace-by-pod.json": {
+    "sha256": "c9e0672548c5465439c8eed25e3e1a1b11e3257da2d8916e24b6e23707fe0d03",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/dashboards/namespace-by-workload.json": {
+    "sha256": "d9f94c257e5a353e353a7dd213e8b4f4ce29c557bc98b3a324c1a99c16b08285",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/dashboards/node-cluster-rsrc-use.json": {
+    "sha256": "7b89997b56a9f7f982359608a506b27ff48e95fc5e764cff9acb767a8b4ac0a5",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/dashboards/node-rsrc-use.json": {
+    "sha256": "4b866ac2c4e13a2e51ce1578a598ea7941e1ca1a4a986c651ac5dd59b5b90bde",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/dashboards/nodes.json": {
+    "sha256": "898df568cad9cd8ab4a0dd55bcda29e447d4b1619d45745e590bafe983666b83",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/dashboards/persistentvolumesusage.json": {
+    "sha256": "c21c46955a391edfcbb86420831e0d0c360f9232fa8c9625798251183521affb",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/dashboards/pod-total.json": {
+    "sha256": "de2edbd37ec323f4e0f7d66ae5ab3be6c4a70d21f3a1f82a42d52dd714e4d5de",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/dashboards/workload-total.json": {
+    "sha256": "14588ca08b77e9b2e5f87a2ea744ddf00716a9bd7c25905e116125b60fc7b9c1",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/grafana-dashboardDefinitions.yaml"
+  },
+  "kube-prometheus/kubePrometheus-prometheusRule.yaml": {
+    "sha256": "5bf4529862bf908953a6331c926d9a21435a69b0946187bbf40fcb17e62231c6",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/kubePrometheus-prometheusRule.yaml"
+  },
+  "kube-prometheus/kubeStateMetrics-prometheusRule.yaml": {
+    "sha256": "aa2eea1c3e82c6a100648c26a4f032e8831071f169ab7a5a6bc46f60d4b5ba5e",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/kubeStateMetrics-prometheusRule.yaml"
+  },
+  "kube-prometheus/kubernetesControlPlane-prometheusRule.yaml": {
+    "sha256": "757b5ad26bad2a9f04a77f8052d65724722aaa192b36499462d16ef06bd2490f",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/kubernetesControlPlane-prometheusRule.yaml"
+  },
+  "kube-prometheus/nodeExporter-prometheusRule.yaml": {
+    "sha256": "ae160575bd33a4d17281180caf0ccdd513957a66cb790f25627ff1dd110a9a2a",
+    "url": "https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/e98ba309f76b5838ef0fa89c24b73e67edf3ecd4/manifests/nodeExporter-prometheusRule.yaml"
+  },
+  "opencost/overview.json": {
+    "sha256": "3f6eeddce09abdf967fcf856c692125a3dbb3f01240cbd8541656ffadd603359",
+    "url": "https://grafana.com/api/dashboards/22208/revisions/8/download"
+  }
+}

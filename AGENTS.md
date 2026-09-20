@@ -15,7 +15,7 @@ This repository is a personal "homelab" setup that serves multiple objectives:
   - **Storage**: NFS subdir external provisioner
   - **Database**: PostgreSQL (CloudNativePG operator)
   - **Security**: cert-manager, SOPS operator for secrets
-  - **Monitoring**: Grafana Cloud integration
+  - **Monitoring**: In-cluster Prometheus + Loki + Grafana (dashboards, recording rules and alert evaluation, Discord delivery); Grafana Cloud only as a bounded off-site health signal
   - **DNS**: AdGuard Home
 
 ## Services Hosted
@@ -85,7 +85,7 @@ The public-data futures measurement workload (`kubernetes/argocd/apps/workloads/
 
 **One-off jobs and alerts:**
 - `task measurement:report-run` and `task measurement:pull-run` create one-off Jobs from the report and SSH-pull CronJobs and tail their logs; the pull path never writes to or deletes anything on the capture host.
-- `task measurement:alerts-apply` writes the Grafana Cloud alert rules (Grafana evaluates them; there is no in-cluster Prometheus). `GRAFANA_URL` and `GRAFANA_TOKEN` plus folder/datasource UIDs are required; `DRY_RUN=1` prints the payload without sending it.
+- `task measurement:alerts-apply` writes the Grafana Cloud alert rules (these are the off-site rules evaluated by Grafana Cloud; the in-cluster Grafana provisions its own copy from git via `kubernetes/argocd/apps/monitoring/local-monitoring/generate-assets.py`, not through this task). `GRAFANA_URL` and `GRAFANA_TOKEN` plus folder/datasource UIDs are required; `DRY_RUN=1` prints the payload without sending it.
 
 **Operational notes:**
 - Deploy by committing and pushing to `main`; ArgoCD auto-syncs (prune + selfHeal) within a few minutes. No measurement task applies manifests — do not `kubectl apply` them.
