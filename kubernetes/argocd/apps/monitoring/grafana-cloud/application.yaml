@@ -24,15 +24,31 @@ spec:
         valuesObject:
           cluster:
             name: paulynomial
+          # This app owns the collectors, the telemetry services and the bounded off-site
+          # metrics subset; the sibling `local-monitoring` app owns Prometheus, Loki,
+          # Grafana, every dashboard and alert rule, and Discord delivery.
           destinations:
-            # Local Prometheus is the primary metrics store; it receives every metric
-            # currently collected by the cluster features.
+            # Local Prometheus is the primary metrics store: it receives every metric the
+            # cluster features collect, so the local dashboards and rules never depend on
+            # the Cloud allowlist below.
             local-prometheus:
               type: prometheus
               url: http://prometheus-server.monitoring.svc.cluster.local/api/v1/write
-            # Grafana Cloud keeps only the bounded health allowlist below. 4.x features
-            # with an empty `destinations` filter write to all capable destinations, so
-            # both destinations receive the full metric set and this rule bounds Cloud.
+            # Pod logs and cluster events go to the in-cluster Loki and nowhere else. Grafana
+            # Cloud no longer receives logs or traces at all: the logs/traces destinations and
+            # the unused OTLP receiver were deleted, so metrics are the only thing that
+            # leaves the cluster.
+            local-loki:
+              type: loki
+              url: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
+            # Grafana Cloud keeps only the bounded health allowlist below. 4.x features with
+            # an empty `destinations` filter write to all capable destinations, so both metric
+            # destinations receive the full metric set and this rule bounds Cloud. The two
+            # `[off-site] capture site silent` rules that depend on it are not part of this
+            # repository and not part of the sibling app: `task measurement:alerts-apply`
+            # creates them in the Grafana Cloud tenant, which is where they are evaluated.
+            # That is why this allow-list stays: with no series in Cloud there is nothing
+            # for those two off-site rules to evaluate.
             grafana-cloud-metrics:
               type: prometheus
               url: https://prometheus-prod-36-prod-us-west-0.grafana.net/api/prom/push
@@ -50,43 +66,69 @@ spec:
                   regex         = "market_recorder_.*|market_research_capture_end_timestamp_seconds|market_research_report_available|market_research_report_timestamp_seconds|up|kube_node_status_condition|kube_pod_status_phase|kube_pod_container_status_restarts_total|kube_persistentvolumeclaim_status_phase|kubelet_volume_stats_available_bytes|kubelet_volume_stats_capacity_bytes|node_filesystem_avail_bytes|node_filesystem_size_bytes|node_filesystem_readonly|kube_job_status_failed|kube_job_status_succeeded|kube_cronjob_status_last_successful_time"
                   action        = "keep"
                 }
-            grafana-cloud-logs:
-              type: loki
-              url: https://logs-prod-021.grafana.net/loki/api/v1/push
-              auth:
-                type: basic
-                usernameKey: "loki-username"
-                passwordKey: "access-token"
-              secret:
-                create: false
-                name: grafana-cloud
-                namespace: monitoring
-            grafana-cloud-traces:
-              type: otlp
-              url: https://tempo-prod-15-prod-us-west-0.grafana.net:443
-              protocol: grpc
-              auth:
-                type: basic
-                usernameKey: "otlp-username"
-                passwordKey: "access-token"
-              secret:
-                create: false
-                name: grafana-cloud
-                namespace: monitoring
-              metrics:
-                enabled: false
-              logs:
-                enabled: false
-              traces:
-                enabled: true
+          # The chart's default keep lists drop the metrics below, but the vendored
+          # kube-prometheus rules and the Kubernetes dashboards in `local-monitoring` read
+          # them: readiness/PDB state and PV capacity from kube-state-metrics, its own self
+          # metrics, and kubelet evictions plus the histogram buckets behind the
+          # kubelet/runtime panels. `includeMetrics` entries are joined into the chart's
+          # `keep` regex alongside its default list.
           clusterMetrics:
             enabled: true
             collector: alloy-metrics
+            kube-state-metrics:
+              metricsTuning:
+                includeMetrics:
+                  - kube_persistentvolume_capacity_bytes
+                  - kube_pod_status_ready
+                  - kube_poddisruptionbudget_status_current_healthy
+                  - kube_poddisruptionbudget_status_desired_healthy
+                  - kube_state_metrics_list_total
+                  - kube_state_metrics_shard_ordinal
+                  - kube_state_metrics_total_shards
+                  - kube_state_metrics_watch_total
+            kubelet:
+              metricsTuning:
+                includeMetrics:
+                  - kubelet_evictions
+                  - kubelet_runtime_operations_duration_seconds_bucket
+                  - rest_client_request_duration_seconds_bucket
+                  - storage_operation_duration_seconds_bucket
           hostMetrics:
             enabled: true
             collector: alloy-metrics
             linuxHosts:
               enabled: true
+              # The chart keeps this ~155 metric node-exporter list off by default, yet the
+              # Node Exporter dashboards and the node-exporter alert group read it:
+              # node_disk_*, node_load*, node_timex_*, node_nf_conntrack_*, node_netstat_*,
+              # node_network_*_errs/packets/up, node_filefd_*, node_vmstat_pgmajfault,
+              # node_md_*, node_systemd_*, node_textfile_scrape_error. The three metrics
+              # below are missing even from that integration allow-list, so they are
+              # appended here; node_time_seconds is the backer of the `cluster` template
+              # variable on both USE Method dashboards
+              # (label_values(node_time_seconds, cluster)), which render blank without it.
+              metricsTuning:
+                useDefaultAllowList: true
+                useIntegrationAllowList: true
+                includeMetrics:
+                  - node_bonding_active
+                  - node_bonding_slaves
+                  - node_time_seconds
+            # telemetryServices deploys Kepler below, but nothing scrapes it unless this
+            # sub-feature is enabled. The chart's default allow-list is `kepler_.*` (~1.1k
+            # series per node), so the default is turned off and only the metrics the Kepler
+            # dashboard reads are kept.
+            energyMetrics:
+              enabled: true
+              metricsTuning:
+                useDefaultAllowList: false
+                includeMetrics:
+                  - kepler_container_joules_total
+                  - kepler_container_package_joules_total
+                  - kepler_container_dram_joules_total
+                  - kepler_container_other_joules_total
+                  - kepler_container_gpu_joules_total
+                  - kepler_node_.*
           costMetrics:
             enabled: true
             collector: alloy-metrics
@@ -96,31 +138,14 @@ spec:
           clusterEvents:
             enabled: true
             collector: alloy-singleton
+            # Explicit even though `local-loki` is the only loki destination: an empty filter
+            # means "every capable destination", which would silently change meaning if
+            # another loki destination is ever added.
+            destinations: [local-loki]
           podLogsViaLoki:
             enabled: true
             collector: alloy-logs
-          applicationObservability:
-            enabled: true
-            collector: alloy-receiver
-            # The OTLP destination carries traces only (metrics/logs disabled above),
-            # so the metrics and logs pipelines stay off to match its capabilities.
-            metrics:
-              enabled: false
-            logs:
-              enabled: false
-            traces:
-              enabled: true
-            receivers:
-              otlp:
-                grpc:
-                  enabled: true
-                  port: 4317
-                http:
-                  enabled: true
-                  port: 4318
-              zipkin:
-                enabled: true
-                port: 9411
+            destinations: [local-loki]
           # v3 deployed these telemetry services from inside clusterMetrics; 4.x splits
           # deployment out and requires it explicitly. Same services as before.
           telemetryServices:
@@ -214,51 +239,6 @@ spec:
                         fieldPath: spec.nodeName
                   - name: GCLOUD_FM_COLLECTOR_ID
                     value: grafana-k8s-monitoring-$(CLUSTER_NAME)-$(NAMESPACE)-alloy-logs-$(NODE_NAME)
-              remoteConfig:
-                enabled: false
-            alloy-receiver:
-              presets: [daemonset]
-              # The receiver Service name is fixed at `alloy-receiver` for callers.
-              # In 4.x this is a collector-level key (sibling of `alloy`), not `alloy.extraService`.
-              extraService:
-                enabled: true
-                fullname: "alloy-receiver"
-              alloy:
-                extraPorts:
-                  - name: otlp-grpc
-                    port: 4317
-                    targetPort: 4317
-                    protocol: TCP
-                  - name: otlp-http
-                    port: 4318
-                    targetPort: 4318
-                    protocol: TCP
-                  - name: zipkin
-                    port: 9411
-                    targetPort: 9411
-                    protocol: TCP
-                extraEnv:
-                  - name: CLUSTER_NAME
-                    value: paulynomial
-                  - name: GCLOUD_RW_API_KEY
-                    valueFrom:
-                      secretKeyRef:
-                        name: grafana-cloud
-                        key: access-token
-                  - name: NAMESPACE
-                    valueFrom:
-                      fieldRef:
-                        fieldPath: metadata.namespace
-                  - name: POD_NAME
-                    valueFrom:
-                      fieldRef:
-                        fieldPath: metadata.name
-                  - name: NODE_NAME
-                    valueFrom:
-                      fieldRef:
-                        fieldPath: spec.nodeName
-                  - name: GCLOUD_FM_COLLECTOR_ID
-                    value: grafana-k8s-monitoring-$(CLUSTER_NAME)-$(NAMESPACE)-alloy-receiver-$(NODE_NAME)
               remoteConfig:
                 enabled: false
   destination:
