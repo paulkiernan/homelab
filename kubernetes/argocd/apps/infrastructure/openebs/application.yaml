@@ -29,6 +29,24 @@ spec:
         localpv-provisioner:
           localpv:
             basePath: /var/openebs/local
+        # The chart bundles an optional Loki + MinIO + Alloy log stack that is
+        # on by default, and additionally renders two hostpath StorageClasses
+        # (openebs-loki-localpv, openebs-minio-localpv) whose BasePath
+        # /var/local/openebs/localpv-hostpath is not mounted on these Talos
+        # nodes — the openebs-local machine patch only binds /var/openebs/local.
+        # The 3 Loki and 3 MinIO pods have been stuck in FailedMount since
+        # install, and the Alloy DaemonSet runs but ships to a Loki that never
+        # started. Nothing consumed the bundle anyway: the cluster's log store
+        # is the filesystem-backed `loki` StatefulSet in the monitoring
+        # namespace, and no other collector targets openebs-loki. The two
+        # StorageClasses are gated on loki.enabled, so disabling it removes
+        # them too. This touches only the logging bundle: the
+        # openebs-hostpath StorageClass and the openebs-localpv-provisioner
+        # Deployment that provision every PVC in the cluster stay enabled.
+        loki:
+          enabled: false
+        alloy:
+          enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: openebs
