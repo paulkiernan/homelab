@@ -2,12 +2,14 @@
 # Manifests for the local-monitoring ArgoCD app (see ../application.yaml for the
 # architecture and the boundary with the grafana-cloud collector app).
 #
-# Five of the ConfigMaps here are generated files. The market ones
+# Six of the ConfigMaps here are generated files. The market ones
 # (grafana-dashboards-, grafana-alerting-) come from the canonical definitions
 # in paulkiernan/diff-logic-cells; the Kubernetes dashboards, cluster alert
 # rules and Prometheus recording rules come from the upstream files vendored
-# under ../upstream/ by ../fetch-upstream.py. Regenerate from this app's
-# directory with
+# under ../upstream/ by ../fetch-upstream.py; the homelab cluster capacity
+# alerting rules come from ../alerts/homelab-capacity.yaml, which is
+# hand-authored source in this repository. Regenerate from this app's directory
+# with
 #
 #   python3 fetch-upstream.py            # re-vendor and re-verify upstream/
 #   python3 fetch-upstream.py --check    # re-hash the vendored files, no network
@@ -37,6 +39,10 @@ resources:
   - grafana-dashboards-kubernetes-configmap.yaml
   - grafana-alerting-kubernetes-configmap.yaml
   - prometheus-rules-configmap.yaml
+  # Cluster capacity alert rules generated from the hand-authored
+  # ../alerts/homelab-capacity.yaml (not vendored and not from
+  # diff-logic-cells) — do not hand-edit this one either.
+  - grafana-alerting-homelab-configmap.yaml
   # Contact point + root notification policy (hand-maintained, no secrets).
   - grafana-notifications-configmap.yaml
   # Private tailnet access: grafana UI, and the metrics-ingest receiver for the

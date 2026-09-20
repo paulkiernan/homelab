@@ -1,0 +1,263 @@
+# Homelab-authored cluster capacity rules. Hand-maintained SOURCE, not a
+# vendored file (nothing under upstream/) and not generated from
+# paulkiernan/diff-logic-cells (those are the market-measurement rules).
+#
+# The file is a Prometheus rule file — a top-level `groups:` list, the same
+# shape as the `spec` of the vendored kube-prometheus PrometheusRules — so the
+# rules stay directly loadable by Prometheus and go through generate-assets.py's
+# unchanged Prometheus-alert -> Grafana-rule conversion. They land in the
+# `Kubernetes` folder next to the upstream set, so they route and notify
+# exactly like every other cluster alert.
+#
+# Why these exist at all: the vendored upstream set answers "is the cluster
+# healthy?", not "is there room for more work?". It leaves two gaps, and every
+# rule below states why upstream does not already cover it.
+#
+#   Compute: KubeCPUOvercommit / KubeMemoryOvercommit are cluster-wide rules
+#   about surviving the loss of one node. Neither can see a single node filling
+#   up, and both divide by the total cluster allocatable — which still includes
+#   the unreachable k8s-worker-04 (down since 2026-03-14), so they understate
+#   pressure on the nodes that do exist. Pod-slot exhaustion is deliberately
+#   NOT covered here: KubeletTooManyPods already does exactly that, and a
+#   second rule for it would only double-page.
+#
+#   Storage: NodeFilesystemAlmostOutOfSpace fires only below 5% free (3%
+#   critical), which on these ~237 GiB disks means ~12 GiB / ~7 GiB left — far
+#   too late to move data, and NodeFilesystemSpaceFillingUp needs a 24h fill
+#   *trend*, so a slow steady fill never alerts until the disk is nearly full.
+#   Upstream has no plain disk-utilisation threshold; that is the gap these
+#   rules close. There is also no per-PVC rule here on purpose: openebs-hostpath
+#   does not enforce claim sizes and kubelet reports the underlying filesystem
+#   (the node's /var) for every such PV, so a claim-vs-usage ratio cannot be
+#   computed from the metrics that exist (measured: PVC prometheus-server has a
+#   20Gi claim while kubelet_volume_stats_capacity_bytes reports 237.5 GiB for
+#   it). /var is the real bound, and that is what HomelabNodeDiskSpaceHigh
+#   watches.
+#
+# Measured against the live cluster on 2026-09-19, no rule here fires: worst
+# node /var 38.4% (k8s-worker-02), worst CPU requests 53.3% and worst memory
+# requests 62.0% (both k8s-leader-01), Prometheus TSDB+WAL 0.4% of its claim.
+groups:
+  - name: homelab-capacity
+    rules:
+      # The only direct measure of "the cluster cannot accept this workload":
+      # the scheduler has already given up on it. Upstream has nothing
+      # equivalent — KubePodNotReady fires for a pod that is running but not
+      # ready, which is a different failure — and no upstream rule reads
+      # kube_pod_status_unschedulable at all.
+      #
+      # NOTE: kube_pod_status_unschedulable is not in the kube-state-metrics
+      # allow-list the collectors apply today; a parallel change adds it, and
+      # until that lands this rule is inert (which is why its expression also
+      # returns no series at all). It is committed now so the alert exists the
+      # moment the metric starts arriving.
+      - alert: HomelabPodUnschedulable
+        expr: |
+          kube_pod_status_unschedulable{job="integrations/kubernetes/kube-state-metrics"} == 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: >-
+            Pod {{ $labels.namespace }}/{{ $labels.pod }} cannot be scheduled.
+          description: >-
+            The scheduler has marked pod {{ $labels.namespace }}/{{ $labels.pod }} unschedulable and it has
+            stayed that way for 15 minutes: no node has enough free resources, a matching
+            node selector/taint, or both. Check the pod's events for the binding failure reason.
+
+      # Requests, not usage: requests are what decides whether one more pod fits
+      # on a node, so this is the right signal for "the cluster is running out
+      # of schedulable compute". Upstream's KubeCPUOvercommit is cluster-wide
+      # and, as the file header explains, cannot see a single node filling up.
+      #
+      # phase=~"Pending|Running" is MANDATORY. kube_pod_container_resource_requests
+      # keeps the requests of every pod object that still exists, including
+      # Succeeded/Failed Job pods, and kube_pod_info is emitted for those too;
+      # without the filter the join attributes those requests to the node they
+      # once ran on and inflates the ratio. Measured 2026-09-19: k8s-worker-03
+      # reads 55.7% instead of its true 30.4%, k8s-worker-02 36.9% instead of
+      # 22.4% — both close enough to the warning tier to cry wolf.
+      - alert: HomelabNodeCPURequestsHigh
+        expr: |
+          100 * (sum by (node) (
+              kube_pod_container_resource_requests{resource="cpu"}
+              * on (namespace,pod,cluster) group_left(node)
+                (max by (namespace,pod,cluster,node) (kube_pod_info)
+                 * on (namespace,pod,cluster) group_left() (kube_pod_status_phase{phase=~"Pending|Running"} == 1))
+            ) / sum by (node) (kube_node_status_allocatable{resource="cpu"})) > 80
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: >-
+            Node {{ $labels.node }} has over 80% of its allocatable CPU requested.
+          description: >-
+            {{ $labels.node }} is at {{ printf "%.1f" $value }}% CPU requests against its allocatable CPU,
+            sustained for 30 minutes. New pods needing non-trivial CPU are likely to stay Pending;
+            look for workloads that grew or a node that is draining/holding capacity.
+
+      # Critical tier of the same measure: at 90% requests a node has effectively
+      # no room left, and the next rollout is where it shows up as Pending pods.
+      - alert: HomelabNodeCPURequestsHigh
+        expr: |
+          100 * (sum by (node) (
+              kube_pod_container_resource_requests{resource="cpu"}
+              * on (namespace,pod,cluster) group_left(node)
+                (max by (namespace,pod,cluster,node) (kube_pod_info)
+                 * on (namespace,pod,cluster) group_left() (kube_pod_status_phase{phase=~"Pending|Running"} == 1))
+            ) / sum by (node) (kube_node_status_allocatable{resource="cpu"})) > 90
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: >-
+            Node {{ $labels.node }} has over 90% of its allocatable CPU requested.
+          description: >-
+            {{ $labels.node }} is at {{ printf "%.1f" $value }}% CPU requests against its allocatable CPU.
+            The node is saturated for scheduling purposes; pods that land on it will also contend for
+            the CPU itself. Rebalance or add capacity.
+
+      # MEASURED CAVEAT, so this rule is read for what it is: on this cluster
+      # memory is load-bound, not request-bound — actual usage exceeds requests
+      # on every node (k8s-worker-01: 53.8% actual vs 14.4% requested), because
+      # the workload mix is bursty and most containers carry no memory request.
+      # A high request ratio here therefore means "no room left to schedule",
+      # not "memory is nearly exhausted". The existing upstream
+      # NodeMemoryHighUtilization (90% of *actual* memory) covers the exhaustion
+      # case; this rule complements it and does not replace it.
+      - alert: HomelabNodeMemoryRequestsHigh
+        expr: |
+          100 * (sum by (node) (
+              kube_pod_container_resource_requests{resource="memory"}
+              * on (namespace,pod,cluster) group_left(node)
+                (max by (namespace,pod,cluster,node) (kube_pod_info)
+                 * on (namespace,pod,cluster) group_left() (kube_pod_status_phase{phase=~"Pending|Running"} == 1))
+            ) / sum by (node) (kube_node_status_allocatable{resource="memory"})) > 80
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: >-
+            Node {{ $labels.node }} has over 80% of its allocatable memory requested.
+          description: >-
+            {{ $labels.node }} is at {{ printf "%.1f" $value }}% memory requests against its allocatable
+            memory, sustained for 30 minutes. New pods that declare a memory request are likely to stay
+            Pending. Note that actual memory use on this cluster runs well above requests, so check
+            NodeMemoryHighUtilization as well before concluding there is headroom.
+
+      # Critical tier: past 90% requests the node cannot absorb a normal pod.
+      - alert: HomelabNodeMemoryRequestsHigh
+        expr: |
+          100 * (sum by (node) (
+              kube_pod_container_resource_requests{resource="memory"}
+              * on (namespace,pod,cluster) group_left(node)
+                (max by (namespace,pod,cluster,node) (kube_pod_info)
+                 * on (namespace,pod,cluster) group_left() (kube_pod_status_phase{phase=~"Pending|Running"} == 1))
+            ) / sum by (node) (kube_node_status_allocatable{resource="memory"})) > 90
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: >-
+            Node {{ $labels.node }} has over 90% of its allocatable memory requested.
+          description: >-
+            {{ $labels.node }} is at {{ printf "%.1f" $value }}% memory requests against its allocatable
+            memory. Scheduling on this node will fail for anything that asks for a real request;
+            rebalance workloads or add capacity.
+
+      # The real bound for every openebs-hostpath PV in this cluster:
+      # prometheus-server, storage-loki-0, grafana and market-recorder-spool all
+      # live under /var/openebs/local on their node, and openebs-hostpath does
+      # not enforce claim sizes — the node's free disk is the only limit. The
+      # filter currently matches exactly four series, /var on the four reachable
+      # nodes (k8s-worker-04 is down and node-exporter is not running there).
+      #
+      # Upstream coverage is too late by design: NodeFilesystemAlmostOutOfSpace
+      # only fires below 5% free (3% critical), i.e. ~12 GiB / ~7 GiB on these
+      # ~237 GiB disks, and NodeFilesystemSpaceFillingUp requires a 24h fill
+      # trend, so a slow steady fill never alerts. 75% is the lowest threshold
+      # that leaves time to act without firing on normal churn.
+      - alert: HomelabNodeDiskSpaceHigh
+        expr: |
+          100 * (1 - node_filesystem_avail_bytes{job="integrations/node_exporter",fstype=~"xfs|ext4",mountpoint!~"/boot.*"}
+                    / node_filesystem_size_bytes{job="integrations/node_exporter",fstype=~"xfs|ext4",mountpoint!~"/boot.*"}) > 75
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: >-
+            {{ $labels.instance }}:{{ $labels.mountpoint }} is over 75% full.
+          description: >-
+            Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is {{ printf "%.1f" $value }}% full
+            (fstype {{ $labels.fstype }}). Node-local volume claims are not enforced on this cluster —
+            openebs-hostpath serves them from this filesystem and reports the filesystem, not the claim —
+            so a runaway volume (Prometheus TSDB, Loki chunks, the market capture spool) is the likely
+            cause rather than a full claim. Free space or fix the volume before the filesystem itself fills.
+
+      # Critical tier: at 90% there is ~24 GiB left on a ~237 GiB /var, which is
+      # roughly the headroom one compaction or chunk flush eats.
+      - alert: HomelabNodeDiskSpaceHigh
+        expr: |
+          100 * (1 - node_filesystem_avail_bytes{job="integrations/node_exporter",fstype=~"xfs|ext4",mountpoint!~"/boot.*"}
+                    / node_filesystem_size_bytes{job="integrations/node_exporter",fstype=~"xfs|ext4",mountpoint!~"/boot.*"}) > 90
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: >-
+            {{ $labels.instance }}:{{ $labels.mountpoint }} is over 90% full.
+          description: >-
+            Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is {{ printf "%.1f" $value }}% full
+            (fstype {{ $labels.fstype }}). At this point writes to any hostpath volume on the node —
+            Prometheus TSDB, Loki chunks, the capture spool, Grafana's DB — can fail. Free space now.
+
+      # Prometheus' own bound, because its PV is a hostpath volume: the claim
+      # size is not enforced, so what protects the node's /var is retention.
+      # Upstream has nothing equivalent — the vendored kube-prometheus set does
+      # not even include the upstream Prometheus group (its rules cover scrape
+      # and TSDB *failures*, never how much space the TSDB occupies), and no
+      # vendored rule reads prometheus_tsdb_* at all.
+      # application.yaml sets retention: 60d together with retentionSize: 14GB
+      # on a 20Gi claim (14 GB decimal is ~13.0 GiB, so ~65% of the claim), and
+      # retentionSize is meant to be the cap that holds when the two disagree.
+      # Crossing 75% of the claim therefore means retention is NOT holding —
+      # most likely the recording-rule series set grew faster than the blocks
+      # can be deleted, or the WAL outgrew its share — and the TSDB is on course
+      # to eat the node's /var.
+      #
+      # The denominator is hard-coded to the 20Gi claim in application.yaml and
+      # must be updated in the same change as that claim.
+      - alert: HomelabPrometheusStorageHigh
+        expr: |
+          100 * (prometheus_tsdb_storage_blocks_bytes{job="prometheus"} + prometheus_tsdb_wal_storage_size_bytes{job="prometheus"})
+                / (20 * 1024 * 1024 * 1024) > 75
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: >-
+            Prometheus TSDB is over 75% of its 20Gi claim.
+          description: >-
+            Blocks plus WAL are {{ printf "%.2f" $value }}% of the 20Gi claim, above the ~65% that the
+            configured retentionSize: 14GB should enforce: retention is not holding. Prometheus is on a
+            hostpath volume, so the claim does not bound it and the node's /var (see
+            HomelabNodeDiskSpaceHigh) is what fills next. Check series cardinality and the
+            prometheus_tsdb_* metrics.
+
+      # Critical tier: at 90% of the claim, retention has clearly failed and the
+      # next step is /var filling on this node.
+      - alert: HomelabPrometheusStorageHigh
+        expr: |
+          100 * (prometheus_tsdb_storage_blocks_bytes{job="prometheus"} + prometheus_tsdb_wal_storage_size_bytes{job="prometheus"})
+                / (20 * 1024 * 1024 * 1024) > 90
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: >-
+            Prometheus TSDB is over 90% of its 20Gi claim.
+          description: >-
+            Blocks plus WAL are {{ printf "%.2f" $value }}% of the 20Gi claim. Retention (60d,
+            retentionSize 14GB) is manifestly not holding; the TSDB will start eating the node's /var
+            and take the other hostpath volumes (Loki, Grafana, the capture spool) with it. Reduce
+            retention now and investigate what grew.
