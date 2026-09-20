@@ -17,13 +17,23 @@ spec:
           containers:
             - name: reminder
               image: curlimages/curl:latest
+              # The explicit :3000 is REQUIRED — the tidewood-booking Service exposes
+              # only port 3000 (see service.yaml). Without it the URL targets port 80,
+              # where nothing listens: connects blackhole, curl hangs, and the Job dies
+              # on exhausted backoff — which silently failed every run for 174 days.
+              # A bare hostname still looks plausible, so keep the port.
+              # curl flags: -s -f stays quiet but exits non-zero on HTTP >= 400 (a 401
+              # must fail the Job); the timeouts bound each attempt so connectivity
+              # failures fail fast instead of slowly draining the backoff budget.
               command:
                 - sh
                 - -c
                 - |
                   curl -sf \
+                    --connect-timeout 10 \
+                    --max-time 60 \
                     -H "x-cron-secret: ${CRON_SECRET}" \
-                    http://tidewood-booking.tidewood-booking.svc.cluster.local/api/cron/reminder
+                    http://tidewood-booking.tidewood-booking.svc.cluster.local:3000/api/cron/reminder
               envFrom:
                 - secretRef:
                     name: tidewood-app-secrets
