@@ -86,17 +86,30 @@ jobs:
           fi
           echo "All SOPS files are properly encrypted."
 
+  commitlint:
+    name: commitlint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check commits follow Conventional Commits
+        uses: wagoid/commitlint-github-action@v6
+
   ci-status:
     name: ci-status
     runs-on: ubuntu-24.04
-    needs: [yaml-lint, kubeconform, sops-check]
+    needs: [yaml-lint, kubeconform, sops-check, commitlint]
     if: always()
     steps:
       - name: Verify CI results
         run: |
           results=("${{ needs.yaml-lint.result }}" \
                    "${{ needs.kubeconform.result }}" \
-                   "${{ needs.sops-check.result }}")
+                   "${{ needs.sops-check.result }}" \
+                   "${{ needs.commitlint.result }}")
           for result in "${results[@]}"; do
             if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
               echo "CI failed: one or more checks did not pass."
