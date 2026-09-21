@@ -1,0 +1,14 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: drift
+  namespace: drift
+spec:
+  selector:
+    app: drift
+  ports:
+    - port: 8787
+      targetPort: 8787
+      name: http
+      protocol: TCP

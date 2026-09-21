@@ -1,0 +1,60 @@
+---
+# Feature extraction worker: previews by ISRC -> Essentia -> ledger. Essentia publishes x86_64
+# Linux wheels only, so the image is amd64 and the pod is pinned to the amd64 node.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drift-worker
+  namespace: drift
+  labels:
+    app: drift-worker
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: drift-worker
+  template:
+    metadata:
+      labels:
+        app: drift-worker
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      containers:
+        - name: worker
+          image: ghcr.io/paulkiernan/drift-worker:0.1.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DRIFT_EXTRACTOR
+              value: "essentia"
+            - name: WORKER_CONCURRENCY
+              value: "2"
+            - name: MODELS_DIR
+              value: "/models"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: drift-db-app
+                  key: uri
+          volumeMounts:
+            - name: models
+              mountPath: /models
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "3Gi"
+              cpu: "2000m"
+      volumes:
+        # ~24 MB of model graphs, re-downloaded on a fresh pod; not worth a PVC.
+        - name: models
+          emptyDir: {}
+        # preview clips live here between download and extraction, then are deleted
+        - name: tmp
+          emptyDir: {}
+      imagePullSecrets:
+        - name: dockerconfigjson-github-com

@@ -1,0 +1,11 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - database.yaml
+  - server.yaml
+  - worker.yaml
+  - service.yaml
+  - ingress.yaml
+  - app-secrets.sops.yaml
+  - ghcr-pull-secret.sops.yaml

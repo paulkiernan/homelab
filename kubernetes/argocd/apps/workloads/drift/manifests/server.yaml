@@ -1,0 +1,69 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drift
+  namespace: drift
+  labels:
+    app: drift
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  # Live runs are held in memory and resumed from Postgres on boot; two servers on one database
+  # would each think they own the same run, so a rollout stops the old one before the new starts.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: drift
+  template:
+    metadata:
+      labels:
+        app: drift
+    spec:
+      containers:
+        - name: drift
+          image: ghcr.io/paulkiernan/drift:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8787
+              name: http
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "8787"
+            - name: PUBLIC_ORIGIN
+              value: "https://drift.paulynomial.com"
+            - name: DRIFT_SOURCE
+              value: "spotify"
+            - name: SERVE_WEB
+              value: "true"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: drift-db-app
+                  key: uri
+          envFrom:
+            - secretRef:
+                name: drift-app-secrets
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+      imagePullSecrets:
+        - name: dockerconfigjson-github-com
