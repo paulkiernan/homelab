@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: drift
-          image: ghcr.io/paulkiernan/drift:0.0.1
+          image: ghcr.io/paulkiernan/drift:0.1.1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8787
