@@ -46,9 +46,10 @@ spec:
           envFrom:
             - secretRef:
                 name: drift-app-secrets
+          # Liveness is process-only: /api/health pings Postgres, and restarting the pod on a
+          # database blip would drop every in-memory run mid-party. Readiness carries the DB check.
           livenessProbe:
-            httpGet:
-              path: /api/health
+            tcpSocket:
               port: http
             initialDelaySeconds: 15
             periodSeconds: 30
