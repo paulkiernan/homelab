@@ -26,6 +26,10 @@ This repository is a personal "homelab" setup that serves multiple objectives:
 
 ## Development Workflow
 
+### Commit messages
+
+Every commit is a [Conventional Commit](https://www.conventionalcommits.org/): `type(scope): subject`, with `feat`, `fix`, `chore`, `ci`, `docs`, `refactor` or `test` and the app or component as the scope (`chore(drift): deploy v0.2.0`, `fix(traefik): ...`). CI's `commitlint` job enforces it on pull requests.
+
 ### Taskfile Commands
 
 **IMPORTANT: This repository uses [Taskfile](https://taskfile.dev) for common operations.**
