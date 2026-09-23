@@ -7,7 +7,7 @@ on: # yamllint disable-line rule:truthy
 jobs:
   yaml-lint:
     name: yaml-lint
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -30,7 +30,7 @@ jobs:
 
   kubeconform:
     name: kubeconform
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -56,7 +56,7 @@ jobs:
 
   sops-check:
     name: sops-check
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -88,7 +88,7 @@ jobs:
 
   commitlint:
     name: commitlint
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -100,7 +100,7 @@ jobs:
 
   ci-status:
     name: ci-status
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [yaml-lint, kubeconform, sops-check, commitlint]
     if: always()
     steps:
