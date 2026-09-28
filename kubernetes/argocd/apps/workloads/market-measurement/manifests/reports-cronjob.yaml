@@ -54,7 +54,7 @@ spec:
           initContainers:
             # The NAS subdirectory is created by the provisioner as root.
             - name: reports-permissions
-              image: busybox:1.37
+              image: busybox:1.38
               command:
                 - sh
                 - -c
