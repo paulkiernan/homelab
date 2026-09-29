@@ -306,7 +306,7 @@ spec:
             enabled: false
     - chart: grafana
       repoURL: https://grafana-community.github.io/helm-charts
-      targetRevision: 13.2.6
+      targetRevision: 13.2.7
       helm:
         releaseName: grafana
         valuesObject:
