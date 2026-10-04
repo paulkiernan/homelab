@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: tidewood-booking
-          image: ghcr.io/paulkiernan/tidewood-booking:0.13.11
+          image: ghcr.io/paulkiernan/tidewood-booking:0.13.13
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
