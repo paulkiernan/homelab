@@ -17,7 +17,7 @@ spec:
       targetRevision: 30.0.1
     - chart: k8s-monitoring
       repoURL: https://grafana.github.io/helm-charts
-      targetRevision: 4.5.2
+      targetRevision: 4.5.3
       helm:
         # k8s-monitoring 4.x values layout (destinations map, collectors map with presets).
         # Migration: https://grafana.com/docs/grafana-cloud/observe-and-act/monitor-infrastructure/kubernetes-monitoring/configuration/helm-chart-config/helm-chart/migrate-helm-chart/
