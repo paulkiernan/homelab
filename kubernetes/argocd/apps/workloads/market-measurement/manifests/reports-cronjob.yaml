@@ -37,12 +37,19 @@ spec:
       # Measured on 2026-10-13 against the live archive (1,243 sealed chunks),
       # on an arm64 worker, with output unbuffered so the phases were visible:
       #   verify-archive.sh ........... 3m07s
-      #   futures_report homelab ...... 5h30m38s (one core, ~40Mi RSS)
+      #   futures_report homelab ...... 5h30m38s (0.8 core avg, 95Mi peak)
       #   futures_report aws-us-east-1  >26m (cut off by the probe's own limit)
-      # The last success, 2026-09-25 at ~379 chunks, finished in ~1h55m, so
-      # runtime grows roughly linearly with the archive: about +12 min per day
-      # of capture. It is CPU-bound on a single core with tiny memory, so more
-      # memory or a CPU limit change does not help.
+      # Both sites are one continuous run since 2026-09-17 of the same shape
+      # (~625 hourly chunks, ~5.1 GB each), so aws-us-east-1 costs the same as
+      # homelab. The last success, 2026-09-25 at ~190 chunks per site,
+      # finished homelab in ~1h55m, so runtime grows roughly linearly with the
+      # archive: about +12 min per site per day of capture. It is CPU-bound on
+      # one core per site with tiny memory, so more memory does not help.
+      #
+      # report.sh runs the sites CONCURRENTLY (see scripts-configmap.yaml), so
+      # the job takes as long as one site, not the sum. That is what makes the
+      # runway below real: run sequentially, tonight's job would already be
+      # ~11h growing ~24 min/day, and 18h would last only ~2.5 weeks.
       #
       # This is a STOPGAP. futures_report recomputes the whole history every
       # night, so any fixed deadline eventually expires: 18h is roughly two
@@ -134,8 +141,14 @@ spec:
                 # DuckDB stages in bounded batches with a 512MB engine limit.
                 # The 967,680-row synthetic grid peaked at 1.04GiB RSS; allow
                 # headroom here. No CPU limit on the full-archive batch scan.
+                #
+                # Measured on the real archive 2026-10-13: 0.8 core average and
+                # 95Mi peak working set for one site over 6h. report.sh now runs
+                # one process per site concurrently, so the request is one core
+                # per configured site (two today) and the 2Gi limit still covers
+                # both with the synthetic-grid peak in reserve.
                 requests:
-                  cpu: 500m
+                  cpu: "2"
                   memory: 1Gi
                 limits:
                   memory: 2Gi
