@@ -1,0 +1,210 @@
+# Homelab-authored ArgoCD GitOps rules. Hand-maintained SOURCE, like its
+# sibling alerts/homelab-capacity.yaml: a Prometheus rule file (a top-level
+# `groups:` list) that generate-assets.py converts to Grafana rules in the
+# `Kubernetes` folder, so these route to the cluster Discord channel exactly
+# like every other cluster alert.
+#
+# Why these exist: every alert this cluster had answered a question about
+# workloads — are pods ready, are nodes healthy, is there disk left. None of
+# them asked whether the repository is still being applied. ArgoCD is the
+# control plane for everything here, and it was entirely unmonitored: nothing
+# scraped it, so there were no series to alert on.
+#
+# The failure that motivated them, found on 2026-10-13: the `immich` and
+# `traefik` Applications had been at sync_status=Unknown for about four weeks.
+# Renovate had bumped both Helm charts (immich 0.13.2 on 2026-09-10, traefik
+# 41.6.0 on 2026-09-16), each new chart tightened its values JSON schema, and
+# the existing values no longer validated — immich rejecting `ingress` under
+# `/immich`, traefik rejecting a top-level `globalArguments`. ArgoCD could not
+# render either app's manifests, so it could not diff them and stopped
+# reconciling both. Nothing fired. What makes this class of failure quiet is
+# that the *running* workloads stayed Healthy and kept serving traffic the whole
+# time: by every signal the cluster already had, nothing was wrong, while the
+# repository had silently stopped being the source of truth for the ingress
+# controller and the photo server. A commit to either app would have been
+# accepted, pushed, and then simply never applied.
+#
+# The series come from the ServiceMonitor in
+# kubernetes/bootstrap/argocd/metrics-servicemonitor.yaml, which scrapes the
+# application controller as job `argocd-metrics`. argocd_app_info is a gauge
+# with value 1 carrying the app's state in labels (name, health_status,
+# sync_status, autosync_enabled, project, dest_namespace), so each rule below is
+# a label match rather than a threshold, and none of them print $value — it is
+# always 1 and would say nothing.
+#
+# HomelabArgoCDControllerDown is the load-bearing rule of this file. The
+# converter emits noDataState=OK for every rule (see convert_alert_rule in
+# generate-assets.py), so if the controller stops being scraped the six rules
+# above it go quiet rather than firing — the exact silence this file exists to
+# end. Its expression therefore uses absent() as well as up==0, because a
+# deleted ServiceMonitor removes the `up` series altogether instead of setting
+# it to 0.
+#
+# Measured against the live cluster on 2026-10-13, before the fixes: immich and
+# traefik fire HomelabArgoCDAppManifestError, market-measurement fires
+# HomelabArgoCDAppDegraded, postgres fires HomelabArgoCDAppOutOfSync (foundry is
+# also OutOfSync but has auto-sync disabled, and is excluded by design),
+# grafana-cloud fires HomelabArgoCDAppStuckProgressing. The remaining two do not
+# fire.
+groups:
+  - name: argocd-gitops
+    rules:
+      # The gap this file was written for. sync_status=Unknown means ArgoCD
+      # could not compare desired to live state at all — a manifest render
+      # error, an unreachable repo, or a chart whose values no longer validate.
+      # It is strictly worse than OutOfSync: OutOfSync means ArgoCD knows there
+      # is a difference, Unknown means it has no idea, so auto-sync and
+      # self-heal are both inert and drift accumulates unseen.
+      #
+      # 1h because a repo-server restart or a cold manifest cache can show
+      # Unknown briefly; a real render error persists until someone fixes the
+      # values file, so no useful alert is lost by waiting.
+      - alert: HomelabArgoCDAppManifestError
+        expr: |
+          argocd_app_info{job="argocd-metrics", sync_status="Unknown"} == 1
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: >-
+            ArgoCD cannot render or compare application {{ $labels.name }}.
+          description: >-
+            Application {{ $labels.name }} (project {{ $labels.project }}, destination namespace
+            {{ $labels.dest_namespace }}) has had sync_status=Unknown for an hour: ArgoCD cannot
+            generate its manifests, so it cannot diff them and has stopped reconciling it
+            entirely. Auto-sync and self-heal do nothing in this state and the running workload
+            may still look Healthy, so commits to this app are silently not being applied.
+            Run `kubectl get application -n argocd {{ $labels.name }} -o jsonpath='{.status.conditions}'`
+            for the ComparisonError text; a Helm values schema rejection after a chart bump is
+            the common cause.
+
+      # Degraded is ArgoCD's own health roll-up over the app's resources: a
+      # failed Job, a Deployment that cannot progress, a CRD-specific health
+      # check that went red. Upstream kube-prometheus sees individual objects
+      # (KubeJobFailed, KubeDeploymentReplicasMismatch) but nothing attributes
+      # them back to the app that owns them, which is the unit this repository
+      # is actually organised in.
+      #
+      # 30m clears normal rollouts, which pass through Degraded on their way to
+      # Healthy when a new pod is briefly unready.
+      - alert: HomelabArgoCDAppDegraded
+        expr: |
+          argocd_app_info{job="argocd-metrics", health_status="Degraded"} == 1
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: >-
+            ArgoCD application {{ $labels.name }} is Degraded.
+          description: >-
+            Application {{ $labels.name }} has been Degraded for 30 minutes: at least one resource
+            it owns is failing its health check. Run
+            `kubectl get application -n argocd {{ $labels.name }} -o json | jq '.status.resources[]
+            | select(.health.status != null and .health.status != "Healthy")'` to see which one.
+
+      # Auto-sync closes an OutOfSync gap within a poll cycle (~3 minutes), so
+      # an hour of it means syncing is failing or blocked — a sync error, a
+      # hook that will not complete, or a resource ArgoCD cannot patch.
+      #
+      # autosync_enabled="true" is MANDATORY, not a refinement. Apps with
+      # auto-sync off are deliberately synced by hand and sit OutOfSync as their
+      # normal resting state (measured 2026-10-13: `foundry`), so without the
+      # filter this rule would fire forever on an app that is working as
+      # intended and would be silenced or ignored within a week.
+      - alert: HomelabArgoCDAppOutOfSync
+        expr: |
+          argocd_app_info{job="argocd-metrics", sync_status="OutOfSync", autosync_enabled="true"} == 1
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: >-
+            ArgoCD application {{ $labels.name }} has auto-sync on but has not converged.
+          description: >-
+            Application {{ $labels.name }} has been OutOfSync for an hour with auto-sync enabled.
+            ArgoCD has seen the difference and is failing to apply it, so the cluster is running
+            something other than what the repository says. Check
+            `kubectl get application -n argocd {{ $labels.name }} -o jsonpath='{.status.operationState}'`
+            for the sync error.
+
+      # Missing means the app's resources are declared but absent from the
+      # cluster — a sync that never ran, or something pruned underneath ArgoCD.
+      # Distinct from Degraded (present but unhealthy) and from the Unknown case
+      # above (cannot even be compared), and it has no upstream equivalent
+      # because a resource that does not exist emits no kube-state-metrics
+      # series to alert on.
+      - alert: HomelabArgoCDAppMissing
+        expr: |
+          argocd_app_info{job="argocd-metrics", health_status="Missing"} == 1
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: >-
+            ArgoCD application {{ $labels.name }} has resources missing from the cluster.
+          description: >-
+            Application {{ $labels.name }} has been Missing for 30 minutes: resources it declares
+            do not exist in the cluster. Either its first sync never completed or something
+            deleted them outside ArgoCD.
+
+      # Progressing is a normal transient state, so this is deliberately slow.
+      # At 6h it is no longer a rollout, it is a rollout that cannot finish —
+      # measured 2026-10-13, `grafana-cloud` had been Progressing for days
+      # because two DaemonSet pods on the failed node k8s-worker-04 could not be
+      # reaped, and nothing reported it.
+      - alert: HomelabArgoCDAppStuckProgressing
+        expr: |
+          argocd_app_info{job="argocd-metrics", health_status="Progressing"} == 1
+        for: 6h
+        labels:
+          severity: warning
+        annotations:
+          summary: >-
+            ArgoCD application {{ $labels.name }} has been Progressing for 6 hours.
+          description: >-
+            Application {{ $labels.name }} has been Progressing for 6 hours, which is far longer
+            than any rollout in this cluster takes: something it owns cannot reach its desired
+            state. A pod stuck Terminating on an unreachable node will do this, as will a
+            Deployment that can never satisfy its readiness probe.
+
+      # The rule that keeps the five above honest. The converter emits
+      # noDataState=OK, so without this one the loss of ArgoCD scraping would
+      # look exactly like a healthy cluster — which is the failure mode this
+      # whole file exists to prevent, reintroduced one level up.
+      #
+      # absent() is needed as well as up==0: `up` only exists while the target
+      # is discovered, so deleting the ServiceMonitor (or the feature that
+      # discovers it) removes the series rather than zeroing it, and up==0 alone
+      # would match nothing.
+      - alert: HomelabArgoCDControllerDown
+        expr: |
+          absent(up{job="argocd-metrics"}) or up{job="argocd-metrics"} == 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: >-
+            ArgoCD application controller is not being scraped.
+          description: >-
+            The argocd-metrics target has been down or absent for 15 minutes, so every ArgoCD
+            GitOps alert is now inert rather than quiet-because-healthy: manifest errors,
+            Degraded apps and failed syncs would all go unreported. Check the
+            argocd-application-controller pod, the argocd-metrics Service, and the ServiceMonitor
+            in kubernetes/bootstrap/argocd/metrics-servicemonitor.yaml.
+
+      # ArgoCD's view of the cluster it deploys to. If this is 0 the controller
+      # is up but cannot reach the API server, so nothing syncs anywhere and the
+      # per-app rules above report stale label state rather than the outage.
+      - alert: HomelabArgoCDClusterUnreachable
+        expr: |
+          argocd_cluster_connection_status{job="argocd-metrics"} == 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: >-
+            ArgoCD cannot reach the cluster API at {{ $labels.server }}.
+          description: >-
+            ArgoCD has reported its connection to {{ $labels.server }} as failed for 15 minutes.
+            No application can sync while this is true, and the per-application alerts will show
+            whatever state was last cached rather than the current one.
