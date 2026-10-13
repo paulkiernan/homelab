@@ -30,7 +30,29 @@ spec:
       # the CronJob field is invalid and kubeconform rejects it.
       ttlSecondsAfterFinished: 604800
       backoffLimit: 1
-      activeDeadlineSeconds: 7200
+      # 18h, sized from a measured run rather than guessed. The old 7200 (2h)
+      # had been exceeded every night since 2026-09-25, so no report was
+      # published for ~18 days and the CronJob kept the app Degraded.
+      #
+      # Measured on 2026-10-13 against the live archive (1,243 sealed chunks),
+      # on an arm64 worker, with output unbuffered so the phases were visible:
+      #   verify-archive.sh ........... 3m07s
+      #   futures_report homelab ...... 5h30m38s (one core, ~40Mi RSS)
+      #   futures_report aws-us-east-1  >26m (cut off by the probe's own limit)
+      # The last success, 2026-09-25 at ~379 chunks, finished in ~1h55m, so
+      # runtime grows roughly linearly with the archive: about +12 min per day
+      # of capture. It is CPU-bound on a single core with tiny memory, so more
+      # memory or a CPU limit change does not help.
+      #
+      # This is a STOPGAP. futures_report recomputes the whole history every
+      # night, so any fixed deadline eventually expires: 18h is roughly two
+      # months of runway at the measured growth. It also cannot satisfy the
+      # `capture end older than 28h` freshness rule, which implicitly assumes a
+      # runtime under ~3h (capture end is ~24h + runtime + pull lag old just
+      # before the next report lands), so expect that rule to fire for a couple
+      # of hours each day until futures_report is made incremental upstream in
+      # paulkiernan/diff-logic-cells. Shrink this again once it is.
+      activeDeadlineSeconds: 64800
       template:
         metadata:
           labels:
@@ -102,6 +124,12 @@ spec:
                   value: /archive
                 - name: MSR_REPORTS
                   value: /reports
+                # Without this the Python output is block-buffered (stdout is a
+                # pipe, not a TTY), so a run that is killed by the deadline
+                # flushes nothing and the logs cannot show which phase was
+                # running. That is exactly why the 2h overrun went undiagnosed.
+                - name: PYTHONUNBUFFERED
+                  value: "1"
               resources:
                 # DuckDB stages in bounded batches with a 512MB engine limit.
                 # The 967,680-row synthetic grid peaked at 1.04GiB RSS; allow
