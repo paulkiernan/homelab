@@ -1,0 +1,55 @@
+---
+# Scrape ArgoCD's application controller so the cluster can alert on its own
+# GitOps reconciliation.
+#
+# Why this exists: ArgoCD is the control plane for everything in this
+# repository, but nothing was scraping it. On 2026-10-13 the `immich` and
+# `traefik` Applications had been sitting at sync_status=Unknown for roughly
+# four weeks — a Helm values schema error meant ArgoCD could not render their
+# manifests at all, so neither app had reconciled since mid-September — and no
+# alert fired, because no ArgoCD metric reached Prometheus. Both workloads were
+# still Healthy and serving, which is exactly what makes the failure quiet: the
+# running state looks fine while the repository has silently stopped being the
+# source of truth. The rules in
+# kubernetes/argocd/apps/monitoring/local-monitoring/alerts/argocd-gitops.yaml
+# close that gap and read the series this ServiceMonitor produces.
+#
+# Alloy picks this object up because the grafana-cloud app enables the
+# `prometheusOperatorObjects` feature, and the ServiceMonitor CRD comes from the
+# prometheus-operator-crds chart in that same app. Series reach the in-cluster
+# Prometheus through Alloy's remote-write to `local-prometheus`; the Grafana
+# Cloud destination keeps its own `metricProcessingRules` allow-list, so none of
+# this leaves the cluster.
+#
+# Only the application controller is scraped. It owns every series the alerts
+# and the dashboard read (argocd_app_info, argocd_app_sync_total,
+# argocd_app_reconcile, argocd_cluster_*). argocd-server-metrics and the
+# repo-server expose API/gRPC counters that nothing here consumes, so they stay
+# unscraped rather than adding cardinality for panels that do not exist.
+#
+# jobLabel pins the scrape job to `argocd-metrics` (the value of the Service's
+# app.kubernetes.io/name label). The alert expressions and dashboard panels
+# select that exact job, and generate-assets.py's assert_selectors_rewritten()
+# fails the build if they ever name a job this cluster does not produce — so
+# this name and LOCAL_JOB_VALUES in that script have to agree.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: argocd-metrics
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-metrics
+    app.kubernetes.io/part-of: argocd
+spec:
+  jobLabel: app.kubernetes.io/name
+  # No namespaceSelector: the Service lives in this namespace.
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-metrics
+      app.kubernetes.io/part-of: argocd
+  endpoints:
+    - port: metrics
+      path: /metrics
+      scheme: http
+      interval: 60s
+      scrapeTimeout: 30s

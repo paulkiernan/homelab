@@ -12,6 +12,9 @@ resources:
   - tailscale-ingress.yaml
   - serverstransport.yaml
   - helm-repo-couchdb.yaml
+  # Scrapes the application controller so ArgoCD's own reconciliation is
+  # alertable; see the file header for the failure it was added to catch.
+  - metrics-servicemonitor.yaml
 
 patches:
   - path: argocd-cm.patch.yaml
