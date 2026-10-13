@@ -6,10 +6,12 @@
 # (grafana-dashboards-, grafana-alerting-) come from the canonical definitions
 # in paulkiernan/diff-logic-cells; the Kubernetes dashboards, cluster alert
 # rules and Prometheus recording rules come from the upstream files vendored
-# under ../upstream/ by ../fetch-upstream.py; the homelab cluster capacity
-# alerting rules come from ../alerts/homelab-capacity.yaml, which is
-# hand-authored source in this repository. Regenerate from this app's directory
-# with
+# under ../upstream/ by ../fetch-upstream.py; the homelab alerting rules come
+# from ../alerts/*.yaml and the homelab dashboards from ../dashboards/*.json,
+# both hand-authored source in this repository. The hand-authored dashboards
+# are provisioned through the Kubernetes dashboards ConfigMap below rather than
+# one of their own, so they land in the same `Kubernetes` Grafana folder as the
+# vendored set. Regenerate from this app's directory with
 #
 #   python3 fetch-upstream.py            # re-vendor and re-verify upstream/
 #   python3 fetch-upstream.py --check    # re-hash the vendored files, no network
@@ -35,13 +37,15 @@ resources:
   - grafana-alerting-configmap.yaml
   # Kubernetes dashboards, Grafana-managed cluster alert rules and Prometheus
   # recording rules, generated from ../upstream/ by generate-assets.py — do not
-  # hand-edit these three.
+  # hand-edit these three. The dashboards ConfigMap also carries the
+  # hand-authored ../dashboards/*.json, which share the same Grafana folder.
   - grafana-dashboards-kubernetes-configmap.yaml
   - grafana-alerting-kubernetes-configmap.yaml
   - prometheus-rules-configmap.yaml
-  # Cluster capacity alert rules generated from the hand-authored
-  # ../alerts/homelab-capacity.yaml (not vendored and not from
-  # diff-logic-cells) — do not hand-edit this one either.
+  # Homelab alert rules generated from the hand-authored ../alerts/*.yaml (not
+  # vendored and not from diff-logic-cells): cluster capacity from
+  # homelab-capacity.yaml and ArgoCD reconciliation from argocd-gitops.yaml, one
+  # provisioning key per source file — do not hand-edit this one either.
   - grafana-alerting-homelab-configmap.yaml
   # Contact point + root notification policy (hand-maintained, no secrets).
   - grafana-notifications-configmap.yaml

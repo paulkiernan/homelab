@@ -52,7 +52,9 @@
 # nothing imported by hand: `Market measurement` (the capture-stack dashboards
 # and rules, the presentation contract shared with diff-logic-cells) and
 # `Kubernetes` (the vendored upstream Kubernetes/node/OpenCost/Kepler
-# dashboards plus the converted kube-prometheus alert rules).
+# dashboards plus the converted kube-prometheus alert rules, and alongside them
+# the hand-authored homelab assets from alerts/ and dashboards/ — cluster
+# capacity and ArgoCD GitOps reconciliation).
 #
 # ALERT DELIVERY
 # Grafana unified alerting evaluates every rule and delivers through two
