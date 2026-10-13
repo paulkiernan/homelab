@@ -367,10 +367,14 @@ spec:
             # [unified_alerting.screenshots] — it would be emitted as a Go map
             # and ignored.
             unified_alerting.screenshots:
-              # Attach a rendered panel image to notifications. Inert without
-              # the imageRenderer below and without the rule annotations; see
-              # the `notification images` comment there for the whole chain.
-              capture: true
+              # OFF deliberately, and this is the flag to flip when the renderer
+              # below works. It must stay false while rendering is broken: a
+              # screenshot is taken synchronously on the notification path, so a
+              # renderer that times out delays every Discord message by its full
+              # 60s timeout, one at a time. Silent-but-prompt alerts beat
+              # illustrated-but-late ones, and the rules still carry their
+              # summaries and panel links either way.
+              capture: false
               # One at a time. Each screenshot is a headless Chromium page load
               # and the renderer is sized for one; the docs also require this to
               # stay at or below rendering's concurrent_render_request_limit
@@ -547,8 +551,37 @@ spec:
           # PVC, and the Discord notifier uploads those bytes as a multipart
           # attachment. upload_external_image_storage stays false precisely so
           # there is no S3/GCS bucket in the path.
+          #
+          # STAGED OFF: this does not work yet against Grafana 13.2.3, so it is
+          # disabled together with capture above rather than left running and
+          # failing. What was established on 2026-10-13, deployed and tested
+          # against the live cluster, so the next attempt need not redo it:
+          #
+          #   * The renderer deploys, serves /healthz and accepts Grafana's
+          #     token on /render (401 without it, past-auth with it).
+          #   * Chromium would not start at all until
+          #     --disable-setuid-sandbox and --no-zygote were added: under this
+          #     chart's read-only container with ALL capabilities dropped it
+          #     died on "Failed to adjust OOM score ... Permission denied".
+          #     Those two flags are kept in RENDERING_ARGS below; they are a
+          #     real fix, just not a sufficient one.
+          #   * With them, Chromium starts, reaches Grafana over the in-cluster
+          #     Service, loads the page and runs its JS (verified in the
+          #     renderer's own debug trace: Network.responseReceived for the
+          #     preferences API and static assets, then Runtime.evaluate of
+          #     window.innerHeight). The render then never signals completion
+          #     and the request ends at the 60s timeout, HTTP 408.
+          #   * Not resources: identical behaviour at 2 CPU / 2Gi.
+          #   * Not the token: a Grafana restart fixed an initial 401, which
+          #     means the chart's randomly generated token can leave the two
+          #     pods disagreeing when they start at different times. Worth
+          #     pinning via imageRenderer.existingSecret before re-enabling.
+          #
+          # So what remains is the panel-rendered signal between Grafana 13.2.3
+          # and image-renderer v5.12.6 (which reports plugin version 5.0.0) —
+          # a version-compatibility question, not a configuration one.
           imageRenderer:
-            enabled: true
+            enabled: false
             replicas: 1
             # Pinned, not `latest` as the chart defaults: Renovate owns the
             # version here like every other image in this repository, and a
@@ -567,7 +600,10 @@ spec:
               # and the window size sets the aspect of the emitted PNG. The
               # chart's HTTP_HOST and XDG_* defaults survive the Helm map merge;
               # only this key is added.
-              RENDERING_ARGS: --no-sandbox,--disable-gpu,--disable-dev-shm-usage,--window-size=1000x500
+              # --disable-setuid-sandbox and --no-zygote are not optional here:
+              # without them Chromium exits before serving anything, on
+              # "Failed to adjust OOM score of renderer ... Permission denied".
+              RENDERING_ARGS: --no-sandbox,--disable-gpu,--disable-dev-shm-usage,--disable-setuid-sandbox,--no-zygote,--window-size=1000x500
             # A headless Chromium per render. One render at a time is enough for
             # alert notifications (max_concurrent_screenshots is 1 to match) and
             # keeps the ceiling well under what the arm64 workers have spare.
