@@ -4,9 +4,11 @@
 #
 # Why this exists: ArgoCD is the control plane for everything in this
 # repository, but nothing was scraping it. On 2026-10-13 the `immich` and
-# `traefik` Applications had been sitting at sync_status=Unknown for roughly
-# four weeks — a Helm values schema error meant ArgoCD could not render their
-# manifests at all, so neither app had reconciled since mid-September — and no
+# `traefik` Applications were found at sync_status=Unknown, and the last
+# successful sync each one recorded put the real duration far past the first
+# guess: immich had not reconciled since chart 0.12.1 on 2026-07-03, traefik
+# not since chart 38.0.2 on 2026-04-30 — three and five months. A Helm values
+# schema error meant ArgoCD could not render either app's manifests, and no
 # alert fired, because no ArgoCD metric reached Prometheus. Both workloads were
 # still Healthy and serving, which is exactly what makes the failure quiet: the
 # running state looks fine while the repository has silently stopped being the

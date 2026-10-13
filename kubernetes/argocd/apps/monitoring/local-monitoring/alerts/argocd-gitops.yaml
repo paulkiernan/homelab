@@ -11,11 +11,14 @@
 # scraped it, so there were no series to alert on.
 #
 # The failure that motivated them, found on 2026-10-13: the `immich` and
-# `traefik` Applications had been at sync_status=Unknown for about four weeks.
-# Renovate had bumped both Helm charts (immich 0.13.2 on 2026-09-10, traefik
-# 41.6.0 on 2026-09-16), each new chart tightened its values JSON schema, and
-# the existing values no longer validated — immich rejecting `ingress` under
-# `/immich`, traefik rejecting a top-level `globalArguments`. ArgoCD could not
+# `traefik` Applications were both at sync_status=Unknown, and had been for
+# months rather than the weeks first assumed — each Application's last
+# recorded sync named the chart version, which dated the breakage precisely:
+# immich to 0.13.1 on 2026-07-03 (0.13.0 added a values schema) and traefik to
+# 39.0.0 on 2026-04-30 (which set its schema's top-level additionalProperties
+# to false). Renovate bumped both; each new schema rejected values that had
+# been accepted-and-ignored before it — immich's `ingress` under `/immich`,
+# traefik's top-level `globalArguments`. ArgoCD could not
 # render either app's manifests, so it could not diff them and stopped
 # reconciling both. Nothing fired. What makes this class of failure quiet is
 # that the *running* workloads stayed Healthy and kept serving traffic the whole
