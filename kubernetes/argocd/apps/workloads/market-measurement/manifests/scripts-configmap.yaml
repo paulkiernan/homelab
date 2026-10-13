@@ -186,9 +186,21 @@ data:
     [[ -r "${MSR_CONFIG}" ]] || { echo "error: study config ${MSR_CONFIG} is not readable" >&2; exit 1; }
     [[ -r "${MSR_TRADES}" ]] || { echo "error: trade intents ${MSR_TRADES} are not readable" >&2; exit 1; }
 
-    status=0
-    for site in ${MSR_SITES}; do
-      output="${REPORTS}/${site}"
+    # Sites run concurrently, one process each. futures_report is single
+    # threaded and CPU bound (measured 2026-10-13: 0.8 core average, 95Mi
+    # peak, 5h30m for homelab), and each site replays only its own capture, so
+    # running them one after another just made the second site wait for the
+    # first: the job took the SUM of the sites, and the last site in
+    # MSR_SITES was the first to be cut off by the deadline (aws-us-east-1's
+    # report went stale four days before homelab's). Concurrently, the job
+    # takes as long as the slowest site.
+    #
+    # Each site's output is prefixed so the interleaved log stays readable,
+    # and each runs in its own subshell with pipefail so its exit status is
+    # futures_report's, not sed's. One site failing does not stop the other;
+    # the job still fails if any site did.
+    run_site() {
+      local site="$1" output="${REPORTS}/$1"
       mkdir -p "${output}"
       echo "=== futures_report site=${site} input=${ARCHIVE} output=${output}"
       python -m difflogic_hft.futures_report \
@@ -196,6 +208,22 @@ data:
         --output "${output}" \
         --config "${MSR_CONFIG}" \
         --site "${site}" \
-        --trades "${MSR_TRADES}" || status=1
+        --trades "${MSR_TRADES}"
+    }
+
+    declare -A pids=()
+    for site in ${MSR_SITES}; do
+      ( set -o pipefail; run_site "${site}" 2>&1 | sed -u "s|^|[${site}] |" ) &
+      pids["${site}"]=$!
+    done
+
+    status=0
+    for site in "${!pids[@]}"; do
+      if wait "${pids[${site}]}"; then
+        echo "=== futures_report site=${site} ok"
+      else
+        echo "=== futures_report site=${site} FAILED" >&2
+        status=1
+      fi
     done
     exit "${status}"
