@@ -1,0 +1,420 @@
+{
+  "uid": "homelab-capacity",
+  "title": "Homelab / Capacity",
+  "description": "Is there room for more work? One panel per rule in alerts/homelab-capacity.yaml, each plotting that rule's own expression with its warning and critical thresholds drawn on. These panels are the screenshot targets for those alerts, so a Discord notification shows the same series the rule fired on.",
+  "tags": [
+    "homelab",
+    "capacity"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": {
+    "from": "now-12h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "id": 1,
+      "title": "Unschedulable pods",
+      "description": "Pods the scheduler has given up on — the only direct measure of \"the cluster cannot accept this workload\". Any non-zero value is the alert condition. Alert: HomelabPodUnschedulable (warning, 15m).",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 25,
+            "showPoints": "never",
+            "axisSoftMax": 1,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "kube_pod_status_unschedulable{job=\"integrations/kubernetes/kube-state-metrics\"} == 1",
+          "legendFormat": "{{namespace}}/{{pod}}",
+          "range": true,
+          "instant": false
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 4,
+      "title": "Node filesystem used",
+      "description": "Per-node filesystem utilisation. openebs-hostpath does not enforce claim sizes and serves every node-local volume from here, so this filesystem — not the claim — is the real bound for the Prometheus TSDB, Loki chunks, Grafana's DB and the capture spool. Alert: HomelabNodeDiskSpaceHigh (warning 75%, critical 90%).",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "100 * (1 - node_filesystem_avail_bytes{job=\"integrations/node_exporter\",fstype=~\"xfs|ext4\",mountpoint!~\"/boot.*\"} / node_filesystem_size_bytes{job=\"integrations/node_exporter\",fstype=~\"xfs|ext4\",mountpoint!~\"/boot.*\"})",
+          "legendFormat": "{{instance}} {{mountpoint}}",
+          "range": true,
+          "instant": false
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 2,
+      "title": "Node CPU requests vs allocatable",
+      "description": "Requests, not usage: requests are what decides whether one more pod fits. The phase filter is part of the rule and part of this query — without it, Succeeded/Failed Job pods keep contributing their requests to the node they once ran on and inflate the ratio. Alert: HomelabNodeCPURequestsHigh (warning 80%, critical 90%).",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "100 * (sum by (node) (kube_pod_container_resource_requests{resource=\"cpu\"} * on (namespace,pod,cluster) group_left(node) (max by (namespace,pod,cluster,node) (kube_pod_info) * on (namespace,pod,cluster) group_left() (kube_pod_status_phase{phase=~\"Pending|Running\"} == 1))) / sum by (node) (kube_node_status_allocatable{resource=\"cpu\"}))",
+          "legendFormat": "{{node}}",
+          "range": true,
+          "instant": false
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 3,
+      "title": "Node memory requests vs allocatable",
+      "description": "The memory counterpart, with the same mandatory phase filter. Upstream's KubeMemoryOvercommit is cluster-wide and cannot see a single node filling up, which is the gap this rule closes. Alert: HomelabNodeMemoryRequestsHigh (warning 80%, critical 90%).",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "100 * (sum by (node) (kube_pod_container_resource_requests{resource=\"memory\"} * on (namespace,pod,cluster) group_left(node) (max by (namespace,pod,cluster,node) (kube_pod_info) * on (namespace,pod,cluster) group_left() (kube_pod_status_phase{phase=~\"Pending|Running\"} == 1))) / sum by (node) (kube_node_status_allocatable{resource=\"memory\"}))",
+          "legendFormat": "{{node}}",
+          "range": true,
+          "instant": false
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 5,
+      "title": "Prometheus TSDB share of its claim",
+      "description": "Blocks plus WAL as a percentage of the 20Gi claim. Prometheus is on a hostpath volume, so the claim does not bound it — retention does. retentionSize 14GB should hold this near 65%, so crossing 75% means retention is not holding and the node's /var fills next. The 20Gi denominator is hard-coded here and in the rule, and must change with the claim. Alert: HomelabPrometheusStorageHigh (warning 75%, critical 90%).",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 2,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "100 * (prometheus_tsdb_storage_blocks_bytes{job=\"prometheus\"} + prometheus_tsdb_wal_storage_size_bytes{job=\"prometheus\"}) / (20 * 1024 * 1024 * 1024)",
+          "legendFormat": "blocks + WAL",
+          "range": true,
+          "instant": false
+        }
+      ]
+    }
+  ]
+}

@@ -172,9 +172,11 @@ spec:
                   - name: storage-volume
                     mountPath: /data
             # --- placement ------------------------------------------------
-            # Small cluster: workers 01-03 only. The leader is already at ~82%
-            # memory and worker-04 is unavailable, so neither may be selected.
-            # Worker-03 has the most headroom today, hence the preference.
+            # Small cluster: workers 01-03 only. The leader is already at ~73%
+            # memory, and worker-04 — recovered 2026-10-13 after an EPHEMERAL
+            # wipe — is the small 3.2Gi node against the others' 7.3Gi, so
+            # neither may be selected. Worker-03 has the most headroom today,
+            # hence the preference.
             affinity:
               nodeAffinity:
                 requiredDuringSchedulingIgnoredDuringExecution:
@@ -359,6 +361,25 @@ spec:
               # Prometheus evaluates recording rules only, every alert rule
               # is evaluated here.
               enabled: true
+            # Dotted key on purpose: the chart renders one INI section per
+            # top-level key and only its scalar children, so a `screenshots:`
+            # map nested under `unified_alerting:` above would not become
+            # [unified_alerting.screenshots] — it would be emitted as a Go map
+            # and ignored.
+            unified_alerting.screenshots:
+              # Attach a rendered panel image to notifications. Inert without
+              # the imageRenderer below and without the rule annotations; see
+              # the `notification images` comment there for the whole chain.
+              capture: true
+              # One at a time. Each screenshot is a headless Chromium page load
+              # and the renderer is sized for one; the docs also require this to
+              # stay at or below rendering's concurrent_render_request_limit
+              # (default 5), which it does.
+              max_concurrent_screenshots: 1
+              # No bucket in the path: Grafana keeps the PNG on its own PVC and
+              # the Discord notifier uploads the bytes directly, so enabling
+              # images needs no object storage and no credentials.
+              upload_external_image_storage: false
           # --- datasources --------------------------------------------------
           # UID market-prometheus is the contract shared with the alert rules,
           # the dashboards and the capture VM's Alloy config; uid local-loki is
@@ -472,11 +493,12 @@ spec:
               argocd.argoproj.io/sync-options: Prune=false,Delete=false
               helm.sh/resource-policy: keep
           # --- placement ----------------------------------------------------
-          # Same never-leader/never-worker-04 rule as Prometheus. Both volumes
+          # Same never-leader/never-small-node rule as Prometheus. Both volumes
           # are node-local now, so the pod is pinned to the node that binds the
           # claim; preferring workers 01/02 keeps the node hosting the TSDB
-          # lighter, and the hard rule keeps the workload off the leader (~82%
-          # memory) and off the unavailable worker-04.
+          # lighter, and the hard rule keeps the workload off the leader (~73%
+          # memory) and off worker-04, which has less than half the memory of
+          # the other workers.
           affinity:
             nodeAffinity:
               requiredDuringSchedulingIgnoredDuringExecution:
@@ -508,6 +530,68 @@ spec:
             limits:
               cpu: 500m
               memory: 768Mi
+          # --- notification images ------------------------------------------
+          # Renders the panel a rule is annotated to, so a Discord alert arrives
+          # with the chart instead of only prose. Grafana calls these
+          # screenshots; they need three things together and are silent if any
+          # one is missing: this renderer, capture=true in the
+          # unified_alerting.screenshots section above, and __dashboardUid__ /
+          # __panelId__ annotations on the rule (generate-assets.py's
+          # assert_panel_links() resolves every pair at generation time, which
+          # is the only place that failure is visible).
+          #
+          # Nothing leaves the cluster. The renderer fetches Grafana over the
+          # in-cluster Service (the chart derives GF_RENDERING_CALLBACK_URL from
+          # grafanaProtocol + the Service port, not from root_url, so rendering
+          # does not depend on the tailnet), Grafana writes the PNG to its own
+          # PVC, and the Discord notifier uploads those bytes as a multipart
+          # attachment. upload_external_image_storage stays false precisely so
+          # there is no S3/GCS bucket in the path.
+          imageRenderer:
+            enabled: true
+            replicas: 1
+            # Pinned, not `latest` as the chart defaults: Renovate owns the
+            # version here like every other image in this repository, and a
+            # silently-moving renderer is a silently-changing alert image. The
+            # published tag is a multi-arch manifest, so it schedules on the
+            # arm64 workers as happily as on the amd64 leader.
+            image:
+              repository: grafana/grafana-image-renderer
+              tag: v5.12.6
+              pullPolicy: IfNotPresent
+            env:
+              # Chromium cannot use its own sandbox here: the chart's container
+              # securityContext drops ALL capabilities and runs read-only, so
+              # the renderer must rely on the container boundary instead.
+              # --disable-dev-shm-usage keeps it off the small default /dev/shm,
+              # and the window size sets the aspect of the emitted PNG. The
+              # chart's HTTP_HOST and XDG_* defaults survive the Helm map merge;
+              # only this key is added.
+              RENDERING_ARGS: --no-sandbox,--disable-gpu,--disable-dev-shm-usage,--window-size=1000x500
+            # A headless Chromium per render. One render at a time is enough for
+            # alert notifications (max_concurrent_screenshots is 1 to match) and
+            # keeps the ceiling well under what the arm64 workers have spare.
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 768Mi
+            # The leader is near its memory ceiling and worker-04 is the small
+            # 3.2Gi node; this is the same placement rule the rest of the stack
+            # uses, minus the volume pinning it has no claim to need.
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                    - matchExpressions:
+                        - key: kubernetes.io/hostname
+                          operator: In
+                          values:
+                            - k8s-worker-01
+                            - k8s-worker-02
+                            - k8s-worker-03
           service:
             type: ClusterIP
             port: 80
@@ -618,7 +702,8 @@ spec:
               annotations:
                 argocd.argoproj.io/sync-options: Prune=false,Delete=false
             # Same rule as Prometheus and Grafana: workers 01-03 only, never
-            # the leader (~82% memory) and never the unavailable worker-04.
+            # the leader (~73% memory) and never worker-04, the small 3.2Gi
+            # node.
             affinity:
               nodeAffinity:
                 requiredDuringSchedulingIgnoredDuringExecution:

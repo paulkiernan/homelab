@@ -947,6 +947,137 @@
           "instant": false
         }
       ]
+    },
+    {
+      "type": "timeseries",
+      "id": 11,
+      "title": "Control plane availability",
+      "description": "The two things that make every other panel here trustworthy: whether the controller is being scraped, and whether ArgoCD can reach the cluster API. Either dropping to 0 means the GitOps alerts are blind rather than quiet — they are emitted with noDataState=OK, so they go silent instead of firing. This is the screenshot target for both availability alerts. Alerts: HomelabArgoCDControllerDown, HomelabArgoCDClusterUnreachable (both critical, 15m).",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 29
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "market-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 1,
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "down",
+                  "index": 0
+                },
+                "1": {
+                  "text": "up",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "controller scrape"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cluster connection"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "min"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "up{job=\"argocd-metrics\"}",
+          "legendFormat": "controller scrape",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "market-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "argocd_cluster_connection_status{job=\"argocd-metrics\"}",
+          "legendFormat": "cluster connection",
+          "range": true,
+          "instant": false
+        }
+      ]
     }
   ]
 }

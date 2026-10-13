@@ -15,9 +15,11 @@
 #
 #   Compute: KubeCPUOvercommit / KubeMemoryOvercommit are cluster-wide rules
 #   about surviving the loss of one node. Neither can see a single node filling
-#   up, and both divide by the total cluster allocatable — which still includes
-#   the unreachable k8s-worker-04 (down since 2026-03-14), so they understate
-#   pressure on the nodes that do exist. Pod-slot exhaustion is deliberately
+#   up, and both divide by the total cluster allocatable, which averages away
+#   the node that is actually full — including worker-04, whose 3.2Gi is less
+#   than half of any other worker's. (Until 2026-10-13 worker-04 was also
+#   unreachable and counted as capacity that did not exist; an EPHEMERAL wipe
+#   brought it back.) Pod-slot exhaustion is deliberately
 #   NOT covered here: KubeletTooManyPods already does exactly that, and a
 #   second rule for it would only double-page.
 #
@@ -58,6 +60,8 @@ groups:
         labels:
           severity: warning
         annotations:
+          __dashboardUid__: homelab-capacity
+          __panelId__: "1"
           summary: >-
             Pod {{ $labels.namespace }}/{{ $labels.pod }} cannot be scheduled.
           description: >-
@@ -89,6 +93,8 @@ groups:
         labels:
           severity: warning
         annotations:
+          __dashboardUid__: homelab-capacity
+          __panelId__: "2"
           summary: >-
             Node {{ $labels.node }} has over 80% of its allocatable CPU requested.
           description: >-
@@ -110,6 +116,8 @@ groups:
         labels:
           severity: critical
         annotations:
+          __dashboardUid__: homelab-capacity
+          __panelId__: "2"
           summary: >-
             Node {{ $labels.node }} has over 90% of its allocatable CPU requested.
           description: >-
@@ -137,6 +145,8 @@ groups:
         labels:
           severity: warning
         annotations:
+          __dashboardUid__: homelab-capacity
+          __panelId__: "3"
           summary: >-
             Node {{ $labels.node }} has over 80% of its allocatable memory requested.
           description: >-
@@ -158,6 +168,8 @@ groups:
         labels:
           severity: critical
         annotations:
+          __dashboardUid__: homelab-capacity
+          __panelId__: "3"
           summary: >-
             Node {{ $labels.node }} has over 90% of its allocatable memory requested.
           description: >-
@@ -169,8 +181,9 @@ groups:
       # prometheus-server, storage-loki-0, grafana and market-recorder-spool all
       # live under /var/openebs/local on their node, and openebs-hostpath does
       # not enforce claim sizes — the node's free disk is the only limit. The
-      # filter currently matches exactly four series, /var on the four reachable
-      # nodes (k8s-worker-04 is down and node-exporter is not running there).
+      # filter currently matches one series per node, /var on each of the five
+      # (it was four until k8s-worker-04 was recovered on 2026-10-13, which is
+      # when node-exporter started running there again).
       #
       # Upstream coverage is too late by design: NodeFilesystemAlmostOutOfSpace
       # only fires below 5% free (3% critical), i.e. ~12 GiB / ~7 GiB on these
@@ -185,6 +198,8 @@ groups:
         labels:
           severity: warning
         annotations:
+          __dashboardUid__: homelab-capacity
+          __panelId__: "4"
           summary: >-
             {{ $labels.instance }}:{{ $labels.mountpoint }} is over 75% full.
           description: >-
@@ -204,6 +219,8 @@ groups:
         labels:
           severity: critical
         annotations:
+          __dashboardUid__: homelab-capacity
+          __panelId__: "4"
           summary: >-
             {{ $labels.instance }}:{{ $labels.mountpoint }} is over 90% full.
           description: >-
@@ -235,6 +252,8 @@ groups:
         labels:
           severity: warning
         annotations:
+          __dashboardUid__: homelab-capacity
+          __panelId__: "5"
           summary: >-
             Prometheus TSDB is over 75% of its 20Gi claim.
           description: >-
@@ -254,6 +273,8 @@ groups:
         labels:
           severity: critical
         annotations:
+          __dashboardUid__: homelab-capacity
+          __panelId__: "5"
           summary: >-
             Prometheus TSDB is over 90% of its 20Gi claim.
           description: >-
