@@ -13,13 +13,30 @@ spec:
       chart: immich
       targetRevision: 0.13.2
       helm:
+        # Chart 0.13.0 added a values.schema.json (a declared BREAKING CHANGE)
+        # and this app picked it up as 0.13.1 on 2026-07-03. From that moment
+        # `helm template` refused the values below, so ArgoCD could not render
+        # or diff this app and stopped reconciling it entirely: its last
+        # successful sync was chart 0.12.1 at commit ab920ba. It still reported
+        # Healthy the whole time, because the running pods were fine — only the
+        # repository had stopped being applied. Found 2026-10-13, which is why
+        # the ArgoCD GitOps alerts in monitoring/local-monitoring now exist.
+        #
+        # The schema pins `immich` to exactly metrics / persistence /
+        # configuration / configurationKind / existingConfiguration. Ingress is
+        # not one of them: it belongs to each component as a bjw-s common value
+        # set (`server.ingress.main`), and it defaults to disabled there.
+        #
+        # The removed `immich.ingress.enabled: false` had never done anything
+        # even before the schema — 0.12.1 also had no such key, so it was
+        # silently ignored rather than disabling anything. Nothing is needed in
+        # its place: no component enables ingress here, and external access is
+        # the Tailscale ingress in manifests/tailscale-ingress.yaml.
         valuesObject:
           immich:
             persistence:
               library:
                 existingClaim: immich-library
-            ingress:
-              enabled: false
 
           server:
             enabled: true
@@ -48,17 +65,14 @@ spec:
                             key: password
                       REDIS_HOSTNAME: immich-valkey
 
-          microservices:
-            enabled: true
-            controllers:
-              main:
-                containers:
-                  main:
-                    image:
-                      tag: v2.7.5
-            persistence:
-              library:
-                existingClaim: immich-library
+          # `microservices` is deliberately gone. Immich folded that component
+          # into the server upstream, and the chart has no such key: it is not
+          # in values.yaml, not in the schema's properties and not referenced by
+          # any template (only a stale mention in the chart's README). The block
+          # here configured a component that does not exist — the cluster runs
+          # server, machine-learning and valkey and nothing else — and the
+          # schema tolerated it silently rather than rejecting it. Verified by
+          # rendering 0.13.2 with and without it: the output is byte-identical.
 
           machine-learning:
             enabled: true
@@ -76,13 +90,20 @@ spec:
                 storageClass: nas-nfs
                 accessMode: ReadWriteMany
 
+          # Valkey is a bjw-s common component here, not the Bitnami chart, so
+          # there is no `master` key and the `master.persistence` block that
+          # used to sit here was dead config in the same way as the two above:
+          # the schema allowed it and the chart ignored it. Valkey's `data`
+          # volume is an emptyDir, confirmed both in the rendered output and on
+          # the live Deployment, and has been for the 327 days it has run.
+          #
+          # Left ephemeral on purpose rather than quietly switched on. It holds
+          # Immich's job queue and cache, which the server rebuilds after a
+          # restart, and wiring real persistence would add a PVC and restart
+          # valkey — a behaviour change that does not belong in the commit that
+          # restores reconciliation. It is `valkey.persistence.data` if wanted.
           valkey:
             enabled: true
-            master:
-              persistence:
-                enabled: true
-                size: 1Gi
-                storageClass: nas-nfs
 
     - repoURL: https://github.com/paulkiernan/homelab
       targetRevision: main
