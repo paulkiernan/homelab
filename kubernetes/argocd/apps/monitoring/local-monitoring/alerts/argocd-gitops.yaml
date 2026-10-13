@@ -66,6 +66,8 @@ groups:
         labels:
           severity: warning
         annotations:
+          __dashboardUid__: homelab-argocd-gitops
+          __panelId__: "8"
           summary: >-
             ArgoCD cannot render or compare application {{ $labels.name }}.
           description: >-
@@ -94,6 +96,8 @@ groups:
         labels:
           severity: warning
         annotations:
+          __dashboardUid__: homelab-argocd-gitops
+          __panelId__: "7"
           summary: >-
             ArgoCD application {{ $labels.name }} is Degraded.
           description: >-
@@ -118,6 +122,8 @@ groups:
         labels:
           severity: warning
         annotations:
+          __dashboardUid__: homelab-argocd-gitops
+          __panelId__: "8"
           summary: >-
             ArgoCD application {{ $labels.name }} has auto-sync on but has not converged.
           description: >-
@@ -140,6 +146,8 @@ groups:
         labels:
           severity: warning
         annotations:
+          __dashboardUid__: homelab-argocd-gitops
+          __panelId__: "7"
           summary: >-
             ArgoCD application {{ $labels.name }} has resources missing from the cluster.
           description: >-
@@ -159,6 +167,8 @@ groups:
         labels:
           severity: warning
         annotations:
+          __dashboardUid__: homelab-argocd-gitops
+          __panelId__: "7"
           summary: >-
             ArgoCD application {{ $labels.name }} has been Progressing for 6 hours.
           description: >-
@@ -183,6 +193,8 @@ groups:
         labels:
           severity: critical
         annotations:
+          __dashboardUid__: homelab-argocd-gitops
+          __panelId__: "11"
           summary: >-
             ArgoCD application controller is not being scraped.
           description: >-
@@ -202,6 +214,8 @@ groups:
         labels:
           severity: critical
         annotations:
+          __dashboardUid__: homelab-argocd-gitops
+          __panelId__: "11"
           summary: >-
             ArgoCD cannot reach the cluster API at {{ $labels.server }}.
           description: >-

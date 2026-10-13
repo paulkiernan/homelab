@@ -195,6 +195,16 @@ EXPECTED_HOMELAB_ALERT_RULES = {
 # one would otherwise provision a panel that renders empty forever.
 HOMELAB_DASHBOARDS_DIR = HERE / "dashboards"
 
+# Grafana links an alert rule to a dashboard panel through these two
+# annotations, which is what gives a notification its dashboard button and —
+# with image rendering enabled — the panel screenshot Discord uploads. Grafana
+# requires BOTH: given one without the other it drops the link silently, and a
+# uid or panel id that resolves to nothing fails the same quiet way. The alert
+# still fires, it just arrives without the chart it was annotated to carry, so
+# assert_panel_links() resolves every pair at generation time.
+DASHBOARD_UID_ANNOTATION = "__dashboardUid__"
+PANEL_ID_ANNOTATION = "__panelId__"
+
 # The API server rejects a ConfigMap whose serialized object exceeds 1 MiB, and
 # a rejected object fails the whole ArgoCD sync, so keep real headroom and fail
 # at generation time instead of at apply time.
@@ -737,6 +747,71 @@ def build_kubernetes_alert_groups(groups: dict[str, dict]) -> list[dict]:
     ]
 
 
+def dashboard_panel_ids(document: object) -> set[str]:
+    """Every panel id in one dashboard, as strings, including inside rows.
+
+    Annotations are strings in Grafana, panel ids are numbers in dashboard JSON,
+    so the comparison happens on strings in one place rather than at each call.
+    """
+    found: set[str] = set()
+
+    def walk(panels: object) -> None:
+        if not isinstance(panels, list):
+            return
+        for panel in panels:
+            if not isinstance(panel, dict):
+                continue
+            if "id" in panel:
+                found.add(str(panel["id"]))
+            # A row panel carries its collapsed children in its own `panels`.
+            walk(panel.get("panels"))
+
+    if isinstance(document, dict):
+        walk(document.get("panels"))
+    return found
+
+
+def assert_panel_links(groups: list[dict], panels: dict[str, set[str]]) -> None:
+    """Die unless every rule's panel link resolves to a hand-authored panel.
+
+    Both failure modes this catches are invisible at provision time: Grafana
+    accepts a half-set or dangling link, logs nothing useful, and simply sends
+    notifications without the dashboard button or the screenshot. Since the
+    whole point of annotating these rules is that the Discord message arrives
+    with its chart, a silently dropped link defeats the feature while leaving
+    every alert looking correctly configured.
+
+    Only the hand-authored dashboards count as link targets. The vendored ones
+    are re-fetched by fetch-upstream.py, so a pin bump could repoint or orphan a
+    panel id without anything in this repository changing — a link that rots on
+    somebody else's release schedule is worse than no link.
+    """
+    for group in groups:
+        for rule in group["rules"]:
+            annotations = rule.get("annotations") or {}
+            uid = annotations.get(DASHBOARD_UID_ANNOTATION)
+            panel = annotations.get(PANEL_ID_ANNOTATION)
+            title = rule.get("title")
+            if uid is None and panel is None:
+                continue
+            if (uid is None) != (panel is None):
+                die(
+                    f"group {group['name']!r} rule {title!r} sets only one of "
+                    f"{DASHBOARD_UID_ANNOTATION}/{PANEL_ID_ANNOTATION}; Grafana needs both or it "
+                    "drops the panel link silently"
+                )
+            if uid not in panels:
+                die(
+                    f"group {group['name']!r} rule {title!r} links to dashboard uid {uid!r}, which is "
+                    f"not a hand-authored dashboard (have: {sorted(panels) or 'none'})"
+                )
+            if panel not in panels[uid]:
+                die(
+                    f"group {group['name']!r} rule {title!r} links to panel {panel!r} of dashboard "
+                    f"{uid!r}, which has no such panel (have: {sorted(panels[uid], key=int)})"
+                )
+
+
 def homelab_alert_sources() -> list[Path]:
     """The hand-authored alert files under alerts/, checked against the expected set.
 
@@ -843,10 +918,13 @@ def build() -> dict[Path, str]:
     # provision time. No selector rewrite: these are written against this
     # cluster's job labels directly, but they are still selector-CHECKED, so a
     # mistyped job name fails the build instead of rendering an empty panel.
+    homelab_panels: dict[str, set[str]] = {}
     for path in sorted(HOMELAB_DASHBOARDS_DIR.glob("*.json")):
         rendered = render_dashboard(path.name, path.read_text(encoding="utf-8"))
-        assert_selectors_rewritten(str(path), json.loads(rendered))
+        document = json.loads(rendered)
+        assert_selectors_rewritten(str(path), document)
         register_dashboard(rendered, path, kube_dashboard_data, files, seen_uids, seen_assets)
+        homelab_panels[document["uid"]] = dashboard_panel_ids(document)
 
     sites = expected_sites(MEASUREMENT_CONFIGMAP)
     groups = [render_alerts(template, sites) for template in alert_templates]
@@ -856,6 +934,7 @@ def build() -> dict[Path, str]:
     kube_groups = build_kubernetes_alert_groups(upstream_groups)
     homelab_sources = homelab_alert_sources()
     homelab_groups = [build_homelab_alert_group(path) for path in homelab_sources]
+    assert_panel_links(homelab_groups, homelab_panels)
 
     # Grafana keys a rule group by (folder, name) and a rule by uid, so two
     # generated groups that happen to share either would silently overwrite each
