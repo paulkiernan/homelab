@@ -42,6 +42,65 @@ metadata:
 data:
   notifications.yaml: |
     apiVersion: 1
+    templates:
+      - orgId: 1
+        name: homelab
+        template: |
+          {{ define "homelab.title" -}}
+          {{ if eq .Status "firing" }}[FIRING{{ if .Alerts.Firing }} {{ len .Alerts.Firing }}{{ end }}]{{ else }}[RESOLVED]{{ end }}
+          {{- with .GroupLabels.alertname }} {{ . }}{{ end }}
+          {{- with .CommonLabels.severity }} ({{ . }}){{ end }}
+          {{- end }}
+
+          {{ define "homelab.scope" -}}
+          {{ with .Labels.name }} `app={{ . }}`{{ end }}
+          {{- with .Labels.node }} `node={{ . }}`{{ end }}
+          {{- if not .Labels.node }}{{ with .Labels.instance }} `at={{ . }}`{{ end }}{{ end }}
+          {{- with .Labels.namespace }} `ns={{ . }}`{{ end }}
+          {{- with .Labels.pod }} `pod={{ . }}`{{ end }}
+          {{- with .Labels.job_name }} `job={{ . }}`{{ end }}
+          {{- with .Labels.daemonset }} `ds={{ . }}`{{ end }}
+          {{- with .Labels.deployment }} `deploy={{ . }}`{{ end }}
+          {{- with .Labels.statefulset }} `sts={{ . }}`{{ end }}
+          {{- with .Labels.mountpoint }} `mount={{ . }}`{{ end }}
+          {{- with .Labels.site }} `site={{ . }}`{{ end }}
+          {{- if not .Labels.pod }}{{ if not .Labels.node }}{{ with .Labels.job }} `scrape={{ . }}`{{ end }}{{ end }}{{ end }}
+          {{- end }}
+
+          {{ define "homelab.detail" -}}
+          **{{ .Labels.alertname }}**{{ with .Labels.severity }} · `{{ . }}`{{ end }}
+          {{ with .Annotations.summary }}{{ . }}
+          {{ end }}{{ with .Annotations.description }}> {{ . }}
+          {{ end }}on:{{ template "homelab.scope" . }}
+          since {{ .StartsAt.Format "Jan 02 15:04 MST" }}{{ with .PanelURL }} · [chart]({{ . }}){{ end }}
+
+          {{ end }}
+
+          {{ define "homelab.compact" -}}
+          **{{ .Labels.alertname }}**{{ with .Labels.severity }} · `{{ . }}`{{ end }}
+          {{ with .Annotations.summary }}{{ . }}
+          {{ end }}on:{{ template "homelab.scope" . }}
+
+          {{ end }}
+
+          {{ define "homelab.brief" -}}
+          - {{ .Labels.alertname }}{{ template "homelab.scope" . }}
+          {{ end }}
+
+          {{ define "homelab.message" -}}
+          {{ if .Alerts.Firing }}**{{ len .Alerts.Firing }} firing**
+
+          {{ if le (len .Alerts.Firing) 2 }}{{ range .Alerts.Firing }}{{ template "homelab.detail" . }}{{ end }}
+          {{- else if le (len .Alerts.Firing) 6 }}{{ range .Alerts.Firing }}{{ template "homelab.compact" . }}{{ end }}
+          {{- else }}{{ range slice .Alerts.Firing 0 6 }}{{ template "homelab.compact" . }}{{ end }}_showing 6 of {{ len .Alerts.Firing }} — open the dashboard for the rest_
+          {{ end }}
+          {{- end }}
+          {{- if .Alerts.Resolved }}
+          **{{ len .Alerts.Resolved }} resolved**
+          {{ if gt (len .Alerts.Resolved) 6 }}{{ range slice .Alerts.Resolved 0 6 }}{{ template "homelab.brief" . }}{{ end }}_and more, {{ len .Alerts.Resolved }} in total_
+          {{ else }}{{ range .Alerts.Resolved }}{{ template "homelab.brief" . }}{{ end }}{{ end }}
+          {{- end }}
+          {{- end }}
     contactPoints:
       - orgId: 1
         name: discord-market-measurement
@@ -52,8 +111,14 @@ data:
             settings:
               url: $DISCORD_WEBHOOK_URL
               use_discord_username: true
-              title: '{{ template "default.title" . }}'
-              message: '{{ template "default.message" . }}'
+              # Render the message as the embed description so it sits with the
+              # panel screenshots Grafana attaches as sibling embeds. The 2000
+              # rune cap applies either way (the notifier truncates before this
+              # branch), and no template uses @mentions, which are the one thing
+              # that stops working from an embed.
+              use_embed_description: true
+              title: '{{ template "homelab.title" . }}'
+              message: '{{ template "homelab.message" . }}'
       - orgId: 1
         name: discord-cluster
         receivers:
@@ -63,8 +128,14 @@ data:
             settings:
               url: $DISCORD_CLUSTER_WEBHOOK_URL
               use_discord_username: true
-              title: '{{ template "default.title" . }}'
-              message: '{{ template "default.message" . }}'
+              # Render the message as the embed description so it sits with the
+              # panel screenshots Grafana attaches as sibling embeds. The 2000
+              # rune cap applies either way (the notifier truncates before this
+              # branch), and no template uses @mentions, which are the one thing
+              # that stops working from an embed.
+              use_embed_description: true
+              title: '{{ template "homelab.title" . }}'
+              message: '{{ template "homelab.message" . }}'
     policies:
       - orgId: 1
         receiver: discord-cluster
