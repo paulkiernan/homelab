@@ -58,14 +58,16 @@ resources:
 images:
   # Single place to pin the images. The market-research entry must be a
   # release whose package contains difflogic_hft.futures_metrics
-  # (research-metrics-deployment.yaml): v0.2.0 (diff-logic-cells 847af2c) is
-  # the first such release and is pinned by digest, so the report CronJob, the
-  # SSH pull and the exporter all run the same verified bytes. The recorder
+  # (research-metrics-deployment.yaml), and since v0.3.0 also
+  # difflogic_hft.futures_incremental, which report.sh's --state-dir needs.
+  # v0.3.0 is diff-logic-cells 2ed1a28 (v0.2.0, 847af2c, was the first with
+  # the exporter) and is pinned by digest, so the report CronJob, the SSH pull
+  # and the exporter all run the same verified bytes. The recorder
   # image and pods are not tied to the research release; repin entries
   # individually, since `task measurement:images VERSION=...` rewrites every
   # image in this block.
   - name: ghcr.io/paulkiernan/diff-logic-cells/market-recorder
     newTag: v0.1.0
   - name: ghcr.io/paulkiernan/diff-logic-cells/market-research
-    newTag: v0.2.0
-    digest: sha256:a2d355c0af8a6c5a12985a254e4e6caac7e6ef29d004922319945f8ffa6f9014
+    newTag: v0.3.0
+    digest: sha256:eae0d7dcc0d6e4eaa3ead46db6413c6cffd7579c9bab7f12c858ce707f1df1f0

@@ -199,6 +199,16 @@ data:
     # and each runs in its own subshell with pipefail so its exit status is
     # futures_report's, not sed's. One site failing does not stop the other;
     # the job still fails if any site did.
+    #
+    # --state-dir makes each run replay only what is new (market-research
+    # v0.3.0+, difflogic_hft/futures_incremental.py): a chunk verification
+    # cache plus a replay checkpoint taken every 24 chunks and before the last
+    # one, each committed as it is taken, so a killed run keeps its progress.
+    # The published report is byte-identical with or without it. It lives
+    # inside each site's own output directory, so the concurrent site
+    # processes never share state, and on the same NAS volume as the report.
+    # The first run after any release replays from the start to re-seed it;
+    # DIR/last-run.json records what each run did and why.
     run_site() {
       local site="$1" output="${REPORTS}/$1"
       mkdir -p "${output}"
@@ -208,7 +218,8 @@ data:
         --output "${output}" \
         --config "${MSR_CONFIG}" \
         --site "${site}" \
-        --trades "${MSR_TRADES}"
+        --trades "${MSR_TRADES}" \
+        --state-dir "${output}/.incremental"
     }
 
     declare -A pids=()
