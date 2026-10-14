@@ -51,14 +51,19 @@ spec:
       # runway below real: run sequentially, tonight's job would already be
       # ~11h growing ~24 min/day, and 18h would last only ~2.5 weeks.
       #
-      # This is a STOPGAP. futures_report recomputes the whole history every
-      # night, so any fixed deadline eventually expires: 18h is roughly two
-      # months of runway at the measured growth. It also cannot satisfy the
-      # `capture end older than 28h` freshness rule, which implicitly assumes a
-      # runtime under ~3h (capture end is ~24h + runtime + pull lag old just
-      # before the next report lands), so expect that rule to fire for a couple
-      # of hours each day until futures_report is made incremental upstream in
-      # paulkiernan/diff-logic-cells. Shrink this again once it is.
+      # Since market-research v0.3.0 the report is incremental (report.sh passes
+      # --state-dir): a normal night replays only the new day plus one chunk,
+      # ~15 min per site on these workers, which also keeps the `capture end
+      # older than 28h` rule quiet (it needs a runtime under ~3h).
+      #
+      # The 18h stays, deliberately, for the other kind of night: every release
+      # changes the package hash and forces one full replay to re-seed the
+      # checkpoint, which costs what a whole night cost before (5h30m per site
+      # in October 2026, +12 min/day, sites in parallel). 18h lets that finish
+      # in one night until about mid-December. After that a re-seed simply
+      # spans nights — the report commits a checkpoint every 24 chunks, so a
+      # run stopped by this deadline resumes where it stopped — at the price
+      # of one DeadlineExceeded job (and KubeJobFailed) per extra night.
       activeDeadlineSeconds: 64800
       template:
         metadata:
