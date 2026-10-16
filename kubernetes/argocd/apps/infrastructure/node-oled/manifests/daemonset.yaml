@@ -1,0 +1,76 @@
+---
+# Drives the UCTRONICS Pi rack's 0.91" SSD1306 (128x32, I2C bus 1, addr 0x3c)
+# on every Raspberry Pi node. Requires `dtparam=i2c_arm=on` in config.txt,
+# which comes from the Talos factory schematic in talconfig.yaml.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-oled
+  namespace: node-oled
+  labels:
+    app: node-oled
+spec:
+  selector:
+    matchLabels:
+      app: node-oled
+  template:
+    metadata:
+      labels:
+        app: node-oled
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      tolerations:
+        - operator: Exists
+      priorityClassName: system-node-critical
+      terminationGracePeriodSeconds: 5
+      containers:
+        - name: oled
+          image: python:3.13.5-alpine3.22
+          command: ["python3", "-u", "/app/oled.py"]
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: PAGE_SECONDS
+              value: "5"
+            - name: I2C_BUS
+              value: "1"
+            - name: I2C_ADDR
+              value: "0x3c"
+            # Set to "true" if the text renders upside down.
+            - name: FLIP
+              value: "false"
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: script
+              mountPath: /app
+              readOnly: true
+            - name: dev
+              mountPath: /dev
+            - name: host-var
+              mountPath: /host/var
+              readOnly: true
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              memory: 48Mi
+      volumes:
+        - name: script
+          configMap:
+            name: node-oled-script
+        - name: dev
+          hostPath:
+            path: /dev
+        # Talos EPHEMERAL partition, for the disk-usage line.
+        - name: host-var
+          hostPath:
+            path: /var

@@ -44,6 +44,7 @@ task --list
 **Kubernetes:**
 - `task kubernetes:resources` - List common cluster resources (useful for debugging)
 - `task kubernetes:kubeconform` - Validate all Kubernetes manifests
+- `task kubernetes:locate-node node=k8s-worker-02` - Blink a Raspberry Pi's LEDs to find it in the rack
 
 **ArgoCD:**
 - `task argo:bootstrap` - Bootstrap ArgoCD and deploy the root app-of-apps

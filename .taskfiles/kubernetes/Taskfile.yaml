@@ -41,6 +41,23 @@ tasks:
       - msg: Missing kubeconform script
         sh: test -f {{.KUBECONFORM_SCRIPT}}
 
+  locate-node:
+    desc: Rapidly blink a Raspberry Pi node's ACT/PWR LEDs to find it in the rack (Ctrl-C restores them)
+    cmds:
+      - defer: kubectl -n kube-system delete pod locate-{{.node}} --ignore-not-found --wait=false
+      - |
+        kubectl -n kube-system run locate-{{.node}} --rm -i --restart=Never --image=busybox:1.36 \
+          --overrides='{"spec":{"nodeName":"{{.node}}","tolerations":[{"operator":"Exists"}],"terminationGracePeriodSeconds":5,
+            "containers":[{"name":"blink","image":"busybox:1.36","securityContext":{"privileged":true},"command":["sh","-c",
+            "L=/sys/class/leds; restore() { echo mmc0 > $L/ACT/trigger; echo default-on > $L/PWR/trigger; exit 0; }; trap restore TERM INT; for l in ACT PWR; do echo timer > $L/$l/trigger; echo 100 > $L/$l/delay_on; echo 100 > $L/$l/delay_off; done; echo blinking {{.node}}, Ctrl-C to stop; sleep {{.seconds}} & wait; restore"]}]}}'
+    vars:
+      seconds: '{{.seconds | default "600"}}'
+    requires:
+      vars: ["node"]
+    preconditions:
+      - msg: Node not found
+        sh: kubectl get node {{.node}}
+
   .reset:
     internal: true
     cmd: rm -rf {{.KUBERNETES_DIR}}

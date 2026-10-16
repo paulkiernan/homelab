@@ -1,0 +1,11 @@
+# Talos Image Factory schematic for the Raspberry Pi 4 workers.
+# ID 35c5847f9b84a75e0a9abaabb54492060e7249647560a57f3529011d01534232 (used in talconfig.yaml).
+# Regenerate: curl -X POST --data-binary @rpi.yaml https://factory.talos.dev/schematics
+# i2c_arm enables /dev/i2c-1 for the rack's OLED displays (apps/infrastructure/node-oled).
+---
+overlay:
+  image: siderolabs/sbc-raspberrypi
+  name: rpi_generic
+  options:
+    configTxtAppend: |
+      dtparam=i2c_arm=on

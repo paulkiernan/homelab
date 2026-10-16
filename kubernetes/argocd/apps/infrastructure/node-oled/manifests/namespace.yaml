@@ -1,0 +1,8 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: node-oled
+  labels:
+    # Needs a privileged container to open /dev/i2c-1 on the host.
+    pod-security.kubernetes.io/enforce: privileged
