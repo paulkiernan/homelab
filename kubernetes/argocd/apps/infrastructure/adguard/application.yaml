@@ -10,7 +10,7 @@ spec:
   project: default
   sources:
     - repoURL: https://helm-charts.rm3l.org
-      targetRevision: 0.24.1
+      targetRevision: 0.25.0
       chart: adguard-home
       helm:
         valuesObject:
