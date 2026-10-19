@@ -34,7 +34,8 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:18-alpine
+          # Major bumps need a pg_upgrade/dump-restore: 18 refuses a v17 data dir.
+          image: postgres:17-alpine
           ports:
             - containerPort: 5432
           env:
