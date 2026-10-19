@@ -21,7 +21,33 @@
       '/kubernetes/.+\\.yaml$/',
     ],
   },
+  customManagers: [
+    {
+      // Images set as repository/tag pairs in Helm values inside Argo CD
+      // Applications (e.g. cloudflared, grafana-image-renderer) are invisible
+      // to the argocd and kubernetes managers.
+      customType: 'regex',
+      managerFilePatterns: [
+        '/kubernetes/argocd/apps/.+/application\\.yaml$/',
+      ],
+      matchStrings: [
+        'repository:\\s*["\']?(?<depName>[^\\s"\']+)["\']?\\s*\\n\\s*tag:\\s*["\']?(?<currentValue>[^\\s"\']+)["\']?',
+      ],
+      datasourceTemplate: 'docker',
+    },
+  ],
   packageRules: [
+    {
+      // First-party images are bumped by each app repo's own CI, and the
+      // Renovate token cannot read these private packages anyway.
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'ghcr.io/paulkiernan/**',
+      ],
+      enabled: false,
+    },
     {
       matchDatasources: [
         'helm',
@@ -121,6 +147,32 @@
       ],
       automerge: true,
       automergeType: 'pr',
+    },
+    {
+      // A major database bump cannot reuse the existing data directory
+      // (postgres 18 refused alexispaul's v17 data in #849), so these wait for
+      // approval on the dashboard and are never automerged.
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'postgres',
+        'mariadb',
+        'mysql',
+        'mongo',
+        '**/postgres',
+        '**/mariadb',
+        '**/mysql',
+        '**/mongo',
+      ],
+      matchUpdateTypes: [
+        'major',
+      ],
+      dependencyDashboardApproval: true,
+      automerge: false,
+      prBodyNotes: [
+        '⚠️ Major database upgrade: the new version will not start on the existing data directory. Dump/restore or pg_upgrade before merging.',
+      ],
     },
     {
       matchManagers: [
