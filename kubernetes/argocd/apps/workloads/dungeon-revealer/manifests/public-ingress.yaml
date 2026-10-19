@@ -1,0 +1,26 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dungeon-revealer-public
+  namespace: dungeon-revealer
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: "vtt.paulynomial.com"
+      http:
+        paths:
+          - backend:
+              service:
+                name: dungeon-revealer
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix
+  tls:
+    - hosts:
+        - vtt.paulynomial.com
+      secretName: vtt-paulynomial-com-tls
