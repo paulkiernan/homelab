@@ -35,21 +35,32 @@ spec:
       postInitSQL:
         - CREATE EXTENSION IF NOT EXISTS vectors;
 
+  # managed.roles is an atomic list in the CNPG CRD, and the API server fills
+  # in schema defaults (connectionLimit, inherit) on every apply. ArgoCD diffs
+  # atomic lists as a whole, so omitting the defaults leaves the app
+  # permanently OutOfSync and self-healing every 5 minutes. Spell them out on
+  # every role, including new ones.
   managed:
     roles:
       - name: immich
         ensure: present
         login: true
+        inherit: true
+        connectionLimit: -1
         passwordSecret:
           name: immich-db-user
       - name: tidewood
         ensure: present
         login: true
         createdb: true
+        inherit: true
+        connectionLimit: -1
         passwordSecret:
           name: tidewood-db-user
       - name: paperless
         ensure: present
         login: true
+        inherit: true
+        connectionLimit: -1
         passwordSecret:
           name: paperless-db-user
