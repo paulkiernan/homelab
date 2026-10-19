@@ -590,7 +590,7 @@ spec:
             # arm64 workers as happily as on the amd64 leader.
             image:
               repository: grafana/grafana-image-renderer
-              tag: v5.12.6
+              tag: v5.12.7
               pullPolicy: IfNotPresent
             env:
               # Chromium cannot use its own sandbox here: the chart's container
