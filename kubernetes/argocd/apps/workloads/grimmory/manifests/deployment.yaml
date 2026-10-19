@@ -57,23 +57,39 @@ spec:
               mountPath: /books
             - name: bookdrop
               mountPath: /bookdrop
+          resources:
+            # Spring boot is CPU-bound; a CPU limit would only throttle it into
+            # outlasting the startup probe, so request half a core and let it
+            # burst. The memory limit also bounds the JVM, whose image sets
+            # MaxRAMPercentage=60 and would otherwise size off the node's RAM.
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              memory: 1536Mi
+          # Cold start takes 3+ minutes on a busy node, longer than the old 180s
+          # budget, so the kubelet killed it just short of ready on every boot.
+          # Allow up to 10 minutes before liveness takes over.
           startupProbe:
             httpGet:
               path: /
               port: 6060
             initialDelaySeconds: 30
             periodSeconds: 10
-            failureThreshold: 15
+            timeoutSeconds: 5
+            failureThreshold: 57
           livenessProbe:
             httpGet:
               path: /
               port: 6060
             periodSeconds: 10
+            timeoutSeconds: 5
           readinessProbe:
             httpGet:
               path: /
               port: 6060
             periodSeconds: 5
+            timeoutSeconds: 5
       volumes:
         - name: data
           persistentVolumeClaim:
