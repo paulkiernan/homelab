@@ -90,11 +90,6 @@ groups:
 
   - name: "Websites"
     items:
-      - name: "Chrisabel"
-        href: "https://chrisabel.love"
-        description: "Personal website"
-        icon: "💛"
-        external: true
       - name: "Taqueria Bonjour"
         href: "https://bonjourinc.com"
         description: "Restaurant website"

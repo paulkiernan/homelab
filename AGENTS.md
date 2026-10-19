@@ -20,7 +20,7 @@ This repository is a personal "homelab" setup that serves multiple objectives:
 
 ## Services Hosted
 - **Immich**: Photo management and backup server
-- **Personal websites**: disconnect, paulynomial-index, chrisabel, gibson, taqueria-bonjour
+- **Personal websites**: disconnect, paulynomial-index, gibson, taqueria-bonjour
 - **Dashboard**: Hajimari
 - **Games**: Valheim dedicated server (amd64-only, pinned to k8s-leader-01, reached over Tailscale)
 
