@@ -1,0 +1,14 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: dungeon-revealer
+  namespace: dungeon-revealer
+spec:
+  selector:
+    app: dungeon-revealer
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http

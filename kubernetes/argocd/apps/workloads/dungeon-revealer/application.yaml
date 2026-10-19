@@ -1,0 +1,25 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dungeon-revealer
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/paulkiernan/homelab
+    targetRevision: HEAD
+    path: kubernetes/argocd/apps/workloads/dungeon-revealer/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dungeon-revealer
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
