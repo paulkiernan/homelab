@@ -10,7 +10,7 @@ spec:
   project: default
   sources:
     - repoURL: https://helm.traefik.io/traefik
-      targetRevision: 42.0.0
+      targetRevision: 42.1.0
       chart: traefik
       helm:
         valuesObject:
