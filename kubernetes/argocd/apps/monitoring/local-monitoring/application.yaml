@@ -640,7 +640,7 @@ spec:
     # there is no second log pipeline to keep in sync.
     - chart: loki
       repoURL: https://grafana.github.io/helm-charts
-      targetRevision: 7.3.0
+      targetRevision: 7.5.0
       helm:
         releaseName: loki
         valuesObject:
