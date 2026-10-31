@@ -8,7 +8,7 @@ spec:
   instances: 1
   # Creates postgres-homelab-superuser, which db-backup.yaml uses for pg_dumpall.
   enableSuperuserAccess: true
-  imageName: ghcr.io/tensorchord/cloudnative-pgvecto.rs:16.3-v0.3.0
+  imageName: ghcr.io/tensorchord/cloudnative-vectorchord:16.15-1.1.1
 
   postgresql:
     parameters:
@@ -16,7 +16,7 @@ spec:
       shared_buffers: "256MB"
       effective_cache_size: "1GB"
     shared_preload_libraries:
-      - vectors
+      - vchord.so
 
   storage:
     storageClass: nas-nfs
@@ -34,8 +34,6 @@ spec:
     initdb:
       database: postgres
       owner: postgres
-      postInitSQL:
-        - CREATE EXTENSION IF NOT EXISTS vectors;
 
   # managed.roles is an atomic list in the CNPG CRD, and the API server fills
   # in schema defaults (connectionLimit, inherit) on every apply. ArgoCD diffs
