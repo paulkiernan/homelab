@@ -26,7 +26,7 @@ spec:
             runAsUser: 0
           containers:
             - name: dump
-              image: curlimages/curl:8.17.0
+              image: curlimages/curl:8.23.0
               command: [sh, -c]
               args:
                 - |
