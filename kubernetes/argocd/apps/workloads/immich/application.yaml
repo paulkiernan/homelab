@@ -39,7 +39,7 @@ spec:
                 existingClaim: immich-library
 
           server:
-            enabled: false
+            enabled: true
             nodeSelector:
               kubernetes.io/hostname: k8s-leader-01
             controllers:
@@ -75,7 +75,7 @@ spec:
           # rendering 0.13.2 with and without it: the output is byte-identical.
 
           machine-learning:
-            enabled: false
+            enabled: true
             controllers:
               main:
                 containers:
