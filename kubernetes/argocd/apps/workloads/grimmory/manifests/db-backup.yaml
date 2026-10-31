@@ -4,6 +4,8 @@
 # backups; kubelet creates the subPath, hence running as root. The NAS also
 # hosts the live data, so this covers corruption and bad migrations, not loss
 # of the NAS. Restore: gunzip -c <file> | mariadb -h mariadb -u root -p.
+# --routines is left out on purpose: mysql.proc is still in its 11.6 layout, so
+# the dump fails on it until mariadb-upgrade has been run.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -31,7 +33,7 @@ spec:
                 - |
                   set -eu -o pipefail
                   out="/backups/$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
-                  mariadb-dump -h mariadb -u root --all-databases --single-transaction --routines --events | gzip > "$out.tmp"
+                  mariadb-dump -h mariadb -u root --all-databases --single-transaction --events | gzip > "$out.tmp"
                   gzip -t "$out.tmp"
                   mv "$out.tmp" "$out"
                   find /backups -type f -mtime +14 -delete
