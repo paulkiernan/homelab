@@ -15,7 +15,7 @@ spec:
       helm:
         valuesObject:
           image:
-            tag: 1.23.16
+            tag: 1.23.17
           service:
             type: ClusterIP
             port: 3001
