@@ -6,6 +6,8 @@ metadata:
   namespace: postgres
 spec:
   instances: 1
+  # Creates postgres-homelab-superuser, which db-backup.yaml uses for pg_dumpall.
+  enableSuperuserAccess: true
   imageName: ghcr.io/tensorchord/cloudnative-pgvecto.rs:16.3-v0.3.0
 
   postgresql:

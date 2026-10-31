@@ -1,0 +1,65 @@
+---
+# Nightly logical dump of the alexispaul Postgres (all databases and roles) to the NAS, kept for 14 days.
+# Inline NFS rather than a PVC so that pruning this app cannot delete its own
+# backups; kubelet creates the subPath, hence running as root. The NAS also
+# hosts the live data, so this covers corruption and bad migrations, not loss
+# of the NAS. Restore: gunzip -c <file> | psql.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup
+  namespace: alexispaul
+spec:
+  schedule: "25 4 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 0
+          containers:
+            - name: dump
+              image: postgres:17-alpine
+              command: [sh, -c]
+              args:
+                - |
+                  set -eu -o pipefail
+                  out="/backups/$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+                  pg_dumpall --clean --if-exists | gzip > "$out.tmp"
+                  gzip -t "$out.tmp"
+                  mv "$out.tmp" "$out"
+                  find /backups -type f -mtime +14 -delete
+                  ls -lh "$out"
+              env:
+                - name: PGHOST
+                  value: db
+                - name: PGUSER
+                  value: wedding
+                - name: PGDATABASE
+                  value: wedding
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: alexispaul-auth
+                      key: POSTGRES_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 512Mi
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+                  subPath: db-backups/alexispaul
+          volumes:
+            - name: backups
+              nfs:
+                server: 192.168.1.2
+                path: /volume1/kubernetes-pvs

@@ -1,0 +1,72 @@
+---
+# Nightly JSON export of every CouchDB database to the NAS, kept for 14 days.
+# Inline NFS rather than a PVC so that pruning this app cannot delete its own
+# backups; kubelet creates the subPath, hence running as root. The NAS also
+# hosts the live data, so this covers corruption and bad migrations, not loss
+# of the NAS. Restore: POST each file's docs to <db>/_bulk_docs with
+# new_edits=false.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup
+  namespace: couchdb
+spec:
+  schedule: "45 4 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 0
+          containers:
+            - name: dump
+              image: curlimages/curl:8.17.0
+              command: [sh, -c]
+              args:
+                - |
+                  set -eu -o pipefail
+                  base="http://couchdb-svc-couchdb:5984"
+                  dir="/backups/$(date -u +%Y%m%dT%H%M%SZ)"
+                  mkdir "$dir.tmp"
+                  dbs="$(curl -fsS -u "$COUCHDB_USER:$COUCHDB_PASSWORD" "$base/_all_dbs" | tr -d '[]"' | tr ',' ' ')"
+                  [ -n "$dbs" ]
+                  for db in $dbs; do
+                    curl -fsS -u "$COUCHDB_USER:$COUCHDB_PASSWORD" "$base/$(printf %s "$db" | sed 's#/#%2F#g')/_all_docs?include_docs=true&attachments=true" \
+                      | gzip > "$dir.tmp/$(printf %s "$db" | tr '/' '_').json.gz"
+                    gzip -t "$dir.tmp/$(printf %s "$db" | tr '/' '_').json.gz"
+                  done
+                  mv "$dir.tmp" "$dir"
+                  find /backups -mindepth 1 -maxdepth 1 -type d -mtime +14 -exec rm -rf {} +
+                  du -sh "$dir"
+              env:
+                - name: COUCHDB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: couchdb-secrets
+                      key: adminUsername
+                - name: COUCHDB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: couchdb-secrets
+                      key: adminPassword
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 512Mi
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+                  subPath: db-backups/couchdb
+          volumes:
+            - name: backups
+              nfs:
+                server: 192.168.1.2
+                path: /volume1/kubernetes-pvs

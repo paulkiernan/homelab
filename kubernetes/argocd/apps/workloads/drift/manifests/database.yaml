@@ -9,6 +9,8 @@ metadata:
   namespace: drift
 spec:
   instances: 1
+  # Creates drift-db-superuser, which db-backup.yaml uses for pg_dumpall.
+  enableSuperuserAccess: true
   imageName: ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie
 
   postgresql:

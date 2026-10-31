@@ -1,0 +1,66 @@
+---
+# Nightly logical dump of the shared postgres-homelab cluster (all databases and roles) to the NAS, kept for 14 days.
+# Inline NFS rather than a PVC so that pruning this app cannot delete its own
+# backups; kubelet creates the subPath, hence running as root. The NAS also
+# hosts the live data, so this covers corruption and bad migrations, not loss
+# of the NAS. Restore: gunzip -c <file> | psql, against an image with vchord.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup
+  namespace: postgres
+spec:
+  schedule: "5 4 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 0
+          containers:
+            - name: dump
+              image: ghcr.io/tensorchord/cloudnative-vectorchord:16.15-1.1.1
+              command: [bash, -c]
+              args:
+                - |
+                  set -eu -o pipefail
+                  out="/backups/$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+                  pg_dumpall --clean --if-exists | gzip > "$out.tmp"
+                  gzip -t "$out.tmp"
+                  mv "$out.tmp" "$out"
+                  find /backups -type f -mtime +14 -delete
+                  ls -lh "$out"
+              env:
+                - name: PGHOST
+                  value: postgres-homelab-rw
+                - name: PGUSER
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-homelab-superuser
+                      key: username
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-homelab-superuser
+                      key: password
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 512Mi
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+                  subPath: db-backups/postgres-homelab
+          volumes:
+            - name: backups
+              nfs:
+                server: 192.168.1.2
+                path: /volume1/kubernetes-pvs

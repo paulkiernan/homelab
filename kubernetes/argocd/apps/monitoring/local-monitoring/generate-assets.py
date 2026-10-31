@@ -46,8 +46,9 @@ only read here, and nothing in either is generated:
                       same validations as the upstream alert rules, landing in
                       the same Grafana folder. Today: homelab-capacity.yaml
                       (the compute/storage headroom gaps upstream leaves open)
-                      and argocd-gitops.yaml (whether the repository is still
-                      being applied at all). Each file's header explains why
+                      argocd-gitops.yaml (whether the repository is still
+                      being applied at all) and database-backups.yaml (whether
+                      backups are still succeeding). Each file's header explains why
                       its rules exist; EXPECTED_HOMELAB_ALERT_RULES pins both
                       the set of files and each file's rule count.
   dashboards/*.json   hand-authored dashboards, provisioned into the same
@@ -184,6 +185,7 @@ HOMELAB_GENERATED_HEADER = (
 EXPECTED_HOMELAB_ALERT_RULES = {
     "homelab-capacity.yaml": 9,
     "argocd-gitops.yaml": 7,
+    "database-backups.yaml": 1,
 }
 
 # Hand-authored dashboards owned by this repository, also source and not
@@ -293,7 +295,7 @@ SELECTOR_REWRITE = {
     'job="kube-state-metrics"': 'job="integrations/kubernetes/kube-state-metrics"',
     'job="node-exporter"': 'job="integrations/node_exporter"',
 }
-JOB_SELECTOR = re.compile(r'job=~?"([^"]*)"')
+JOB_SELECTOR = re.compile(r'\bjob=~?"([^"]*)"')
 INTEGRATION_JOB_PREFIX = "integrations/"
 # Job values this cluster's own Prometheus scrapes. These are real local
 # targets, not kube-prometheus leftovers, so the residue check accepts them by

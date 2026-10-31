@@ -5,6 +5,7 @@ resources:
   - pvcs.yaml
   - mariadb-secret.sops.yaml
   - mariadb.yaml
+  - db-backup.yaml
   - deployment.yaml
   - service.yaml
   - public-ingress.yaml

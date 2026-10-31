@@ -1,0 +1,28 @@
+# Homelab-authored database backup rules. Hand-maintained SOURCE, not a vendored
+# file. Every database backs up through a CronJob named `db-backup` in its own
+# namespace, so one rule covers them all, including any added later.
+groups:
+  - name: homelab-database-backups
+    rules:
+      # `unless` rather than a staleness threshold on the timestamp alone: the
+      # metric does not exist until a first success, so a threshold could never
+      # fire for a job that has not once worked. The jobs run nightly, so 36h
+      # means a whole run was missed or failed.
+      #
+      # 6h covers a newly added job waiting for its first scheduled run.
+      - alert: HomelabDatabaseBackupStale
+        expr: |
+          kube_cronjob_info{cronjob="db-backup"}
+            unless on (namespace, cronjob)
+          (time() - kube_cronjob_status_last_successful_time{cronjob="db-backup"} < 129600)
+        for: 6h
+        labels:
+          severity: warning
+        annotations:
+          summary: >-
+            No database backup has succeeded in {{ $labels.namespace }} for 36 hours.
+          description: >-
+            The db-backup CronJob in {{ $labels.namespace }} has no successful run in 36 hours, or
+            has never succeeded. Run `kubectl get jobs -n {{ $labels.namespace }}` and read the logs
+            of the latest failed job. Dumps are on the NAS under
+            /volume1/kubernetes-pvs/db-backups.
