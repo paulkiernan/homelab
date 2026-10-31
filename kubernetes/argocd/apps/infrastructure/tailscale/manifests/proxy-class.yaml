@@ -1,0 +1,50 @@
+---
+# Tailnet access is how everything else here gets managed, so proxies outrank
+# ordinary workloads when a node runs short of memory or a pod needs a slot.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: tailscale-proxy
+value: 1000000
+globalDefault: false
+description: Tailscale ingress proxies.
+---
+# Applied to every proxy through proxyConfig.defaultProxyClass in application.yaml.
+#
+# Each proxy is a single-replica StatefulSet, and a StatefulSet does not replace
+# a pod on a node that has stopped responding. On 2026-10-31 worker-04 ran out of
+# memory and five proxies, including the Kubernetes API one, stayed down with it,
+# while 13 of the 19 sat together on worker-02. Spreading limits how many one node
+# can take out, and worker-04 is excluded because it is the smallest node.
+#
+# The 1Mi chart default hid real usage (~30Mi) from the scheduler and marked
+# proxies as over-request, so they ranked early for node-pressure eviction.
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyClass
+metadata:
+  name: homelab-default
+spec:
+  statefulSet:
+    pod:
+      priorityClassName: tailscale-proxy
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values:
+                      - k8s-worker-04
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              tailscale.com/managed: "true"
+      tailscaleContainer:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 48Mi

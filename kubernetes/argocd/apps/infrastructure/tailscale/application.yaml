@@ -18,6 +18,8 @@ spec:
             image:
               pullPolicy: IfNotPresent
           replicaCount: 3
+          proxyConfig:
+            defaultProxyClass: homelab-default
           oauth:
             existingSecret: operator-oauth
     - path: kubernetes/argocd/apps/infrastructure/tailscale/manifests
