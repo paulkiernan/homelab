@@ -40,14 +40,31 @@ spec:
 
           server:
             enabled: true
-            nodeSelector:
-              kubernetes.io/hostname: k8s-leader-01
+            # A top-level nodeSelector here was ignored by the chart. worker-04 has
+            # half the memory of the other workers: on 2026-10-31 Immich filled it
+            # during a large phone upload and took the node down. defaultPodOptions
+            # is where the chart reads this, for server and machine-learning alike.
+            defaultPodOptions:
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                      - matchExpressions:
+                          - key: kubernetes.io/hostname
+                            operator: NotIn
+                            values:
+                              - k8s-worker-04
             controllers:
               main:
                 containers:
                   main:
                     image:
                       tag: v3.3.5
+                    resources:
+                      requests:
+                        memory: 1536Mi
+                      limits:
+                        memory: 3Gi
                     env:
                       DB_HOSTNAME:
                         value: postgres-homelab-rw.postgres.svc.cluster.local
@@ -76,12 +93,27 @@ spec:
 
           machine-learning:
             enabled: true
+            defaultPodOptions:
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                      - matchExpressions:
+                          - key: kubernetes.io/hostname
+                            operator: NotIn
+                            values:
+                              - k8s-worker-04
             controllers:
               main:
                 containers:
                   main:
                     image:
                       tag: v3.3.5
+                    resources:
+                      requests:
+                        memory: 1Gi
+                      limits:
+                        memory: 2500Mi
             persistence:
               cache:
                 enabled: true
