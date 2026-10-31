@@ -35,6 +35,56 @@
       ],
       datasourceTemplate: 'docker',
     },
+    {
+      // The Immich chart defaults each component's image repository, so the
+      // values only pin `tag:` and neither the kubernetes manager nor the
+      // repository/tag regex above can see them. Anchored on the component key
+      // because both tags share a value and each is rewritten in place.
+      customType: 'regex',
+      managerFilePatterns: [
+        '/kubernetes/argocd/apps/workloads/immich/application\\.yaml$/',
+      ],
+      matchStrings: [
+        '\\n\\s*server:\\s*\\n[\\s\\S]*?\\n\\s*tag:\\s*["\']?(?<currentValue>[^\\s"\']+)["\']?',
+      ],
+      depNameTemplate: 'ghcr.io/immich-app/immich-server',
+      datasourceTemplate: 'docker',
+    },
+    {
+      customType: 'regex',
+      managerFilePatterns: [
+        '/kubernetes/argocd/apps/workloads/immich/application\\.yaml$/',
+      ],
+      matchStrings: [
+        '\\n\\s*machine-learning:\\s*\\n[\\s\\S]*?\\n\\s*tag:\\s*["\']?(?<currentValue>[^\\s"\']+)["\']?',
+      ],
+      depNameTemplate: 'ghcr.io/immich-app/immich-machine-learning',
+      datasourceTemplate: 'docker',
+    },
+    {
+      // Same tag-only shape as Immich: the chart supplies the repository.
+      customType: 'regex',
+      managerFilePatterns: [
+        '/kubernetes/argocd/apps/monitoring/uptime-kuma/application\\.yaml$/',
+      ],
+      matchStrings: [
+        'image:\\s*\\n\\s*tag:\\s*["\']?(?<currentValue>[^\\s"\']+)["\']?',
+      ],
+      depNameTemplate: 'louislam/uptime-kuma',
+      datasourceTemplate: 'docker',
+    },
+    {
+      // CloudNativePG Clusters set `imageName`, which the kubernetes manager
+      // ignores because it only looks for `image`.
+      customType: 'regex',
+      managerFilePatterns: [
+        '/kubernetes/.+\\.yaml$/',
+      ],
+      matchStrings: [
+        'imageName:\\s*["\']?(?<depName>[^\\s"\':]+):(?<currentValue>[^\\s"\'@]+)["\']?',
+      ],
+      datasourceTemplate: 'docker',
+    },
   ],
   packageRules: [
     {
@@ -164,6 +214,8 @@
         '**/mariadb',
         '**/mysql',
         '**/mongo',
+        'ghcr.io/cloudnative-pg/postgresql',
+        'ghcr.io/tensorchord/**',
       ],
       matchUpdateTypes: [
         'major',
@@ -173,6 +225,57 @@
       prBodyNotes: [
         '⚠️ Major database upgrade: the new version will not start on the existing data directory. Dump/restore or pg_upgrade before merging.',
       ],
+    },
+    {
+      // Data-bearing images run on-disk migrations or need a matching extension
+      // build, so even minor and patch bumps get a human.
+      matchPackageNames: [
+        'postgres',
+        'mariadb',
+        'mysql',
+        'mongo',
+        '**/postgres',
+        '**/mariadb',
+        '**/mysql',
+        '**/mongo',
+        'ghcr.io/cloudnative-pg/postgresql',
+        'ghcr.io/tensorchord/**',
+        'couchdb',
+      ],
+      automerge: false,
+    },
+    {
+      // <postgres major>.<minor>-<vectorchord version>. Docker versioning reads
+      // the VectorChord half as an opaque suffix and would never bump it.
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'ghcr.io/tensorchord/cloudnative-vectorchord',
+      ],
+      versioning: 'regex:^(?<major>\\d+)\\.(?<minor>\\d+)-(?<patch>\\d+)\\.(?<build>\\d+)\\.(?<revision>\\d+)$',
+    },
+    {
+      // Immich upgrades can carry database migrations and breaking changes, and
+      // the server and machine-learning images must stay on the same version.
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'ghcr.io/immich-app/immich-server',
+        'ghcr.io/immich-app/immich-machine-learning',
+      ],
+      groupName: 'immich',
+      prBodyNotes: [
+        '⚠️ Read the Immich release notes for breaking changes and database requirements before merging.',
+      ],
+    },
+    {
+      // Covers the chart as well as the images.
+      matchPackageNames: [
+        'ghcr.io/immich-app/**',
+      ],
+      automerge: false,
     },
     {
       matchManagers: [
