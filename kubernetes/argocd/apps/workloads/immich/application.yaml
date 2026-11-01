@@ -67,6 +67,21 @@ spec:
                       limits:
                         cpu: 1500m
                         memory: 3Gi
+                    # At its CPU limit during an upload the server cannot answer the
+                    # default 1s probe, and the kubelet restarted it mid-job on
+                    # 2026-11-01. 60s of tolerance rides out those stretches.
+                    probes:
+                      liveness:
+                        spec:
+                          timeoutSeconds: 5
+                          failureThreshold: 6
+                      readiness:
+                        spec:
+                          timeoutSeconds: 5
+                          failureThreshold: 6
+                      startup:
+                        spec:
+                          timeoutSeconds: 5
                     env:
                       DB_HOSTNAME:
                         value: postgres-homelab-rw.postgres.svc.cluster.local
