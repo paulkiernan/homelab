@@ -1,0 +1,57 @@
+---
+# DSM on the Synology NAS, which is outside the cluster, with a valid certificate. Port 443 on the Service
+# is what makes the Tailscale proxy use TLS to the backend, so the DSM login does
+# not cross the LAN in the clear. DSM's self-signed certificate is not verified.
+#
+# Served as `dsm` because the NAS already runs Tailscale itself as `nas`. That
+# device does not depend on this cluster: nas.<tailnet>.ts.net:5001 still works
+# when the cluster is down, with a certificate warning.
+apiVersion: v1
+kind: Service
+metadata:
+  name: nas
+  namespace: tailscale
+spec:
+  ports:
+    - name: https
+      port: 443
+      targetPort: 5001
+      protocol: TCP
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: nas-1
+  namespace: tailscale
+  labels:
+    kubernetes.io/service-name: nas
+    endpointslice.kubernetes.io/managed-by: homelab
+addressType: IPv4
+ports:
+  - name: https
+    port: 5001
+    protocol: TCP
+endpoints:
+  - addresses:
+      - 192.168.1.2
+    # Spelled out because the API server defaults it, which ArgoCD reads as drift.
+    conditions:
+      ready: true
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dsm-tailscale
+  namespace: tailscale
+  annotations:
+    tailscale.com/hostname: "dsm"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: nas
+      port:
+        number: 443
+  tls:
+    - hosts:
+        - dsm
