@@ -110,22 +110,22 @@ spec:
 
           machine-learning:
             enabled: true
+            # OpenVINO runs on the NUC's iGPU, the only one in the cluster; the
+            # i915 driver comes from bootstrap/talos/schematics/nuc.yaml. This
+            # also keeps it off worker-04, like the server above.
             defaultPodOptions:
-              affinity:
-                nodeAffinity:
-                  requiredDuringSchedulingIgnoredDuringExecution:
-                    nodeSelectorTerms:
-                      - matchExpressions:
-                          - key: kubernetes.io/hostname
-                            operator: NotIn
-                            values:
-                              - k8s-worker-04
+              nodeSelector:
+                kubernetes.io/hostname: k8s-leader-01
             controllers:
               main:
                 containers:
                   main:
                     image:
-                      tag: v3.3.5
+                      tag: v3.3.5-openvino
+                    # A hostPath alone leaves /dev/dri blocked by the device
+                    # cgroup. Intel's GPU device plugin would remove this.
+                    securityContext:
+                      privileged: true
                     resources:
                       requests:
                         cpu: 500m
@@ -134,6 +134,13 @@ spec:
                         cpu: 1000m
                         memory: 2500Mi
             persistence:
+              dri:
+                enabled: true
+                type: hostPath
+                hostPath: /dev/dri
+                hostPathType: Directory
+                globalMounts:
+                  - path: /dev/dri
               cache:
                 enabled: true
                 size: 10Gi
