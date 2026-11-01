@@ -6,3 +6,4 @@ resources:
   - connector.yaml
   - k8s-api-direct.yaml
   - proxy-class.yaml
+  - nas-ingress.yaml
