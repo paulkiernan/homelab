@@ -18,9 +18,6 @@ spec:
           # NFS. That is the likely cause of the corrupted kuma.db on 2026-10-31.
           strategy:
             type: Recreate
-          # Temporary: keeps the pod down while kuma.db is replaced.
-          nodeSelector:
-            homelab/paused: "true"
           image:
             tag: 1.23.17
           service:
