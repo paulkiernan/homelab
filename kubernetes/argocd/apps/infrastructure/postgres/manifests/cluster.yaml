@@ -6,8 +6,6 @@ metadata:
   namespace: postgres
 spec:
   instances: 1
-  # Creates postgres-homelab-superuser, which db-backup.yaml uses for pg_dumpall.
-  enableSuperuserAccess: true
   imageName: ghcr.io/tensorchord/cloudnative-vectorchord:16.15-1.1.1
 
   postgresql:
@@ -64,3 +62,14 @@ spec:
         connectionLimit: -1
         passwordSecret:
           name: paperless-db-user
+      # For db-backup.yaml; pg_dumpall needs superuser. The operator-generated
+      # postgres password stopped matching after each Postgres restart, while
+      # managed roles have held theirs through the same restarts.
+      - name: backup
+        ensure: present
+        login: true
+        superuser: true
+        inherit: true
+        connectionLimit: -1
+        passwordSecret:
+          name: backup-db-user

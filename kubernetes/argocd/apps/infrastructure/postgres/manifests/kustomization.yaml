@@ -10,3 +10,4 @@ resources:
   - tidewood-database.yaml
   - paperless-db-user-secret.sops.yaml
   - paperless-database.yaml
+  - backup-db-user-secret.sops.yaml

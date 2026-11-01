@@ -42,12 +42,12 @@ spec:
                 - name: PGUSER
                   valueFrom:
                     secretKeyRef:
-                      name: postgres-homelab-superuser
+                      name: backup-db-user
                       key: username
                 - name: PGPASSWORD
                   valueFrom:
                     secretKeyRef:
-                      name: postgres-homelab-superuser
+                      name: backup-db-user
                       key: password
               resources:
                 requests:
