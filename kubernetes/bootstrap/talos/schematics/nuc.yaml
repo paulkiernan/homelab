@@ -1,0 +1,10 @@
+# Talos Image Factory schematic for the Intel NUC control plane node.
+# ID 4b3cd373a192c8469e859b7a0cfbed3ecc3577c4a2d346a37b0aeff9cd17cdb0 (used in talconfig.yaml).
+# i915 provides /dev/dri for OpenVINO in immich-machine-learning.
+# Regenerate: curl -X POST --data-binary @nuc.yaml https://factory.talos.dev/schematics
+---
+customization:
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/i915
+      - siderolabs/intel-ucode
