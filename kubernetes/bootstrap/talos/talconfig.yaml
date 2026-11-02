@@ -103,6 +103,25 @@ nodes:
           - network: 0.0.0.0/0
             gateway: "192.168.1.1"
         mtu: 1500
+  # Lenovo Yoga 2 13: i5-4210U, 8GB, SATA SSD, USB Ethernet. Its Haswell GPU
+  # is too old for OpenVINO. The disk is matched by model because a USB stick
+  # left in the laptop also shows up as /dev/sd*.
+  - hostname: "k8s-worker-05"
+    ipAddress: "192.168.1.205"
+    installDiskSelector:
+      model: "LITEONIT LGT-128"
+    talosImageURL: factory.talos.dev/installer/4b3cd373a192c8469e859b7a0cfbed3ecc3577c4a2d346a37b0aeff9cd17cdb0
+    controlPlane: false
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "f4:4d:ad:06:4b:29"
+        dhcp: false
+        addresses:
+          - "192.168.1.205/24"
+        routes:
+          - network: 0.0.0.0/0
+            gateway: "192.168.1.1"
+        mtu: 1500
 
 # Global patches
 patches:
