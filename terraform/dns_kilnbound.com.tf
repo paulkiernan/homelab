@@ -6,6 +6,40 @@ resource "cloudflare_zone" "kilnbound_com" {
   type = "full"
 }
 
+# Cloudflare tunnel routing: the apex and every subdomain go through the
+# cluster's cloudflared tunnel to Traefik, as for paulynomial.com.
+resource "cloudflare_dns_record" "kilnbound_com_apex_CNAME" {
+  content  = "17d5c05c-a2c3-4f83-ad23-696251c04862.cfargotunnel.com"
+  name     = "kilnbound.com"
+  priority = null
+  proxied  = true
+  settings = {
+    flatten_cname = false
+    ipv4_only     = null
+    ipv6_only     = null
+  }
+  tags    = []
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = cloudflare_zone.kilnbound_com.id
+}
+
+resource "cloudflare_dns_record" "kilnbound_com_wildcard_CNAME" {
+  content  = "17d5c05c-a2c3-4f83-ad23-696251c04862.cfargotunnel.com"
+  name     = "*.kilnbound.com"
+  priority = null
+  proxied  = true
+  settings = {
+    flatten_cname = false
+    ipv4_only     = null
+    ipv6_only     = null
+  }
+  tags    = []
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = cloudflare_zone.kilnbound_com.id
+}
+
 # Email Routing: every address @kilnbound.com is forwarded to a personal inbox.
 #
 # cloudflare_email_routing_dns enables Email Routing on the zone and has
