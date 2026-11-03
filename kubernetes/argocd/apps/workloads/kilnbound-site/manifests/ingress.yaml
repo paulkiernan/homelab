@@ -1,0 +1,37 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kilnbound
+  namespace: kilnbound-site
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: kilnbound.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: kilnbound-site
+                port:
+                  name: http
+            path: /
+            pathType: Prefix
+    - host: www.kilnbound.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: kilnbound-site
+                port:
+                  name: http
+            path: /
+            pathType: Prefix
+  tls:
+    - hosts:
+        - kilnbound.com
+        - www.kilnbound.com
+      secretName: kilnbound-com-tls

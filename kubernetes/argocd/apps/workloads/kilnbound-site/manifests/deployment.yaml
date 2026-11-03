@@ -1,0 +1,53 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kilnbound-site
+  namespace: kilnbound-site
+  labels:
+    app: kilnbound-site
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kilnbound-site
+  template:
+    metadata:
+      labels:
+        app: kilnbound-site
+    spec:
+      containers:
+        - name: kilnbound-site
+          # Pinned to an immutable sha-<commit> tag published by the kilnbound
+          # repository's Site workflow (.github/workflows/site.yml), which also
+          # rewrites this line on every publish when it has a homelab token.
+          # sha-pending is a placeholder until the first image exists: set it
+          # to that run's sha- tag (or let the workflow bump it after merge).
+          image: ghcr.io/paulkiernan/kilnbound-site:sha-pending
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              name: http
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 3
+          # Static files from nginx: well under 16Mi resident in practice.
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
