@@ -30,3 +30,8 @@ data sops_file cloudflared_creds {
   source_file = "../secrets/cloudflared.sops.yaml"
   input_type  = "yaml"
 }
+
+data sops_file email_routing {
+  source_file = "email-routing.sops.yaml"
+  input_type  = "yaml"
+}
