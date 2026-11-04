@@ -16,6 +16,10 @@ spec:
       labels:
         app: kilnbound-site
     spec:
+      # The image is private on GHCR; this is the same pull secret home,
+      # ireland and tidewood-booking use (ghcr-pull-secret.sops.yaml).
+      imagePullSecrets:
+        - name: dockerconfigjson-github-com
       containers:
         - name: kilnbound-site
           # Pinned to an immutable sha-<commit> tag published by the kilnbound
