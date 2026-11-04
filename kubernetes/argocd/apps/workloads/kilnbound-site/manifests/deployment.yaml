@@ -22,12 +22,9 @@ spec:
         - name: dockerconfigjson-github-com
       containers:
         - name: kilnbound-site
-          # Pinned to an immutable sha-<commit> tag published by the kilnbound
-          # repository's Site workflow (.github/workflows/site.yml), which also
-          # rewrites this line on every publish when it has a homelab token.
-          # sha-pending is a placeholder until the first image exists: set it
-          # to that run's sha- tag (or let the workflow bump it after merge).
-          image: ghcr.io/paulkiernan/kilnbound-site:sha-pending
+          # Pinned to a site release (site-vX.Y.Z in the kilnbound repository).
+          # Its Site workflow rewrites this line on every release.
+          image: ghcr.io/paulkiernan/kilnbound-site:0.1.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
