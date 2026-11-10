@@ -287,6 +287,20 @@ spec:
           # endpoint instead of needing a pod restart.
           configmapReload:
             prometheus:
+              # Pinned below the chart default. Chart 29.43.0 moved the reloader
+              # to v0.95.1, whose multi-arch index on quay.io lists only amd64
+              # images (the per-arch v0.95.1-arm64 tag exists, the index just
+              # omits it). The server pod is pinned to the arm64 Pi workers, so
+              # the sidecar sat in ImagePullBackOff from 2026-11-06 05:18 UTC,
+              # the pod never went Ready, the Service lost its only endpoint and
+              # every Grafana rule fired DatasourceError (113 at once) while
+              # real alerting was blind. v0.94.2 is the newest tag with arm64
+              # in its index. Renovate tracks this pin and skips only v0.95.1
+              # (see .github/renovate.json5); drop the override once the chart
+              # default is a tag that schedules on arm64 again.
+              image:
+                repository: quay.io/prometheus-operator/prometheus-config-reloader
+                tag: v0.94.2
               extraConfigmapMounts:
                 - name: rules
                   mountPath: /etc/prometheus-rules

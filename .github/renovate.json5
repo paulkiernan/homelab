@@ -278,6 +278,18 @@
       automerge: false,
     },
     {
+      // v0.95.1's multi-arch index on quay.io lists only amd64 images, so it
+      // cannot be pulled on the arm64 Pi workers that run prometheus-server.
+      // Skip that one tag; any later release is still proposed as normal.
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'quay.io/prometheus-operator/prometheus-config-reloader',
+      ],
+      allowedVersions: '!/^v0\\.95\\.1$/',
+    },
+    {
       matchManagers: [
         'pipenv',
         'poetry',
