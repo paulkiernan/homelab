@@ -65,9 +65,16 @@ spec:
                 default: true
               exposedPort: 8080
               protocol: TCP
+          # Was `service.type: LoadBalancer`. No chart template ever read that
+          # key — the Service type comes from `service.spec` — so it was
+          # accepted-and-ignored (the chart's default spec.type is already
+          # LoadBalancer) until chart 42.3.1 set additionalProperties: false on
+          # `service` and it became a hard schema failure. Last good sync was
+          # 42.3.0 on 2026-11-03. Same failure shape as the `global` block above.
           service:
             enabled: true
-            type: LoadBalancer
+            spec:
+              type: LoadBalancer
           providers:
             kubernetesCRD:
               enabled: true
