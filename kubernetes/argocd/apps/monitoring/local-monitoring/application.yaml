@@ -300,7 +300,7 @@ spec:
               # default is a tag that schedules on arm64 again.
               image:
                 repository: quay.io/prometheus-operator/prometheus-config-reloader
-                tag: v0.94.2
+                tag: v0.95.2
               extraConfigmapMounts:
                 - name: rules
                   mountPath: /etc/prometheus-rules
