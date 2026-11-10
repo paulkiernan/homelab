@@ -18,7 +18,12 @@ panels:
               folder title and creates it), and the per-site absence rule is
               expanded once per expected site, exactly like
               deploy/grafana/apply-market-recorder-alerts.py does for Grafana
-              Cloud. Every template becomes one rule group; group names and rule
+              Cloud. Each rule's execErrState is set to EXEC_ERR_STATE
+              (KeepLast), like every rule this script emits: locally, an
+              unreachable Prometheus is reported once by
+              DATASOURCE_CANARY_ALERT instead of by every rule, which is a
+              property of this Grafana, not of the shared definitions. Every
+              template becomes one rule group; group names and rule
               uids must stay unique across templates (Grafana keys groups by
               folder+name and rules by uid, so a collision would silently
               overwrite rules), and the generator refuses to emit a file that
@@ -47,8 +52,10 @@ only read here, and nothing in either is generated:
                       the same Grafana folder. Today: homelab-capacity.yaml
                       (the compute/storage headroom gaps upstream leaves open)
                       argocd-gitops.yaml (whether the repository is still
-                      being applied at all) and database-backups.yaml (whether
-                      backups are still succeeding). Each file's header explains why
+                      being applied at all), database-backups.yaml (whether
+                      backups are still succeeding) and alerting-health.yaml
+                      (whether Grafana can query Prometheus at all, i.e.
+                      whether any other alert can fire). Each file's header explains why
                       its rules exist; EXPECTED_HOMELAB_ALERT_RULES pins both
                       the set of files and each file's rule count.
   dashboards/*.json   hand-authored dashboards, provisioned into the same
@@ -79,7 +86,9 @@ result exists" is the correct firing condition where `$A > 0` would never fire
 for those rules. Annotation templates are rewritten `$value` ->
 `$values.A.Value` because Grafana's own `$value` is a formatted string while
 the template functions (humanize, humanizePercentage, humanizeDuration) want
-the float.
+the float. A query error leaves a converted rule in its last state
+(EXEC_ERR_STATE); only DATASOURCE_CANARY_ALERT turns it into an alert, and
+assert_error_states() holds every emitted rule to exactly that split.
 
 Expected sites come from the measurement ConfigMap in this repository
 (kubernetes/argocd/apps/workloads/market-measurement/manifests/configmap.yaml,
@@ -186,7 +195,23 @@ EXPECTED_HOMELAB_ALERT_RULES = {
     "homelab-capacity.yaml": 9,
     "argocd-gitops.yaml": 7,
     "database-backups.yaml": 1,
+    "alerting-health.yaml": 1,
 }
+
+# What a rule does when its query fails, as opposed to returning no data. Every
+# rule here queries the one local Prometheus, so a datasource error is never
+# about one rule: with "Error", each rule raised its own DatasourceError, and
+# from 2026-11-06 to 2026-11-10 all 113 fired at once for ~3.5 days and read as
+# noise rather than as the outage it was. KeepLast leaves every rule where it
+# was (Grafana applies it to every existing series, so a firing alert stays
+# firing rather than resolving as a missing series) and sends nothing new.
+EXEC_ERR_STATE = "KeepLast"
+# The single exception, which makes KeepLast safe: this rule (hand-authored in
+# alerts/alerting-health.yaml) turns a query error into one named critical
+# alert. Without it, an unreachable Prometheus would be completely silent, so
+# assert_error_states() fails the build if it is missing or renamed.
+DATASOURCE_CANARY_ALERT = "HomelabPrometheusUnavailable"
+CANARY_EXEC_ERR_STATE = "Alerting"
 
 # Hand-authored dashboards owned by this repository, also source and not
 # generated. They are provisioned into the same `Kubernetes` folder as the
@@ -519,6 +544,9 @@ def render_alerts(template: Path, sites: list[str]) -> dict:
         die(f"{template} produced rule uids longer than {GRAFANA_UID_MAX} characters "
             f"(shorten the template uid; site suffixes are appended): {too_long}")
     for rule in expanded:
+        # The templates say Error, which is right for Grafana Cloud, where no
+        # canary exists. Here DATASOURCE_CANARY_ALERT reports the outage once.
+        rule["execErrState"] = EXEC_ERR_STATE
         validate_rule(str(template), rule)
     return rendered
 
@@ -650,7 +678,7 @@ def convert_alert_rule(rule: dict, context: str, unique_name: bool) -> dict:
         "condition": "C",
         "for": rewritten.get("for") or "0s",
         "noDataState": "OK",
-        "execErrState": "Error",
+        "execErrState": CANARY_EXEC_ERR_STATE if alertname == DATASOURCE_CANARY_ALERT else EXEC_ERR_STATE,
         "isPaused": False,
         "labels": rewritten.get("labels") or {},
         "annotations": annotations,
@@ -814,6 +842,32 @@ def assert_panel_links(groups: list[dict], panels: dict[str, set[str]]) -> None:
                 )
 
 
+def assert_error_states(groups: list[dict]) -> None:
+    """Die unless exactly the canary escalates query errors and every other rule holds.
+
+    KeepLast everywhere is only safe while one rule still turns "Grafana cannot
+    query Prometheus" into an alert. If the canary were renamed, deleted or
+    duplicated, the build would otherwise stay green and the next datasource
+    outage would page nobody.
+    """
+    canaries: list[str] = []
+    for group in groups:
+        for rule in group["rules"]:
+            state = rule.get("execErrState")
+            if state == CANARY_EXEC_ERR_STATE:
+                canaries.append(rule["uid"])
+            elif state != EXEC_ERR_STATE:
+                die(
+                    f"group {group['name']!r} rule {rule.get('title')!r} has execErrState {state!r}; "
+                    f"only {DATASOURCE_CANARY_ALERT!r} may differ from {EXEC_ERR_STATE!r}"
+                )
+    if canaries != [DATASOURCE_CANARY_ALERT]:
+        die(
+            f"expected exactly one rule with execErrState {CANARY_EXEC_ERR_STATE!r}, uid "
+            f"{DATASOURCE_CANARY_ALERT!r} (alerts/alerting-health.yaml); found {canaries or 'none'}"
+        )
+
+
 def homelab_alert_sources() -> list[Path]:
     """The hand-authored alert files under alerts/, checked against the expected set.
 
@@ -947,6 +1001,7 @@ def build() -> dict[Path, str]:
     # share the Kubernetes folder, so their names, uids and titles have to be
     # unique against the vendored set, and their uids against the market rules.
     all_groups = [*groups, *kube_groups, *homelab_groups]
+    assert_error_states(all_groups)
     group_names = [group["name"] for group in all_groups]
     if len(set(group_names)) != len(group_names):
         duplicated = sorted({name for name in group_names if group_names.count(name) > 1})

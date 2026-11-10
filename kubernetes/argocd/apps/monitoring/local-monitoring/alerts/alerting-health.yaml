@@ -1,0 +1,55 @@
+# Homelab-authored alerting-health rule. Hand-maintained SOURCE, like its
+# siblings in alerts/: a Prometheus rule file that generate-assets.py converts
+# to a Grafana rule in the `Kubernetes` folder, routed to the cluster Discord
+# channel like every other cluster alert.
+#
+# Why this exists: every Grafana rule here queries the one local Prometheus
+# (datasource uid market-prometheus). Rules used to be generated with
+# execErrState=Error, so when Grafana could not reach Prometheus each of the
+# 113 rules raised its own DatasourceError. The notification policy groups by
+# alertname, so they arrived as a few recurring Discord threads that read as
+# noise, not as "alerting is down".
+#
+# The incident behind it, 2026-11-06 05:18 to 2026-11-10 03:16 UTC:
+# prometheus-config-reloader v0.95.1 shipped an amd64-only image index, the
+# sidecar could not be pulled on the arm64 Pi workers, prometheus-server never
+# went Ready, and its Service lost its only endpoint. Real alerting was blind
+# for about 3.5 days, and every remote-write in that window was dropped.
+#
+# Every other rule is now generated with execErrState=KeepLast (EXEC_ERR_STATE
+# in generate-assets.py): a query error leaves it where it was (firing stays
+# firing, normal stays normal) and sends nothing new. This rule is the one
+# exception. It is generated with execErrState=Alerting (DATASOURCE_CANARY_ALERT),
+# so a Prometheus that Grafana cannot query shows up as one named critical
+# alert, with the datasource's error text in its Error annotation. The
+# generator refuses to build if this rule is missing or renamed, because
+# without it KeepLast would make that outage completely silent.
+groups:
+  - name: homelab-alerting-health
+    rules:
+      # Fires two ways. A query error (Service without a ready endpoint, pod
+      # gone, DNS) goes through the Alerting exec error state above. A
+      # Prometheus that answers but has stopped scraping itself goes through
+      # the expression: absent() covers the series disappearing, == 0 covers
+      # the target being down, the same shape as HomelabArgoCDControllerDown.
+      # When healthy it returns nothing, and the converter's noDataState=OK
+      # keeps it Normal.
+      #
+      # 5m: a routine restart (Renovate bumps the chart every few days, and the
+      # Deployment is Recreate) is unready for about 40s, measured 2026-11-10.
+      - alert: HomelabPrometheusUnavailable
+        expr: |
+          absent(up{job="prometheus"}) or up{job="prometheus"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: >-
+            Grafana cannot query the local Prometheus, so no other alert can fire.
+          description: >-
+            For 5 minutes the market-prometheus datasource has failed, or Prometheus has stopped
+            scraping itself. Every other rule holds its last state until this resolves. Check
+            `kubectl get pods -n monitoring -l app.kubernetes.io/name=prometheus` and
+            `kubectl get endpointslices -n monitoring -l kubernetes.io/service-name=prometheus-server`.
+            While the Service has no endpoint, remote-write from Alloy and the capture VM is
+            being dropped.

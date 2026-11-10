@@ -71,6 +71,7 @@ data:
           **{{ .Labels.alertname }}**{{ with .Labels.severity }} · `{{ . }}`{{ end }}
           {{ with .Annotations.summary }}{{ . }}
           {{ end }}{{ with .Annotations.description }}> {{ . }}
+          {{ end }}{{ with .Annotations.Error }}error: `{{ . }}`
           {{ end }}on:{{ template "homelab.scope" . }}
           since {{ .StartsAt.Format "Jan 02 15:04 MST" }}{{ with .PanelURL }} · [chart]({{ . }}){{ end }}
 
