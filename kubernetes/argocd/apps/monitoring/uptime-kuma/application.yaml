@@ -19,7 +19,7 @@ spec:
           strategy:
             type: Recreate
           image:
-            tag: 2.5.9
+            tag: 2.5.11
           service:
             type: ClusterIP
             port: 3001
