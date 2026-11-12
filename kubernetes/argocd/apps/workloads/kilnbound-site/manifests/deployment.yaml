@@ -44,11 +44,13 @@ spec:
               scheme: HTTP
             initialDelaySeconds: 3
             periodSeconds: 3
-          # Static files from nginx: well under 16Mi resident in practice.
+          # A Next.js Node server (it was nginx serving static files). It idles
+          # around 140Mi and was measured near 290Mi after a few thousand
+          # requests, on macOS; revisit the limit against real usage here.
           resources:
             requests:
               cpu: 10m
-              memory: 32Mi
-            limits:
-              cpu: 250m
               memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
