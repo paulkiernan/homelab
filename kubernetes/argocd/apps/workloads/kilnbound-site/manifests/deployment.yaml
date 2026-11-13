@@ -24,7 +24,7 @@ spec:
         - name: kilnbound-site
           # Pinned to a site release (site-vX.Y.Z in the kilnbound repository).
           # Its Site workflow rewrites this line on every release.
-          image: ghcr.io/paulkiernan/kilnbound-site:0.5.1
+          image: ghcr.io/paulkiernan/kilnbound-site:0.6.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
