@@ -44,7 +44,8 @@ spec:
       # homelab. The last success, 2026-09-25 at ~190 chunks per site,
       # finished homelab in ~1h55m, so runtime grows roughly linearly with the
       # archive: about +12 min per site per day of capture. It is CPU-bound on
-      # one core per site with tiny memory, so more memory does not help.
+      # one core per site, so more memory does not make it faster (it is no
+      # longer small, though: see resources for the v0.3.0+ footprint).
       #
       # report.sh runs the sites CONCURRENTLY (see scripts-configmap.yaml), so
       # the job takes as long as one site, not the sum. That is what makes the
@@ -72,6 +73,27 @@ spec:
             app.kubernetes.io/part-of: market-measurement
         spec:
           restartPolicy: OnFailure
+          # Never on k8s-worker-04, the only 4GB node (3.2Gi allocatable; every
+          # other node has ~7Gi). The report's ~2Gi working set (see resources)
+          # leaves that Pi ~0.5Gi for everything else, and it thrashes its SD
+          # card: on 2026-11-18 MemAvailable fell 2150 -> 470Mi the minute
+          # futures_report started, major faults went 0 -> 230/s, and every
+          # pod there failed its probes — the Traefik replica crash-looped 14
+          # times in a few hours.
+          #
+          # A bigger request alone does not keep it off: most pods on worker-04
+          # declare no requests, so the scheduler sees it as the emptiest node
+          # and placed 7 of the 8 runs before this change there. Only the
+          # hostname rule below keeps the report off it.
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: NotIn
+                        values:
+                          - k8s-worker-04
           # Batch job: local volumes only, no Kubernetes API, no SA token.
           automountServiceAccountToken: false
           enableServiceLinks: false
@@ -147,16 +169,24 @@ spec:
                 # The 967,680-row synthetic grid peaked at 1.04GiB RSS; allow
                 # headroom here. No CPU limit on the full-archive batch scan.
                 #
-                # Measured on the real archive 2026-10-13: 0.8 core average and
-                # 95Mi peak working set for one site over 6h. report.sh now runs
-                # one process per site concurrently, so the request is one core
-                # per configured site (two today) and the 2Gi limit still covers
-                # both with the synthetic-grid peak in reserve.
+                # Measured on the real archive 2026-10-13 (v0.2.0, full replay):
+                # 0.8 core average and 95Mi peak working set for one site.
+                # report.sh runs one process per site concurrently, so the CPU
+                # request is one core per configured site (two today).
+                #
+                # The incremental engine (v0.3.0+) is much heavier on memory
+                # because it loads and re-pickles the replay checkpoint. The pod's
+                # peak working set over the nightly runs 2026-11-10 -> 11-18 was
+                # 1.45-1.76Gi, and 2.04Gi on 11-18, pinned at the old 2Gi limit,
+                # with each Python process at ~1GB RSS. The old 1Gi
+                # request understated that by half. The request now matches the
+                # observed peak, and the limit leaves room for the checkpoint to
+                # keep growing with the archive.
                 requests:
                   cpu: "2"
-                  memory: 1Gi
-                limits:
                   memory: 2Gi
+                limits:
+                  memory: 3Gi
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
