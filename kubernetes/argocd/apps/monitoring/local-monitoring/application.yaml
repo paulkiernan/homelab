@@ -17,17 +17,15 @@
 # and the bounded metrics subset that still remote-writes off-site to Grafana
 # Cloud. Alloy remote-writes the full cluster metric set to
 # prometheus-server.monitoring.svc.cluster.local/api/v1/write and pushes pod
-# logs and cluster events to loki.monitoring.svc.cluster.local:3100, exactly
-# like the capture VM's Alloy unit pushes market_recorder_* and the report
-# exporter's market_research_* series through the private metrics-ingest
-# ingress below. This app only receives, stores and evaluates: it must not
+# logs and cluster events to loki.monitoring.svc.cluster.local:3100. This app
+# only receives, stores and evaluates: it must not
 # create a second node-exporter, kube-state-metrics, pushgateway or a
 # Prometheus Operator, because the collectors that already exist own that.
 #
 # WHAT IS IN HERE
-# This app is the primary for everything about the cluster, not only for the
-# market capture stack: Kubernetes, node, cost and energy dashboards, the
-# kube-prometheus alert set, pod logs and cluster events all live here.
+# This app is the primary for everything about the cluster: Kubernetes, node,
+# cost and energy dashboards, the kube-prometheus alert set, pod logs and
+# cluster events all live here.
 #   * prometheus-community/prometheus 29.31.1 (Prometheus v3.14.0), release
 #     name `prometheus` so the Service is exactly `prometheus-server`. It
 #     holds the TSDB and evaluates the generated recording rules; alerting is
@@ -44,23 +42,20 @@
 #     StatefulSet runs docker.io/grafana/loki:3.6.11.
 #   * manifests/: the SOPS admin and alerting Secrets, the generated Grafana
 #     provisioning ConfigMaps and the generated Prometheus rules ConfigMap
-#     (produced by generate-assets.py from the vendored upstream/ files, and
-#     from deploy/grafana in paulkiernan/diff-logic-cells for the market
-#     assets), plus the two private Tailscale ingresses.
+#     (produced by generate-assets.py from the vendored upstream/ files and
+#     the hand-authored alerts/ and dashboards/), plus the private Tailscale
+#     ingress for the Grafana UI.
 #
-# Grafana serves two folders, both provisioned from this repository with
-# nothing imported by hand: `Market measurement` (the capture-stack dashboards
-# and rules, the presentation contract shared with diff-logic-cells) and
-# `Kubernetes` (the vendored upstream Kubernetes/node/OpenCost/Kepler
-# dashboards plus the converted kube-prometheus alert rules, and alongside them
-# the hand-authored homelab assets from alerts/ and dashboards/ — cluster
-# capacity and ArgoCD GitOps reconciliation).
+# Grafana serves one folder, provisioned from this repository with nothing
+# imported by hand: `Kubernetes` (the vendored upstream
+# Kubernetes/node/OpenCost/Kepler dashboards plus the converted kube-prometheus
+# alert rules, and alongside them the hand-authored homelab assets from alerts/
+# and dashboards/ — cluster capacity and ArgoCD GitOps reconciliation).
 #
 # ALERT DELIVERY
-# Grafana unified alerting evaluates every rule and delivers through two
-# provisioned Discord contact points: market-measurement alerts to
-# $DISCORD_WEBHOOK_URL and cluster alerts to $DISCORD_CLUSTER_WEBHOOK_URL,
-# both expanded from the alerting SopsSecret. No Alertmanager is involved.
+# Grafana unified alerting evaluates every rule and delivers through one
+# provisioned Discord contact point, $DISCORD_CLUSTER_WEBHOOK_URL, expanded
+# from the alerting SopsSecret. No Alertmanager is involved.
 #
 # PROVISIONED GRAFANA IS DISPOSABLE
 # Datasources, dashboards and alert rules are provisioned from this
@@ -72,11 +67,10 @@
 #
 # PRIVATE ACCESS ONLY
 # Neither UI nor receiver is exposed publicly: the Prometheus Service is
-# ClusterIP and the only outside path is the Tailscale operator's tailnet
-# ingress, which authenticates by tailnet membership (and then by whatever the
-# tailnet ACLs allow). No basic auth or bearer token sits in front of
-# remote-write for the VM; if a credential is ever wanted there, add
-# --web.config.file to `server.extraFlags` and a SOPS Secret together.
+# ClusterIP with no outside path at all (only the in-cluster Alloy writes to
+# it), and the Grafana UI's only outside path is the Tailscale operator's
+# tailnet ingress, which authenticates by tailnet membership (and then by
+# whatever the tailnet ACLs allow).
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -111,19 +105,17 @@ spec:
               scrape_timeout: 10s
               evaluation_interval: 1m
             # --- retention and disk ----------------------------------------
-            # openebs-hostpath on purpose: a local disk path, never NFS, for
-            # the same reason the capture spool refuses NFS (a NAS stall must
-            # not sit on the write path). The volume is node-local, so this pod
-            # is pinned to the worker set below and data survives pods, not
-            # node loss.
+            # openebs-hostpath on purpose: a local disk path, never NFS (a NAS
+            # stall must not sit on the write path). The volume is node-local,
+            # so this pod is pinned to the worker set below and data survives
+            # pods, not node loss.
             #
             # The 20Gi claim with 14GB retentionSize is the hard bound here:
             # Prometheus keeps WAL and compaction headroom on top of the
             # retained blocks, and openebs-hostpath does not enforce the claim
             # size (the node's free disk is the real bound), so retentionSize
             # wins if the two bounds ever disagree. 60d is best-effort within
-            # that cap — what the 8-week measurement review needs, not a
-            # guarantee.
+            # that cap, not a guarantee.
             retention: 60d
             retentionSize: 14GB
             persistentVolume:
@@ -197,13 +189,12 @@ spec:
                           values:
                             - k8s-worker-03
             # --- resources -------------------------------------------------
-            # Sized for the full cluster series set, not just the market
-            # capture stack: the collectors now also ship the node-exporter,
-            # kube-state-metrics and kepler additions that the vendored
-            # dashboards and rules need, so series grow from ~14.5k to roughly
-            # 22-25k, and the 53 generated recording rules evaluate every 1m
-            # against them. The previous 512Mi/1536Mi sized a receiver-only
-            # server.
+            # Sized for the full cluster series set: the collectors also ship
+            # the node-exporter, kube-state-metrics and kepler additions that
+            # the vendored dashboards and rules need, so series grow from
+            # ~14.5k to roughly 22-25k, and the 53 generated recording rules
+            # evaluate every 1m against them. The previous 512Mi/1536Mi sized a
+            # receiver-only server.
             resources:
               requests:
                 cpu: 250m
@@ -340,20 +331,14 @@ spec:
             userKey: admin-user
             passwordKey: admin-password
           # --- alert delivery ---------------------------------------------
-          # manifests/grafana-notifications-configmap.yaml provisions two
-          # Discord contact points whose urls are written as
-          # $DISCORD_WEBHOOK_URL and $DISCORD_CLUSTER_WEBHOOK_URL; Grafana
-          # expands environment variables in provisioning files, so the two
-          # secrets reach it only through these env vars, from the SopsSecret
-          # in manifests/grafana-alerting-secret.sops.yaml (keys
-          # discord-webhook-url and discord-cluster-webhook-url). The market
-          # measurement rules and the cluster rules are routed to their own
-          # contact point, so one noisy stream cannot drown the other.
+          # manifests/grafana-notifications-configmap.yaml provisions one
+          # Discord contact point whose url is written as
+          # $DISCORD_CLUSTER_WEBHOOK_URL; Grafana expands environment variables
+          # in provisioning files, so the secret reaches it only through this
+          # env var, from the SopsSecret in
+          # manifests/grafana-alerting-secret.sops.yaml (key
+          # discord-cluster-webhook-url).
           envValueFrom:
-            DISCORD_WEBHOOK_URL:
-              secretKeyRef:
-                name: local-monitoring-grafana-alerting
-                key: discord-webhook-url
             DISCORD_CLUSTER_WEBHOOK_URL:
               secretKeyRef:
                 name: local-monitoring-grafana-alerting
@@ -369,8 +354,8 @@ spec:
             users:
               allow_sign_up: false
             unified_alerting:
-              # Grafana evaluates the canonical capture rules and the
-              # converted kube-prometheus rules itself, against the local
+              # Grafana evaluates the converted kube-prometheus rules and the
+              # hand-authored homelab rules itself, against the local
               # Prometheus datasource. There is no in-cluster Alertmanager;
               # Prometheus evaluates recording rules only, every alert rule
               # is evaluated here.
@@ -399,9 +384,10 @@ spec:
               # images needs no object storage and no credentials.
               upload_external_image_storage: false
           # --- datasources --------------------------------------------------
-          # UID market-prometheus is the contract shared with the alert rules,
-          # the dashboards and the capture VM's Alloy config; uid local-loki is
-          # the same kind of contract with the Alloy loki destination, and it
+          # UID market-prometheus is the contract shared with the alert rules
+          # and the dashboards (the name is historical; renaming it would churn
+          # every dashboard and rule); uid local-loki is the same kind of
+          # contract with the Alloy loki destination, and it
           # is also the path Explore and the log/event panels use. Datasource
           # files are read at Grafana start, so a change here needs a pod
           # restart; dashboards and alert rules reload by themselves (below).
@@ -425,25 +411,15 @@ spec:
                   url: http://loki.monitoring.svc.cluster.local:3100
                   editable: false
           # --- dashboards ---------------------------------------------------
-          # Both ConfigMaps are generated: the market one from every
-          # deploy/grafana/dashboards/*.json in paulkiernan/diff-logic-cells,
-          # the Kubernetes one from the vendored upstream/ files (see
-          # fetch-upstream.py for the pins). The chart mounts each
-          # dashboardsConfigMaps entry at /var/lib/grafana/dashboards/<key>,
-          # which is why those keys must match the provider names below; the
-          # file provider reloads them.
+          # The ConfigMap is generated from the vendored upstream/ files (see
+          # fetch-upstream.py for the pins) and the hand-authored dashboards/.
+          # The chart mounts each dashboardsConfigMaps entry at
+          # /var/lib/grafana/dashboards/<key>, which is why the key must match
+          # the provider name below; the file provider reloads them.
           dashboardProviders:
             dashboards.yaml:
               apiVersion: 1
               providers:
-                - name: market
-                  orgId: 1
-                  folder: Market measurement
-                  type: file
-                  disableDeletion: true
-                  allowUiUpdates: false
-                  options:
-                    path: /var/lib/grafana/dashboards/market
                 - name: kubernetes
                   orgId: 1
                   folder: Kubernetes
@@ -453,7 +429,6 @@ spec:
                   options:
                     path: /var/lib/grafana/dashboards/kubernetes
           dashboardsConfigMaps:
-            market: local-monitoring-grafana-dashboards
             kubernetes: local-monitoring-grafana-dashboards-kubernetes
           # --- alert rules --------------------------------------------------
           # The chart's k8s-sidecar watches ConfigMaps labelled grafana_alert
@@ -538,9 +513,9 @@ spec:
                           - k8s-worker-01
                           - k8s-worker-02
           # --- resources ----------------------------------------------------
-          # The Kubernetes folder adds 18 dashboards and the cluster alert set
-          # adds 79 provisioned rules to what the market folder already loads;
-          # the previous 512Mi limit was sized for the market folder alone.
+          # Sized for the Kubernetes folder's 18 dashboards and the cluster
+          # alert set's 79 provisioned rules; the previous 512Mi limit predated
+          # them.
           resources:
             requests:
               cpu: 100m

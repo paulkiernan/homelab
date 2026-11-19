@@ -1,34 +1,34 @@
 ---
 # Where the provisioned alert rules go. Hand-maintained (not generated): the
-# rules come from generate-assets.py (market assets from diff-logic-cells,
-# Kubernetes rules vendored from kube-prometheus), the delivery target is a
+# rules come from generate-assets.py (Kubernetes rules vendored from
+# kube-prometheus, homelab rules from ../alerts/), the delivery target is a
 # homelab decision.
 #
-# TWO Discord contact points, one per audience, so cluster noise and
-# market-measurement alerts land in different channels:
-#   - discord-market-measurement: the existing webhook, $DISCORD_WEBHOOK_URL
-#   - discord-cluster: the new cluster-alerts webhook, $DISCORD_CLUSTER_WEBHOOK_URL
-# Both URLs are secrets: Grafana expands the variables from the environment at
-# provisioning time (envValueFrom in ../application.yaml reads them from the
-# SOPS-managed Secret local-monitoring-grafana-alerting, keys discord-webhook-url
-# and discord-cluster-webhook-url), so this file never contains a URL and the
+# ONE Discord contact point, discord-cluster, at $DISCORD_CLUSTER_WEBHOOK_URL.
+# The URL is a secret: Grafana expands the variable from the environment at
+# provisioning time (envValueFrom in ../application.yaml reads it from the
+# SOPS-managed Secret local-monitoring-grafana-alerting, key
+# discord-cluster-webhook-url), so this file never contains a URL and the
 # ConfigMap is safe to read.
 #
-# The root receiver is discord-cluster deliberately: it is the catch-all, so
-# anything that matches no route below -- including Grafana's own
-# DatasourceError/NoData alerts for the cluster rules -- reaches the cluster
-# channel rather than the market one (Grafana always has a root receiver, so
-# the alternative to this choice was misrouting, not silence). Routing is by
-# the grafana_folder label, which Grafana attaches to every alert and which
-# both rule sets already honour through provisioning: the market rules land in
-# the `Market measurement` folder and the converted kube-prometheus rules in
-# `Kubernetes`. The market rules do carry a system label (market-measurement
-# x11, market-research x6), but routing on it would mean adding a label to all
-# 79 converted rules just to re-describe a folder that provisioning already
-# assigns, and it would not cover the DatasourceError/NoData alerts above,
-# which carry no system label. The severity=info route exists only to slow the
-# repeat interval to 24h for the low-severity kube-prometheus alerts; it points
-# at the same receiver as the root.
+# The root receiver is discord-cluster: it is the catch-all, so anything that
+# matches no route below -- including Grafana's own DatasourceError/NoData
+# alerts -- reaches the cluster channel (Grafana always has a root receiver).
+# The severity=info route exists only to slow the repeat interval to 24h for
+# the low-severity kube-prometheus alerts; it points at the same receiver as
+# the root.
+#
+# tombstones.yaml deletes what an earlier revision provisioned and this one no
+# longer does. Grafana's file provisioning only creates and updates (checked
+# against v13.2.3): a rule or contact point that disappears from these files
+# stays in Grafana's database, still evaluating and notifying, until a
+# deleteRules/deleteContactPoints entry removes it. Both deletes are idempotent,
+# so an entry is harmless once applied and safe to drop once Grafana no longer
+# lists the uid. The key sorts after every rules file on purpose: Grafana
+# applies the files in name order, so a rules file still mounted mid-sync
+# cannot re-create what this deletes. Today it retires the 17 market
+# measurement rules and their discord-market-measurement contact point (the
+# experiment was shut down 2026-11-18).
 #
 # The grafana_alert label is what the chart's k8s-sidecar watches; each key
 # becomes a file under /etc/grafana/provisioning/alerting and Grafana's
@@ -104,23 +104,6 @@ data:
           {{- end }}
     contactPoints:
       - orgId: 1
-        name: discord-market-measurement
-        receivers:
-          - uid: discord-market-measurement
-            type: discord
-            disableResolveMessage: false
-            settings:
-              url: $DISCORD_WEBHOOK_URL
-              use_discord_username: true
-              # Render the message as the embed description so it sits with the
-              # panel screenshots Grafana attaches as sibling embeds. The 2000
-              # rune cap applies either way (the notifier truncates before this
-              # branch), and no template uses @mentions, which are the one thing
-              # that stops working from an embed.
-              use_embed_description: true
-              title: '{{ template "homelab.title" . }}'
-              message: '{{ template "homelab.message" . }}'
-      - orgId: 1
         name: discord-cluster
         receivers:
           - uid: discord-cluster
@@ -148,10 +131,51 @@ data:
         group_interval: 5m
         repeat_interval: 4h
         routes:
-          - receiver: discord-market-measurement
-            object_matchers:
-              - [grafana_folder, "=", "Market measurement"]
           - receiver: discord-cluster
             object_matchers:
               - [severity, "=", "info"]
             repeat_interval: 24h
+  tombstones.yaml: |
+    apiVersion: 1
+    deleteRules:
+      # market-measurement-capture (retired 2026-11-18)
+      - orgId: 1
+        uid: market-recorder-capture-disconnected
+      - orgId: 1
+        uid: market-recorder-feed-stale
+      - orgId: 1
+        uid: market-recorder-no-durable-writes
+      - orgId: 1
+        uid: market-recorder-queue-overflow
+      - orgId: 1
+        uid: market-recorder-sequence-gaps
+      - orgId: 1
+        uid: market-recorder-reconnect-churn
+      - orgId: 1
+        uid: market-recorder-errors
+      - orgId: 1
+        uid: market-capture-host-disk-low
+      - orgId: 1
+        uid: market-recorder-scrape-target-down
+      - orgId: 1
+        uid: recorder-site-absent-homelab
+      - orgId: 1
+        uid: recorder-site-absent-aws-us-east-1
+      # market-research-report-freshness (retired 2026-11-18)
+      - orgId: 1
+        uid: research-report-missing-homelab
+      - orgId: 1
+        uid: research-report-missing-aws-us-east-1
+      - orgId: 1
+        uid: research-report-stale-homelab
+      - orgId: 1
+        uid: research-report-stale-aws-us-east-1
+      - orgId: 1
+        uid: research-capture-stale-homelab
+      - orgId: 1
+        uid: research-capture-stale-aws-us-east-1
+    deleteContactPoints:
+      # Unprovisioned after the policy above is replaced, so the route that
+      # referenced it is already gone when Grafana deletes it.
+      - orgId: 1
+        uid: discord-market-measurement

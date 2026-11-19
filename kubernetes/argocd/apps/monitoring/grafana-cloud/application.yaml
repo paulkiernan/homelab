@@ -43,12 +43,11 @@ spec:
               url: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
             # Grafana Cloud keeps only the bounded health allowlist below. 4.x features with
             # an empty `destinations` filter write to all capable destinations, so both metric
-            # destinations receive the full metric set and this rule bounds Cloud. The two
-            # `[off-site] capture site silent` rules that depend on it are not part of this
-            # repository and not part of the sibling app: `task measurement:alerts-apply`
-            # creates them in the Grafana Cloud tenant, which is where they are evaluated.
-            # That is why this allow-list stays: with no series in Cloud there is nothing
-            # for those two off-site rules to evaluate.
+            # destinations receive the full metric set and this rule bounds Cloud. The
+            # market-measurement series that used to lead it were dropped when that experiment
+            # was shut down (2026-11-18); the two `[off-site] capture site silent` rules that
+            # read them lived only in the Grafana Cloud tenant, never in this repository, and
+            # are being deleted there by hand.
             grafana-cloud-metrics:
               type: prometheus
               url: https://prometheus-prod-36-prod-us-west-0.grafana.net/api/prom/push
@@ -63,7 +62,7 @@ spec:
               metricProcessingRules: |-
                 write_relabel_config {
                   source_labels = ["__name__"]
-                  regex         = "market_recorder_.*|market_research_capture_end_timestamp_seconds|market_research_report_available|market_research_report_timestamp_seconds|up|kube_node_status_condition|kube_pod_status_phase|kube_pod_container_status_restarts_total|kube_persistentvolumeclaim_status_phase|kubelet_volume_stats_available_bytes|kubelet_volume_stats_capacity_bytes|node_filesystem_avail_bytes|node_filesystem_size_bytes|node_filesystem_readonly|kube_job_status_failed|kube_job_status_succeeded|kube_cronjob_status_last_successful_time"
+                  regex         = "up|kube_node_status_condition|kube_pod_status_phase|kube_pod_container_status_restarts_total|kube_persistentvolumeclaim_status_phase|kubelet_volume_stats_available_bytes|kubelet_volume_stats_capacity_bytes|node_filesystem_avail_bytes|node_filesystem_size_bytes|node_filesystem_readonly|kube_job_status_failed|kube_job_status_succeeded|kube_cronjob_status_last_successful_time"
                   action        = "keep"
                 }
           # The chart's default keep lists drop the metrics below, but the vendored

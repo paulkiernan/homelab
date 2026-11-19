@@ -2,16 +2,15 @@
 # Manifests for the local-monitoring ArgoCD app (see ../application.yaml for the
 # architecture and the boundary with the grafana-cloud collector app).
 #
-# Six of the ConfigMaps here are generated files. The market ones
-# (grafana-dashboards-, grafana-alerting-) come from the canonical definitions
-# in paulkiernan/diff-logic-cells; the Kubernetes dashboards, cluster alert
-# rules and Prometheus recording rules come from the upstream files vendored
-# under ../upstream/ by ../fetch-upstream.py; the homelab alerting rules come
-# from ../alerts/*.yaml and the homelab dashboards from ../dashboards/*.json,
-# both hand-authored source in this repository. The hand-authored dashboards
-# are provisioned through the Kubernetes dashboards ConfigMap below rather than
-# one of their own, so they land in the same `Kubernetes` Grafana folder as the
-# vendored set. Regenerate from this app's directory with
+# Four of the ConfigMaps here are generated files. The Kubernetes dashboards,
+# cluster alert rules and Prometheus recording rules come from the upstream
+# files vendored under ../upstream/ by ../fetch-upstream.py; the homelab
+# alerting rules come from ../alerts/*.yaml and the homelab dashboards from
+# ../dashboards/*.json, both hand-authored source in this repository. The
+# hand-authored dashboards are provisioned through the Kubernetes dashboards
+# ConfigMap below rather than one of their own, so they land in the same
+# `Kubernetes` Grafana folder as the vendored set. Regenerate from this app's
+# directory with
 #
 #   python3 fetch-upstream.py            # re-vendor and re-verify upstream/
 #   python3 fetch-upstream.py --check    # re-hash the vendored files, no network
@@ -30,11 +29,8 @@ resources:
   # SOPS-encrypted Grafana admin credentials (isindir.github.com/v1alpha3).
   - grafana-admin-secret.sops.yaml
   # SOPS-encrypted alert delivery secret (Discord webhook URL), exposed to
-  # Grafana as $DISCORD_WEBHOOK_URL for the notifications ConfigMap below.
+  # Grafana as $DISCORD_CLUSTER_WEBHOOK_URL for the notifications ConfigMap below.
   - grafana-alerting-secret.sops.yaml
-  # Grafana dashboard JSON + unified-alerting rule groups (generated).
-  - grafana-dashboards-configmap.yaml
-  - grafana-alerting-configmap.yaml
   # Kubernetes dashboards, Grafana-managed cluster alert rules and Prometheus
   # recording rules, generated from ../upstream/ by generate-assets.py — do not
   # hand-edit these three. The dashboards ConfigMap also carries the
@@ -43,12 +39,13 @@ resources:
   - grafana-alerting-kubernetes-configmap.yaml
   - prometheus-rules-configmap.yaml
   # Homelab alert rules generated from the hand-authored ../alerts/*.yaml (not
-  # vendored and not from diff-logic-cells): cluster capacity from
+  # vendored): cluster capacity from
   # homelab-capacity.yaml and ArgoCD reconciliation from argocd-gitops.yaml, one
   # provisioning key per source file — do not hand-edit this one either.
   - grafana-alerting-homelab-configmap.yaml
-  # Contact point + root notification policy (hand-maintained, no secrets).
+  # Contact point + root notification policy (hand-maintained, no secrets),
+  # plus the tombstones.yaml key that deletes retired rules and contact points
+  # from Grafana's database.
   - grafana-notifications-configmap.yaml
-  # Private tailnet access: grafana UI, and the metrics-ingest receiver for the
-  # capture VM's Alloy. No public hostname anywhere.
+  # Private tailnet access to the Grafana UI. No public hostname anywhere.
   - tailscale-ingress.yaml

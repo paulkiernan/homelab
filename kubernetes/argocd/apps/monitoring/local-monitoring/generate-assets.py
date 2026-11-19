@@ -1,33 +1,13 @@
 #!/usr/bin/env python3
 """Render this app's Grafana provisioning assets from their canonical sources.
 
-The market measurement definitions stay owned by paulkiernan/diff-logic-cells:
-
-  deploy/grafana/dashboards/*.json        every market dashboard, no exceptions
-  deploy/grafana/alerts/*.json.tmpl       every market rule-group template
-
-This script only adapts them to the local Grafana (which provisions from files
-instead of the Grafana Cloud HTTP API), so nothing here may invent rules or
-panels:
-
-  dashboards  ${DS_PROMETHEUS} -> the local datasource UID market-prometheus,
-              and the export-only __inputs/__requires blocks are dropped (file
-              provisioning has no import dialog to answer them).
-  alerts      __DATASOURCE_UID__ -> market-prometheus, the group's folderUid is
-              replaced by the local folder title (file provisioning takes a
-              folder title and creates it), and the per-site absence rule is
-              expanded once per expected site, exactly like
-              deploy/grafana/apply-market-recorder-alerts.py does for Grafana
-              Cloud. Each rule's execErrState is set to EXEC_ERR_STATE
-              (KeepLast), like every rule this script emits: locally, an
-              unreachable Prometheus is reported once by
-              DATASOURCE_CANARY_ALERT instead of by every rule, which is a
-              property of this Grafana, not of the shared definitions. Every
-              template becomes one rule group; group names and rule
-              uids must stay unique across templates (Grafana keys groups by
-              folder+name and rules by uid, so a collision would silently
-              overwrite rules), and the generator refuses to emit a file that
-              would collide.
+Every dashboard is adapted to the local Grafana the same way: a
+${DS_PROMETHEUS}-style datasource input -> the local datasource UID
+market-prometheus, and the export-only __inputs/__requires blocks are dropped
+(file provisioning has no import dialog to answer them). Group names and rule
+uids must stay unique across every emitted rule group (Grafana keys groups by
+folder+name and rules by uid, so a collision would silently overwrite rules),
+and the generator refuses to emit a file that would collide.
 
 The Kubernetes assets come from vendored upstream files under upstream/.
 fetch-upstream.py owns those files: it downloads each pinned URL, verifies the
@@ -42,9 +22,8 @@ network. Which of them are provisioned is decided here, not there:
               alerting is Grafana-managed), Grafana provisions the alerting
               rules.
 
-Two more input directories are neither vendored nor taken from
-diff-logic-cells. Both are hand-authored source in this repository, both are
-only read here, and nothing in either is generated:
+Two more input directories are not vendored. Both are hand-authored source in
+this repository, both are only read here, and nothing in either is generated:
 
   alerts/*.yaml       one Prometheus rule file per concern, each becoming one
                       Grafana rule group through the same converter and the
@@ -90,16 +69,9 @@ the float. A query error leaves a converted rule in its last state
 (EXEC_ERR_STATE); only DATASOURCE_CANARY_ALERT turns it into an alert, and
 assert_error_states() holds every emitted rule to exactly that split.
 
-Expected sites come from the measurement ConfigMap in this repository
-(kubernetes/argocd/apps/workloads/market-measurement/manifests/configmap.yaml,
-key `sites`), so the two backends can never disagree about which capture hosts
-must be reporting.
-
 Outputs (all generated, all committed; run with --check to detect drift):
 
   manifests/assets/dashboards/<name>.json   import-ready dashboard JSON
-  manifests/grafana-dashboards-configmap.yaml
-  manifests/grafana-alerting-configmap.yaml
   manifests/grafana-dashboards-kubernetes-configmap.yaml
   manifests/grafana-alerting-kubernetes-configmap.yaml
   manifests/grafana-alerting-homelab-configmap.yaml
@@ -114,7 +86,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 from collections.abc import Iterator
@@ -125,38 +96,22 @@ import yaml
 HERE = Path(__file__).resolve().parent
 MANIFESTS = HERE / "manifests"
 ASSET_DASHBOARDS = MANIFESTS / "assets" / "dashboards"
-MEASUREMENT_CONFIGMAP = (
-    HERE.parents[1] / "workloads" / "market-measurement" / "manifests" / "configmap.yaml"
-)
-
-DEFAULT_SOURCE = Path(
-    os.environ.get("MSR_SOURCE_DIR", Path.home() / "workspace/github.com/paulkiernan/diff-logic-cells")
-)
 
 # The Grafana datasource that points at the in-cluster Prometheus. Same UID in
 # the datasource provisioning values (application.yaml) and in the alert rules;
-# dashboards reach it through the ${DS_PROMETHEUS} substitution below.
+# dashboards reach it through the ${DS_PROMETHEUS} substitution below. The name
+# is historical; renaming it would churn every dashboard and rule.
 DATASOURCE_UID = "market-prometheus"
 
 # Grafana's hard limit on alert rule UIDs (pkg/services/ngalert validation).
 GRAFANA_UID_MAX = 40
 
-# Folder title for dashboards and alert rules. File provisioning creates it.
-FOLDER_TITLE = "Market measurement"
-
-# ConfigMap names referenced by the Grafana helm values. The alert ConfigMap
-# must carry the chart's alerts-sidecar label so Grafana reloads rules without
-# a pod restart.
-DASHBOARDS_CONFIGMAP = "local-monitoring-grafana-dashboards"
-ALERTING_CONFIGMAP = "local-monitoring-grafana-alerting"
+# Every alert ConfigMap must carry the chart's alerts-sidecar label so Grafana
+# reloads rules without a pod restart.
 ALERTS_SIDECAR_LABEL = "grafana_alert"
 
 UNRESOLVED = re.compile(r"__[A-Z_]+__")
 DS_TOKEN = re.compile(r"\$\{DS_[A-Za-z0-9_]+\}")
-GENERATED_HEADER = (
-    "# Generated by generate-assets.py from deploy/grafana in "
-    "paulkiernan/diff-logic-cells — do not edit by hand.\n"
-)
 KUBE_GENERATED_HEADER = (
     "# Generated by generate-assets.py from the vendored upstream files in "
     "upstream/ — do not edit by hand.\n"
@@ -168,7 +123,7 @@ UPSTREAM = HERE / "upstream"
 KUBE_PROMETHEUS = UPSTREAM / "kube-prometheus"
 UPSTREAM_DASHBOARDS = KUBE_PROMETHEUS / "dashboards"
 
-# Folder for the cluster-wide dashboards and rules, next to the market folder.
+# Folder for every provisioned dashboard and rule. File provisioning creates it.
 KUBE_FOLDER_TITLE = "Kubernetes"
 
 KUBE_DASHBOARDS_CONFIGMAP = "local-monitoring-grafana-dashboards-kubernetes"
@@ -217,9 +172,9 @@ CANARY_EXEC_ERR_STATE = "Alerting"
 # generated. They are provisioned into the same `Kubernetes` folder as the
 # vendored upstream ones (the existing `kubernetes` entry in the chart's
 # dashboardsConfigMaps), so adding one needs no change to application.yaml.
-# Unlike the market dashboards they ARE selector-checked, exactly like the
-# upstream set: they are written against this cluster's job labels, so a typo in
-# one would otherwise provision a panel that renders empty forever.
+# They are selector-checked exactly like the upstream set: they are written
+# against this cluster's job labels, so a typo in one would otherwise provision
+# a panel that renders empty forever.
 HOMELAB_DASHBOARDS_DIR = HERE / "dashboards"
 
 # Grafana links an alert rule to a dashboard panel through these two
@@ -348,19 +303,6 @@ def die(message: str) -> "None":
     raise SystemExit(1)
 
 
-def expected_sites(path: Path) -> list[str]:
-    configmap = yaml.safe_load(path.read_text(encoding="utf-8"))
-    raw = (configmap.get("data") or {}).get("sites", "")
-    sites = raw.split()
-    if not sites:
-        die(f"{path} has no `sites` entry in data")
-    return sites
-
-
-def slug(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
-
-
 def yaml_block(obj: object) -> str:
     """Deterministic YAML for embedding as a ConfigMap block scalar."""
     return yaml.safe_dump(obj, sort_keys=False, default_flow_style=False, width=4096, allow_unicode=True)
@@ -470,7 +412,7 @@ def render_dashboard(name: str, raw: str, rewrite: dict[str, str] | None = None)
 
 
 def validate_rule(context: str, rule: dict) -> None:
-    """Shared checks for one Grafana provisioning rule, market or Kubernetes.
+    """Shared checks for one Grafana provisioning rule.
 
     Grafana loads every provisioning file at startup and a rule it rejects is
     fatal for the whole process (observed 2026-09-19: CrashLoopBackOff), so the
@@ -494,63 +436,6 @@ def validate_rule(context: str, rule: dict) -> None:
         )
 
 
-def render_alerts(template: Path, sites: list[str]) -> dict:
-    text = template.read_text(encoding="utf-8")
-    text = text.replace("__DATASOURCE_UID__", DATASOURCE_UID)
-    group = json.loads(text)
-    group["title"] = group.get("title") or template.name
-    group.pop("folderUid", None)
-    rules = group.get("rules")
-    if not rules:
-        die(f"{template} contains no rules")
-
-    # One absence rule per expected site. The template ships one rule carrying
-    # __EXPECTED_SITE__; losing it would silently drop the coverage that catches
-    # a capture host which never reported at all, so fail loudly instead.
-    if not any("__EXPECTED_SITE__" in json.dumps(rule) for rule in rules):
-        die(f"{template} is missing the expected-site absence rule (__EXPECTED_SITE__)")
-
-    expanded: list[dict] = []
-    for rule in rules:
-        if "__EXPECTED_SITE__" not in json.dumps(rule):
-            expanded.append(rule)
-            continue
-        for site in sites:
-            clone = json.loads(json.dumps(rule).replace("__EXPECTED_SITE__", site))
-            clone["uid"] = f"{rule['uid']}-{slug(site)}"
-            expanded.append(clone)
-
-    interval = group.get("interval", 60)
-    rendered = {
-        "orgId": 1,
-        "name": group["title"],
-        "folder": FOLDER_TITLE,
-        "interval": f"{int(interval)}s" if isinstance(interval, int) else str(interval),
-        "rules": expanded,
-    }
-
-    unresolved = sorted(set(UNRESOLVED.findall(json.dumps(rendered))))
-    if unresolved:
-        die(f"{template} still contains unresolved tokens: {', '.join(unresolved)}")
-    uids = [rule["uid"] for rule in expanded]
-    if len(set(uids)) != len(uids):
-        die(f"{template} produced duplicate rule uids: {sorted(uids)}")
-    # Grafana rejects rule UIDs longer than 40 characters, and a rejected
-    # provisioning file is fatal for the whole Grafana process at startup
-    # (observed 2026-09-19: CrashLoopBackOff on a 44-character per-site uid).
-    # Fail here, where the author can shorten the template uid, not there.
-    too_long = [uid for uid in uids if len(uid) > GRAFANA_UID_MAX]
-    if too_long:
-        die(f"{template} produced rule uids longer than {GRAFANA_UID_MAX} characters "
-            f"(shorten the template uid; site suffixes are appended): {too_long}")
-    for rule in expanded:
-        # The templates say Error, which is right for Grafana Cloud, where no
-        # canary exists. Here DATASOURCE_CANARY_ALERT reports the outage once.
-        rule["execErrState"] = EXEC_ERR_STATE
-        validate_rule(str(template), rule)
-    return rendered
-
-
 def register_dashboard(
     rendered: str,
     path: Path,
@@ -562,8 +447,8 @@ def register_dashboard(
     """File one rendered dashboard, refusing uid or file-name collisions.
 
     Grafana files dashboards by uid and the import-ready copies all land in one
-    directory, so a collision between the market and Kubernetes sets would
-    silently replace one dashboard with the other.
+    directory, so a collision between the vendored and hand-authored sets
+    would silently replace one dashboard with the other.
     """
     uid = json.loads(rendered)["uid"]
     if uid in seen_uids:
@@ -936,33 +821,17 @@ def build() -> dict[Path, str]:
     """Return every generated file as {path: content}."""
     files: dict[Path, str] = {}
 
-    dashboards_dir = SOURCE / "deploy" / "grafana" / "dashboards"
-    alert_templates = sorted((SOURCE / "deploy" / "grafana" / "alerts").glob("*.json.tmpl"))
-    dashboard_files = sorted(dashboards_dir.glob("*.json"))
-    if not dashboard_files:
-        die(f"no dashboards found in {dashboards_dir}")
-    if not alert_templates:
-        die(f"no alert templates found in {dashboards_dir.parent / 'alerts'}")
-
-    # Market dashboards keep the diff-logic-cells source; the Kubernetes ones
-    # come from upstream/. Both sets go through the same uid and file-name
-    # registry: Grafana files a dashboard by uid, so a collision would silently
-    # replace one of them at provision time, and the import-ready copies land in
-    # one shared directory.
-    dashboard_data: dict[str, str] = {}
+    # Every dashboard, vendored or hand-authored, goes through the same uid and
+    # file-name registry: Grafana files a dashboard by uid, so a collision would
+    # silently replace one of them at provision time, and the import-ready
+    # copies land in one shared directory.
     kube_dashboard_data: dict[str, str] = {}
     seen_uids: dict[str, str] = {}
     seen_assets: dict[str, str] = {}
 
-    for path in dashboard_files:
-        rendered = render_dashboard(path.name, path.read_text(encoding="utf-8"))
-        register_dashboard(rendered, path, dashboard_data, files, seen_uids, seen_assets)
-
-    # Only the upstream set is selector-checked, and only after the rewrite: a
-    # kube-prometheus panel still selecting a scrape job this cluster does not
-    # have would render empty forever. The market dashboards are exempt — they
-    # select the capture hosts' own job labels, which reach Prometheus through
-    # each host's Alloy unit rather than through this cluster's collectors.
+    # The upstream set is selector-checked after the rewrite: a kube-prometheus
+    # panel still selecting a scrape job this cluster does not have would render
+    # empty forever.
     for path, rewrite in upstream_dashboards():
         rendered = render_dashboard(path.name, path.read_text(encoding="utf-8"), rewrite)
         assert_selectors_rewritten(str(path), json.loads(rendered))
@@ -982,9 +851,6 @@ def build() -> dict[Path, str]:
         register_dashboard(rendered, path, kube_dashboard_data, files, seen_uids, seen_assets)
         homelab_panels[document["uid"]] = dashboard_panel_ids(document)
 
-    sites = expected_sites(MEASUREMENT_CONFIGMAP)
-    groups = [render_alerts(template, sites) for template in alert_templates]
-
     upstream_groups = load_upstream_groups()
     recording_rules = build_recording_rules(upstream_groups)
     kube_groups = build_kubernetes_alert_groups(upstream_groups)
@@ -999,8 +865,8 @@ def build() -> dict[Path, str]:
     # is fatal for the whole process. Fail loudly instead. The hand-authored
     # homelab rules are checked in the same sets as the generated ones: they
     # share the Kubernetes folder, so their names, uids and titles have to be
-    # unique against the vendored set, and their uids against the market rules.
-    all_groups = [*groups, *kube_groups, *homelab_groups]
+    # unique against the vendored set.
+    all_groups = [*kube_groups, *homelab_groups]
     assert_error_states(all_groups)
     group_names = [group["name"] for group in all_groups]
     if len(set(group_names)) != len(group_names):
@@ -1010,36 +876,11 @@ def build() -> dict[Path, str]:
     if len(set(rule_uids)) != len(rule_uids):
         duplicated = sorted({uid for uid in rule_uids if rule_uids.count(uid) > 1})
         die(f"generated alert rules share uids: {', '.join(duplicated)}")
-    kube_titles = [
-        rule["title"] for group in (*kube_groups, *homelab_groups) for rule in group["rules"]
-    ]
+    kube_titles = [rule["title"] for group in all_groups for rule in group["rules"]]
     if len(set(kube_titles)) != len(kube_titles):
         duplicated = sorted({title for title in kube_titles if kube_titles.count(title) > 1})
         die(f"generated rules in folder {KUBE_FOLDER_TITLE!r} share titles: {', '.join(duplicated)}")
 
-    dashboard_configmap = {
-        "apiVersion": "v1",
-        "kind": "ConfigMap",
-        "metadata": {"name": DASHBOARDS_CONFIGMAP},
-        "data": dashboard_data,
-    }
-    alerting_configmap = {
-        "apiVersion": "v1",
-        "kind": "ConfigMap",
-        "metadata": {
-            "name": ALERTING_CONFIGMAP,
-            "labels": {ALERTS_SIDECAR_LABEL: "1"},
-        },
-        "data": {
-            "rules.yaml": yaml.safe_dump(
-                {"apiVersion": 1, "groups": groups},
-                sort_keys=False,
-                default_flow_style=False,
-                width=4096,
-                allow_unicode=True,
-            )
-        },
-    }
     kube_dashboard_configmap = {
         "apiVersion": "v1",
         "kind": "ConfigMap",
@@ -1077,8 +918,6 @@ def build() -> dict[Path, str]:
     }
 
     for configmap in (
-        dashboard_configmap,
-        alerting_configmap,
         kube_dashboard_configmap,
         kube_alerting_configmap,
         prometheus_rules_configmap,
@@ -1086,8 +925,6 @@ def build() -> dict[Path, str]:
     ):
         assert_configmap_budget(configmap)
 
-    files[MANIFESTS / "grafana-dashboards-configmap.yaml"] = GENERATED_HEADER + yaml_block(dashboard_configmap)
-    files[MANIFESTS / "grafana-alerting-configmap.yaml"] = GENERATED_HEADER + yaml_block(alerting_configmap)
     files[MANIFESTS / "grafana-dashboards-kubernetes-configmap.yaml"] = (
         KUBE_GENERATED_HEADER + yaml_block(kube_dashboard_configmap)
     )
@@ -1105,14 +942,8 @@ def build() -> dict[Path, str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--source-dir", type=Path, default=DEFAULT_SOURCE, help="checkout of paulkiernan/diff-logic-cells")
     parser.add_argument("--check", action="store_true", help="fail if any generated file differs from disk")
     args = parser.parse_args()
-
-    global SOURCE
-    SOURCE = args.source_dir.expanduser()
-    if not (SOURCE / "deploy" / "grafana").is_dir():
-        die(f"{SOURCE}/deploy/grafana is not a directory (pass --source-dir or set MSR_SOURCE_DIR)")
 
     files = build()
     stale: list[str] = []
@@ -1133,7 +964,7 @@ def main() -> int:
             print(f"  {name}", file=sys.stderr)
         return 1
     if args.check:
-        print(f"generated assets match deploy/grafana in {SOURCE}")
+        print("generated assets match upstream/, alerts/ and dashboards/")
     return 0
 
 

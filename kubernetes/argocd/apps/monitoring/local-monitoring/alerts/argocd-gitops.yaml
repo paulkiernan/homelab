@@ -44,7 +44,7 @@
 # it to 0.
 #
 # Measured against the live cluster on 2026-10-13, before the fixes: immich and
-# traefik fire HomelabArgoCDAppManifestError, market-measurement fires
+# traefik fire HomelabArgoCDAppManifestError, a since-retired workload fires
 # HomelabArgoCDAppDegraded, postgres fires HomelabArgoCDAppOutOfSync (foundry is
 # also OutOfSync but has auto-sync disabled, and is excluded by design),
 # grafana-cloud fires HomelabArgoCDAppStuckProgressing. The remaining two do not

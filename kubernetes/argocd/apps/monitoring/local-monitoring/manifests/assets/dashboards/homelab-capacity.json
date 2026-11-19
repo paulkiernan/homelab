@@ -100,7 +100,7 @@
       "type": "timeseries",
       "id": 4,
       "title": "Node filesystem used",
-      "description": "Per-node filesystem utilisation. openebs-hostpath does not enforce claim sizes and serves every node-local volume from here, so this filesystem — not the claim — is the real bound for the Prometheus TSDB, Loki chunks, Grafana's DB and the capture spool. Alert: HomelabNodeDiskSpaceHigh (warning 75%, critical 90%).",
+      "description": "Per-node filesystem utilisation. openebs-hostpath does not enforce claim sizes and serves every node-local volume from here, so this filesystem — not the claim — is the real bound for the Prometheus TSDB, Loki chunks and Grafana's DB. Alert: HomelabNodeDiskSpaceHigh (warning 75%, critical 90%).",
       "gridPos": {
         "h": 8,
         "w": 12,

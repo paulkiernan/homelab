@@ -1,6 +1,5 @@
 # Homelab-authored cluster capacity rules. Hand-maintained SOURCE, not a
-# vendored file (nothing under upstream/) and not generated from
-# paulkiernan/diff-logic-cells (those are the market-measurement rules).
+# vendored file (nothing under upstream/).
 #
 # The file is a Prometheus rule file — a top-level `groups:` list, the same
 # shape as the `spec` of the vendored kube-prometheus PrometheusRules — so the
@@ -178,8 +177,8 @@ groups:
             rebalance workloads or add capacity.
 
       # The real bound for every openebs-hostpath PV in this cluster:
-      # prometheus-server, storage-loki-0, grafana and market-recorder-spool all
-      # live under /var/openebs/local on their node, and openebs-hostpath does
+      # prometheus-server, storage-loki-0 and grafana all live under
+      # /var/openebs/local on their node, and openebs-hostpath does
       # not enforce claim sizes — the node's free disk is the only limit. The
       # filter currently matches one series per node, /var on each of the five
       # (it was four until k8s-worker-04 was recovered on 2026-10-13, which is
@@ -206,7 +205,7 @@ groups:
             Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is {{ printf "%.1f" $value }}% full
             (fstype {{ $labels.fstype }}). Node-local volume claims are not enforced on this cluster —
             openebs-hostpath serves them from this filesystem and reports the filesystem, not the claim —
-            so a runaway volume (Prometheus TSDB, Loki chunks, the market capture spool) is the likely
+            so a runaway volume (Prometheus TSDB, Loki chunks) is the likely
             cause rather than a full claim. Free space or fix the volume before the filesystem itself fills.
 
       # Critical tier: at 90% there is ~24 GiB left on a ~237 GiB /var, which is
@@ -226,7 +225,7 @@ groups:
           description: >-
             Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is {{ printf "%.1f" $value }}% full
             (fstype {{ $labels.fstype }}). At this point writes to any hostpath volume on the node —
-            Prometheus TSDB, Loki chunks, the capture spool, Grafana's DB — can fail. Free space now.
+            Prometheus TSDB, Loki chunks, Grafana's DB — can fail. Free space now.
 
       # Prometheus' own bound, because its PV is a hostpath volume: the claim
       # size is not enforced, so what protects the node's /var is retention.
@@ -280,5 +279,5 @@ groups:
           description: >-
             Blocks plus WAL are {{ printf "%.2f" $value }}% of the 20Gi claim. Retention (60d,
             retentionSize 14GB) is manifestly not holding; the TSDB will start eating the node's /var
-            and take the other hostpath volumes (Loki, Grafana, the capture spool) with it. Reduce
+            and take the other hostpath volumes (Loki, Grafana) with it. Reduce
             retention now and investigate what grew.

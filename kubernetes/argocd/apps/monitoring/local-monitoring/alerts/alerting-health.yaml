@@ -51,5 +51,4 @@ groups:
             scraping itself. Every other rule holds its last state until this resolves. Check
             `kubectl get pods -n monitoring -l app.kubernetes.io/name=prometheus` and
             `kubectl get endpointslices -n monitoring -l kubernetes.io/service-name=prometheus-server`.
-            While the Service has no endpoint, remote-write from Alloy and the capture VM is
-            being dropped.
+            While the Service has no endpoint, remote-write from Alloy is being dropped.
