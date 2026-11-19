@@ -4,6 +4,10 @@ kind: Application
 metadata:
   name: market-measurement
   namespace: argocd
+  # Teardown (2026-11-19): without this finalizer, deleting this Application
+  # (when its directory is removed) would orphan every workload and PVC.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 spec:
