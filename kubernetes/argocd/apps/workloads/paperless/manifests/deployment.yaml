@@ -171,16 +171,26 @@ spec:
           # First boot runs migrations against an empty database and builds the
           # search index, which takes a while — hence the generous startupProbe
           # budget (30 * 20s = 10 min) before liveness takes over.
+          # Every probe sends the public hostname as Host: since v3.5.0 paperless
+          # only accepts hosts from PAPERLESS_URL / PAPERLESS_ALLOWED_HOSTS, and the
+          # kubelet's default Host (the pod IP) is rejected as DisallowedHost (400),
+          # which failed every probe and restarted the pod every ~10 minutes.
           startupProbe:
             httpGet:
               path: /
               port: http
+              httpHeaders:
+                - name: Host
+                  value: paperless.border-enigmatic.ts.net
             periodSeconds: 20
             failureThreshold: 30
           livenessProbe:
             httpGet:
               path: /
               port: http
+              httpHeaders:
+                - name: Host
+                  value: paperless.border-enigmatic.ts.net
             periodSeconds: 30
             timeoutSeconds: 10
             failureThreshold: 5
@@ -188,6 +198,9 @@ spec:
             httpGet:
               path: /
               port: http
+              httpHeaders:
+                - name: Host
+                  value: paperless.border-enigmatic.ts.net
             periodSeconds: 15
             timeoutSeconds: 10
             failureThreshold: 3
