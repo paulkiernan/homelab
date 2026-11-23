@@ -39,7 +39,7 @@ spec:
                 service: http://traefik.traefik.svc.cluster.local:80
           image:
             repository: cloudflare/cloudflared
-            tag: 2026.11.1
+            tag: 2026.11.2
           env:
             - name: TUNNEL_CREDENTIALS_FILE
               value: /etc/cloudflared/creds/credentials.json
