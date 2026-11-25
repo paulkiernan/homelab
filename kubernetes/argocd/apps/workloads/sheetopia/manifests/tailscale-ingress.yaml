@@ -1,0 +1,22 @@
+---
+# Tailnet access: https://piano.border-enigmatic.ts.net
+# Goes straight to the Service (no Traefik), so no 60s upload timeout here.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sheetopia-tailscale
+  namespace: sheetopia
+  labels:
+    app: sheetopia
+  annotations:
+    tailscale.com/hostname: "piano"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: sheetopia
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - piano

@@ -1,0 +1,107 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sheetopia
+  namespace: sheetopia
+  labels:
+    app: sheetopia
+spec:
+  # SQLite in WAL mode on one volume: never run two, not even briefly during a
+  # rollout, hence Recreate.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: sheetopia
+  template:
+    metadata:
+      labels:
+        app: sheetopia
+    spec:
+      # The server only reads PORT and DATA_DIR, so nothing collides today; off
+      # anyway after paperless lost a boot to an injected PAPERLESS_PORT.
+      enableServiceLinks: false
+      # The image (alpine, no USER) defaults to root but only ever writes under
+      # /data, so it runs as 1000 like the other apps on nas-nfs. fsGroup is a
+      # no-op on NFS (provisioner dirs are world-writable); it matters if the
+      # volume ever moves to block storage. `kubectl exec sheetopia-admin` also
+      # runs as 1000, so files it creates stay writable by the server.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: sheetopia
+          # v0.x: read the release notes before bumping. The DB migrates
+          # forward on start and there is no down path; restore from
+          # db-backup if an upgrade goes wrong.
+          image: ghcr.io/juho05/sheetopia-sync:0.3.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          env:
+            # Both are the image defaults; pinned here so the mount below and
+            # the server can't drift apart.
+            - name: DATA_DIR
+              value: /data
+            - name: PORT
+              value: "8080"
+            # SQLite spills large sorts to a temp dir; the root FS is read-only.
+            - name: TMPDIR
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          # /api/info is static (no DB), so liveness never restarts the pod
+          # over a slow NFS moment. Startup runs schema migrations and the
+          # legacy score file migration, so give it room on first boot.
+          startupProbe:
+            httpGet:
+              path: /api/info
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /api/info
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/info
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Uploads are streamed to disk (io.Copy), not buffered, so memory
+          # stays small even for large PDFs.
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: sheetopia-data
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Gi

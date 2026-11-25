@@ -1,0 +1,19 @@
+---
+# Everything the server keeps: database.sqlite (+ -wal/-shm) and scores/, the
+# uploaded PDFs. Irreplaceable, so it lives on the NAS; db-backup.yaml takes a
+# consistent nightly snapshot of both. ReadWriteOnce documents intent only
+# (nas-nfs does not enforce it): one SQLite writer, ever.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sheetopia-data
+  namespace: sheetopia
+  labels:
+    app: sheetopia
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nas-nfs
+  resources:
+    requests:
+      storage: 10Gi

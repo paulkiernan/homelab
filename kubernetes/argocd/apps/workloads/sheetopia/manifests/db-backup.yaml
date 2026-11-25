@@ -1,0 +1,175 @@
+---
+# Nightly snapshot of the Sheetopia data volume to the NAS, kept for 14 days.
+# Same shape as the other db-backup jobs (and so covered by the
+# HomelabDatabaseBackupStale alert), but this "database" is a SQLite file plus
+# a directory of PDFs, so a small Python script does the work:
+#   <stamp>/database.sqlite  consistent copy via SQLite's online backup API,
+#                            integrity-checked, rollback-journal mode
+#   <stamp>/scores/...       the PDFs; files unchanged since the previous
+#                            snapshot are hard links, so each snapshot is
+#                            complete but only new uploads take new space
+# Inline NFS rather than a PVC so that pruning this app cannot delete its own
+# backups. The NAS also hosts the live data, so this covers corruption, bad
+# migrations and accidental deletes, not loss of the NAS.
+#
+# Restore: scale the deployment to 0, copy database.sqlite and scores/ from a
+# snapshot into the volume (delete any database.sqlite-wal/-shm there first),
+# scale back to 1.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup
+  namespace: sheetopia
+spec:
+  schedule: "55 4 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # Bounds the wait below if the server pod is down; fails the run, and
+      # the staleness alert picks it up.
+      activeDeadlineSeconds: 3600
+      template:
+        spec:
+          restartPolicy: Never
+          # Same node as the server: SQLite WAL needs every process touching
+          # the database on one host (they share the -shm index via mmap, which
+          # NFS does not keep coherent across clients).
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      app: sheetopia
+                  topologyKey: kubernetes.io/hostname
+          initContainers:
+            # kubelet creates the subPath as root; hand it to uid 1000 so the
+            # backup itself never runs as root against the live volume (a
+            # root-owned -shm would lock the server out of its database).
+            - name: own-backup-dir
+              image: busybox:1.38
+              command: [chown, "1000:1000", /backups]
+              securityContext:
+                runAsUser: 0
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 16Mi
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+                  subPath: db-backups/sheetopia
+          containers:
+            - name: snapshot
+              image: python:3.15.2-alpine3.24
+              command: [python3, -I, -c]
+              args:
+                - |
+                  import datetime, os, re, shutil, sqlite3, sys
+
+                  DATA = os.environ.get("DATA", "/data")
+                  OUT = os.environ.get("OUT", "/backups")
+                  KEEP = datetime.timedelta(days=14)
+                  SNAP = re.compile(r"\d{8}T\d{6}Z")
+                  UTC = datetime.timezone.utc
+
+                  now = datetime.datetime.now(UTC)
+                  name = now.strftime("%Y%m%dT%H%M%SZ")
+                  snaps = sorted(d for d in os.listdir(OUT) if SNAP.fullmatch(d))
+                  prev = os.path.join(OUT, snaps[-1]) if snaps else None
+                  tmp = os.path.join(OUT, name + ".tmp")
+                  os.mkdir(tmp)
+
+                  # Database: SQLite's online backup API takes a consistent snapshot while the
+                  # server keeps writing (WAL readers don't block the writer). Copying the file
+                  # itself while the server runs can capture a torn database.
+                  src = sqlite3.connect(os.path.join(DATA, "database.sqlite"), timeout=30)
+                  dst = sqlite3.connect(os.path.join(tmp, "database.sqlite"), autocommit=True)
+                  src.backup(dst)
+                  src.close()
+                  dst.execute("PRAGMA journal_mode=DELETE")  # one self-contained file
+                  check = dst.execute("PRAGMA integrity_check").fetchone()[0]
+                  users = dst.execute("SELECT count(*) FROM users").fetchone()[0]
+                  dst.close()
+                  if check != "ok":
+                      sys.exit(f"integrity_check failed on the copy: {check}")
+
+                  # Scores: uploads land as a new file via rename and are never edited in place,
+                  # so a file unchanged since the previous snapshot is hard-linked rather than
+                  # copied. Every snapshot is complete on its own; 14 cost one copy plus churn.
+                  copied = linked = nbytes = 0
+                  scores = os.path.join(DATA, "scores")
+                  for root, dirs, files in os.walk(scores):
+                      rel = os.path.relpath(root, scores)
+                      os.makedirs(os.path.join(tmp, "scores", rel), exist_ok=True)
+                      for f in files:
+                          if f.endswith(".part"):  # upload in flight
+                              continue
+                          s, d = os.path.join(root, f), os.path.join(tmp, "scores", rel, f)
+                          try:
+                              st = os.stat(s)
+                          except FileNotFoundError:  # deleted mid-walk
+                              continue
+                          if prev:
+                              try:
+                                  p = os.path.join(prev, "scores", rel, f)
+                                  ps = os.stat(p)
+                                  if ps.st_size == st.st_size and int(ps.st_mtime) == int(st.st_mtime):
+                                      os.link(p, d)
+                                      linked += 1
+                                      continue
+                              except FileNotFoundError:
+                                  pass
+                          try:
+                              shutil.copy2(s, d)
+                          except FileNotFoundError:
+                              continue
+                          copied += 1
+                          nbytes += st.st_size
+
+                  os.rename(tmp, os.path.join(OUT, name))
+
+                  # Prune by snapshot name, never by file mtime: hard-linked files keep their
+                  # original mtime, so `find -mtime +14 -delete` would gut recent snapshots.
+                  for d in os.listdir(OUT):
+                      stamp = d.removesuffix(".tmp")
+                      if d == name or not SNAP.fullmatch(stamp):
+                          continue
+                      age = now - datetime.datetime.strptime(stamp, "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
+                      if age > KEEP or (d != stamp and age > datetime.timedelta(hours=12)):
+                          shutil.rmtree(os.path.join(OUT, d))
+                          print(f"pruned {d}")
+
+                  kept = sorted(d for d in os.listdir(OUT) if SNAP.fullmatch(d))
+                  print(f"{name}: database ok ({users} users), scores copied={copied} "
+                        f"({nbytes / 1e6:.1f} MB) linked={linked}; {len(kept)} snapshots kept")
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 1000
+                runAsGroup: 1000
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 512Mi
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: backups
+                  mountPath: /backups
+                  subPath: db-backups/sheetopia
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: sheetopia-data
+            - name: backups
+              nfs:
+                server: 192.168.1.2
+                path: /volume1/kubernetes-pvs
