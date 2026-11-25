@@ -1,6 +1,7 @@
 ---
 # Tailnet access: https://piano.border-enigmatic.ts.net
-# Goes straight to the Service (no Traefik), so no 60s upload timeout here.
+# Goes straight to the Service (no Cloudflare, no Traefik), so neither the
+# 100 MB upload cap nor the 60s read timeout applies here.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

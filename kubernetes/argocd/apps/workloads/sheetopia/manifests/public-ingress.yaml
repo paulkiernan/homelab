@@ -1,0 +1,41 @@
+---
+# Public: https://piano.paulynomial.com, same pattern as books/vtt/home. On the
+# internet it arrives through the *.paulynomial.com Cloudflare tunnel (traefik
+# :80, X-Forwarded-Proto https, so the redirect middleware lets it through).
+# On the LAN an AdGuard rule skips the tunnel and goes straight to Traefik:
+#   |piano.paulynomial.com^$dnsrewrite=NOERROR;A;192.168.1.233,important
+#
+# Login has no rate limiting upstream; Cloudflare in front and strong
+# passwords are the only brute-force protection.
+#
+# Uploads: Cloudflare caps proxied request bodies at 100 MB (Free/Pro), so a
+# larger PDF only goes through on the LAN or the tailnet ingress. Traefik keeps
+# its default 60s readTimeout; LAN and tunnel legs are both fast enough for that.
+# The server's own limit is 1000 MB.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sheetopia-public
+  namespace: sheetopia
+  labels:
+    app: sheetopia
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-default-redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: piano.paulynomial.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: sheetopia
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix
+  tls:
+    - hosts:
+        - piano.paulynomial.com
+      secretName: piano-paulynomial-com-tls

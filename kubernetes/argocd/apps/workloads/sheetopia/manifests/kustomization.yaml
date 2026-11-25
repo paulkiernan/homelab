@@ -1,14 +1,14 @@
 ---
 # Sheetopia sync server (https://github.com/juho05/sheetopia-sync), the
-# optional sync backend for the Sheetopia sheet music app. Private: LAN at
-# https://piano.paulynomial.com and tailnet at https://piano.border-enigmatic.ts.net.
-# Users are created by hand: sheetopia-admin users create <name>.
+# optional sync backend for the Sheetopia sheet music app. Public at
+# https://piano.paulynomial.com, tailnet at https://piano.border-enigmatic.ts.net.
+# No signup; users are created by hand: sheetopia-admin users create <name>.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - pvc.yaml
   - deployment.yaml
   - service.yaml
-  - lan-ingress.yaml
+  - public-ingress.yaml
   - tailscale-ingress.yaml
   - db-backup.yaml
