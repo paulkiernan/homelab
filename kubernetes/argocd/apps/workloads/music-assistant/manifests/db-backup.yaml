@@ -1,0 +1,149 @@
+---
+# Nightly snapshot of /data to the NAS, kept for 14 days. It has the same shape
+# as the other db-backup jobs, so the HomelabDatabaseBackupStale alert covers it.
+#   <stamp>/<name>.db   every SQLite file, copied with the online backup API,
+#                       integrity-checked, in rollback-journal mode
+#   <stamp>/...         everything else (settings.json: providers, Spotify login,
+#                       Apple TV pairing, sync groups), copied as is
+# Skipped: .cache/ (rebuildable artwork and metadata), logs, and SQLite
+# -wal/-shm/-journal sidecars (the online backup already includes the WAL).
+# The volume is inline NFS rather than a PVC, so pruning this app can't delete
+# its own backups. The NAS also holds the live data, so this covers corruption,
+# bad upgrades and accidental changes, not loss of the NAS.
+#
+# Restore: scale the deployment to 0, copy a snapshot's files into the volume
+# (delete any *.db-wal/*.db-shm there first), scale back to 1.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup
+  namespace: music-assistant
+spec:
+  schedule: "5 5 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # Bounds the wait below if the server pod is down. The run fails and the
+      # staleness alert picks it up.
+      activeDeadlineSeconds: 3600
+      template:
+        spec:
+          restartPolicy: Never
+          # Same node as the server: SQLite WAL needs every process that touches
+          # the database on one host. They share the -shm index through mmap,
+          # which NFS doesn't keep coherent across clients.
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      app: music-assistant
+                  topologyKey: kubernetes.io/hostname
+          containers:
+            - name: snapshot
+              image: python:3.15.2-alpine3.24
+              command: [python3, -I, -c]
+              args:
+                - |
+                  import datetime, os, re, shutil, sqlite3, sys
+
+                  DATA = os.environ.get("DATA", "/data")
+                  OUT = os.environ.get("OUT", "/backups")
+                  KEEP = datetime.timedelta(days=14)
+                  SNAP = re.compile(r"\d{8}T\d{6}Z")
+                  SKIP = re.compile(r"(-wal|-shm|-journal|\.log(\.\d+)?)$")
+                  MAGIC = b"SQLite format 3\x00"
+                  UTC = datetime.timezone.utc
+
+                  now = datetime.datetime.now(UTC)
+                  name = now.strftime("%Y%m%dT%H%M%SZ")
+                  tmp = os.path.join(OUT, name + ".tmp")
+                  os.mkdir(tmp)
+
+                  dbs, copied, nbytes = [], 0, 0
+                  for root, dirs, files in os.walk(DATA):
+                      rel = os.path.relpath(root, DATA)
+                      if rel == ".":
+                          dirs[:] = [d for d in dirs if d != ".cache"]
+                      os.makedirs(os.path.join(tmp, rel), exist_ok=True)
+                      for f in files:
+                          if SKIP.search(f):
+                              continue
+                          s, d = os.path.join(root, f), os.path.join(tmp, rel, f)
+                          try:
+                              with open(s, "rb") as fh:
+                                  head = fh.read(16)
+                          except FileNotFoundError:  # deleted mid-walk
+                              continue
+                          if head == MAGIC:
+                              # Copying a live WAL database file by file can capture a torn
+                              # copy. The backup API takes a consistent snapshot while the
+                              # server keeps writing.
+                              src = sqlite3.connect(s, timeout=30)
+                              dst = sqlite3.connect(d, autocommit=True)
+                              src.backup(dst)
+                              src.close()
+                              dst.execute("PRAGMA journal_mode=DELETE")  # one self-contained file
+                              check = dst.execute("PRAGMA integrity_check").fetchone()[0]
+                              dst.close()
+                              if check != "ok":
+                                  sys.exit(f"integrity_check failed on the copy of {rel}/{f}: {check}")
+                              dbs.append(os.path.normpath(os.path.join(rel, f)))
+                          else:
+                              try:
+                                  shutil.copy2(s, d)
+                              except FileNotFoundError:
+                                  continue
+                              copied += 1
+                          nbytes += os.path.getsize(d)
+
+                  if not dbs or not os.path.exists(os.path.join(tmp, "settings.json")):
+                      sys.exit(f"no database or settings.json under {DATA}; is the volume mounted?")
+                  os.rename(tmp, os.path.join(OUT, name))
+
+                  # Prune by snapshot name, not by file mtime (copy2 keeps the
+                  # source mtimes).
+                  for d in os.listdir(OUT):
+                      stamp = d.removesuffix(".tmp")
+                      if d == name or not SNAP.fullmatch(stamp):
+                          continue
+                      age = now - datetime.datetime.strptime(stamp, "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
+                      if age > KEEP or (d != stamp and age > datetime.timedelta(hours=12)):
+                          shutil.rmtree(os.path.join(OUT, d))
+                          print(f"pruned {d}")
+
+                  kept = sorted(d for d in os.listdir(OUT) if SNAP.fullmatch(d))
+                  print(f"{name}: databases ok ({', '.join(dbs)}), {copied} other files, "
+                        f"{nbytes / 1e6:.1f} MB; {len(kept)} snapshots kept")
+              # Root, like the server: its files are root-owned, and even a
+              # read-only SQLite connection to a WAL database has to write the
+              # -shm index. Root without capabilities can still read and write
+              # what it owns.
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 512Mi
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: backups
+                  mountPath: /backups
+                  subPath: db-backups/music-assistant
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: music-assistant-data
+            - name: backups
+              nfs:
+                server: 192.168.1.2
+                path: /volume1/kubernetes-pvs

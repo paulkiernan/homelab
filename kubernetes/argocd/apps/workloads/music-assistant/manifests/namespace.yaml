@@ -1,0 +1,11 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: music-assistant
+  labels:
+    # hostNetwork falls outside the baseline Pod Security profile. Nothing
+    # enforces Pod Security cluster-wide today (the Talos admissionControl
+    # default is removed), so this label records intent and keeps the pod
+    # admissible if enforcement comes back.
+    pod-security.kubernetes.io/enforce: privileged

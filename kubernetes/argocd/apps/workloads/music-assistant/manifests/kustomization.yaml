@@ -1,0 +1,25 @@
+---
+# Music Assistant (https://music-assistant.io), the whole-house audio server.
+# Sources: Spotify Connect, AirPlay from phones, and the NAS `music` share.
+# Players: the kitchen and office Pis and the living room Apple TV over AirPlay.
+# Private: LAN at https://music.paulynomial.com, tailnet at
+# https://music.border-enigmatic.ts.net.
+#
+# Providers, Apple TV pairing, the Spotify login and sync groups are all set up
+# in the UI and stored in /data (settings.json), never in git.
+#
+# Upstream supports only Home Assistant OS and a plain Docker container on the
+# host network ("not Kubernetes"). This is that Docker setup translated to a
+# pod: host network, one replica, one pinned node. deployment.yaml explains why
+# each piece is there.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - pvc.yaml
+  - music-library.yaml
+  - deployment.yaml
+  - service.yaml
+  - lan-ingress.yaml
+  - tailscale-ingress.yaml
+  - db-backup.yaml

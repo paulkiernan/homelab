@@ -1,0 +1,24 @@
+---
+# Tailnet access: https://music.border-enigmatic.ts.net. This goes straight to
+# the Service, with no Traefik. It carries the UI only, so you can control the
+# house speakers from anywhere; the players always talk to the server over the
+# LAN.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: music-assistant-tailscale
+  namespace: music-assistant
+  labels:
+    app: music-assistant
+  annotations:
+    tailscale.com/hostname: "music"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: music-assistant
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - music

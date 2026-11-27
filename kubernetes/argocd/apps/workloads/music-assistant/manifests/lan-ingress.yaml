@@ -1,0 +1,43 @@
+---
+# LAN access: https://music.paulynomial.com. An AdGuard rule resolves it to
+# Traefik's MetalLB IP (192.168.1.233):
+#   |music.paulynomial.com^$dnsrewrite=NOERROR;A;192.168.1.233,important
+#
+# NOT PUBLIC, and that depends on the entrypoint pin below. *.paulynomial.com
+# is a proxied wildcard to the Cloudflare tunnel (terraform/dns_paulynomial.com.tf),
+# and cloudflared forwards every *.paulynomial.com host to traefik:80, the `web`
+# entrypoint. An unpinned Ingress also gets a router on `web` (that is how
+# books/vtt/home are public), so this one is pinned to `websecure` (:443) only.
+# Through the tunnel music.paulynomial.com then matches no router and gets
+# Traefik's 404. If cloudflared is ever pointed at :443, this goes public.
+#
+# Side effect: no http:// -> https:// redirect on the LAN (nothing listens on
+# :80 for this host). The UI's websocket (/ws) passes through Traefik as is.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: music-assistant-lan
+  namespace: music-assistant
+  labels:
+    app: music-assistant
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: music.paulynomial.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: music-assistant
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix
+  tls:
+    - hosts:
+        - music.paulynomial.com
+      secretName: music-paulynomial-com-tls

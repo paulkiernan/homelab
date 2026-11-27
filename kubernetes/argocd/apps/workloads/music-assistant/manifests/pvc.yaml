@@ -1,0 +1,23 @@
+---
+# Everything the server keeps:
+#   settings.json   providers, the Spotify login, Apple TV pairing, sync groups
+#   *.db            SQLite (WAL mode): the music library database
+#   .cache/         artwork and metadata cache; rebuildable
+#   musicassistant.log
+# The settings are tedious to recreate, so this lives on the NAS, and
+# db-backup.yaml takes a consistent nightly snapshot of it. ReadWriteOnce only
+# documents intent (nas-nfs doesn't enforce it): there is only ever one writer.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: music-assistant-data
+  namespace: music-assistant
+  labels:
+    app: music-assistant
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nas-nfs
+  resources:
+    requests:
+      storage: 10Gi

@@ -1,0 +1,18 @@
+---
+# Web UI and API only, for the two Ingresses. Players never go through this:
+# they reach the server directly at worker-05's LAN IP.
+apiVersion: v1
+kind: Service
+metadata:
+  name: music-assistant
+  namespace: music-assistant
+  labels:
+    app: music-assistant
+spec:
+  selector:
+    app: music-assistant
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

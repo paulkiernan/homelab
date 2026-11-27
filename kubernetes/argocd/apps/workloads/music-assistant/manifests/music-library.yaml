@@ -1,0 +1,49 @@
+---
+# The NAS `music` share, mounted read-only at /media/music for the filesystem
+# provider. It's empty at first; the provider picks up new files on its next
+# scan. DSM serves the share over SMB for people and over NFS for the cluster.
+#
+# Static PV for the same reason as paperless-scans: this directory belongs to
+# the NAS, so its path must stay fixed and deleting the claim must never touch
+# it. Mounting it from the node (kubelet NFS) avoids SMB inside the container,
+# which would need SYS_ADMIN, DAC_READ_SEARCH and an unconfined AppArmor profile.
+#
+# Requires an NFS permission rule on the `music` shared folder in DSM:
+# 192.168.1.0/24, read-only, "Map all users to admin". Squashing to admin sidesteps
+# the Synology ACLs that SMB copies leave behind; the export is read-only anyway.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: music-assistant-music
+  labels:
+    app: music-assistant
+spec:
+  capacity:
+    # Not enforced for NFS. It only has to match the claim below so the two bind.
+    storage: 1Ti
+  accessModes:
+    - ReadOnlyMany
+  # Retain: deleting the claim must never take the library with it.
+  persistentVolumeReclaimPolicy: Retain
+  # Empty (not absent) so the default nas-nfs class doesn't claim this.
+  storageClassName: ""
+  nfs:
+    server: 192.168.1.2
+    path: /volume1/music
+    readOnly: true
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: music-assistant-music
+  namespace: music-assistant
+  labels:
+    app: music-assistant
+spec:
+  accessModes:
+    - ReadOnlyMany
+  storageClassName: ""
+  volumeName: music-assistant-music
+  resources:
+    requests:
+      storage: 1Ti

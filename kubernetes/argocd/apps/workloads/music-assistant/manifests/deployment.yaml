@@ -1,0 +1,120 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: music-assistant
+  namespace: music-assistant
+  labels:
+    app: music-assistant
+spec:
+  # Never two pods at once, not even briefly during a rollout. On the host
+  # network they would fight over 8095, 8097, mDNS and the AirPlay ports, and
+  # both would advertise the same Spotify Connect and AirPlay receivers.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: music-assistant
+  template:
+    metadata:
+      labels:
+        app: music-assistant
+    spec:
+      # Required upstream. Discovery is mDNS and UPnP multicast on the LAN, and
+      # players connect back to the server's own IP for audio (stream server,
+      # AirPlay control and timing on random ports). None of that survives the
+      # pod network or a Service.
+      hostNetwork: true
+      # Without this, hostNetwork pods get the node's resolv.conf rather than
+      # CoreDNS.
+      dnsPolicy: ClusterFirstWithHostNet
+      # One node on the main LAN (192.168.1.0/24, same L2 as the players, no
+      # VLANs). worker-05 is amd64 with the most CPU headroom; it has one LAN
+      # NIC (enp0s20u1), so "default interface" discovery is unambiguous.
+      # Talos runs no host firewall and nothing else on the node binds 5353/udp,
+      # 319/320/udp, 8095 or 8097 (checked 2026-11-27).
+      nodeSelector:
+        kubernetes.io/hostname: k8s-worker-05
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: music-assistant
+          # Read the release notes before bumping: the database migrates forward
+          # on start, and upstream warns never to move it between stable and
+          # beta. Restore from db-backup if an upgrade goes wrong.
+          image: ghcr.io/music-assistant/server:2.10.13
+          imagePullPolicy: IfNotPresent
+          # On the host network these are host ports, so the scheduler also
+          # refuses a second copy on the node. They aren't the full list:
+          # 5353/udp (mDNS), 319/320/udp (AirPlay 2 PTP), 7000-7999/tcp (AirPlay
+          # receiver), Spotify Connect and AirPlay sessions bind on demand.
+          ports:
+            - name: http
+              containerPort: 8095
+              protocol: TCP
+            - name: stream
+              containerPort: 8097
+              protocol: TCP
+          env:
+            - name: TZ
+              value: America/Los_Angeles
+          # Root, as the image ships. AirPlay 2 multi-room sync runs a shared
+          # PTP daemon on udp/319 and udp/320; when it can't bind them, a group
+          # falls back to NTP timing and loses tight sync. A non-root process
+          # can't bind ports below 1024 in the host network namespace without
+          # lowering the node's ip_unprivileged_port_start. So: root, keeping
+          # only the capability for that.
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+              add: ["NET_BIND_SERVICE"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: music
+              mountPath: /media/music
+              readOnly: true
+          # GET /info is static server info, served without auth, so liveness
+          # never restarts the pod over a slow NFS moment. First boot creates the
+          # database, so give startup room.
+          startupProbe:
+            httpGet:
+              path: /info
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /info
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /info
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Upstream asks for at least 2 GB per server, more for big queues or
+          # Smart Fades. No CPU limit: CFS throttling during a transcode turns
+          # into dropouts on every player in a sync group.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 768Mi
+            limits:
+              memory: 3Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: music-assistant-data
+        - name: music
+          persistentVolumeClaim:
+            claimName: music-assistant-music
+            readOnly: true
