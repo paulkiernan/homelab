@@ -27,7 +27,7 @@ spec:
             runAsUser: 0
           containers:
             - name: dump
-              image: mariadb:13.0
+              image: mariadb:13.1
               command: [bash, -c]
               args:
                 - |
