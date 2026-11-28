@@ -1,11 +1,11 @@
 ---
 # The media stack, in one namespace so every app can share the one claim on the
 # NAS `media` share:
-#   qBittorrent  downloads (paste a magnet, or Radarr/Sonarr send one)
+#   qBittorrent  downloads (Radarr/Sonarr send releases; you can also add one by hand)
 #   Radarr/Sonarr  copy finished downloads into the library under clean names
 #   Prowlarr     private-tracker indexers, synced into Radarr/Sonarr
 #   Jellyfin     serves the library to Infuse on the Apple TV
-#   media-glue   applies the arrs' settings and adds pasted titles to them
+#   arr-config   keeps the arrs' settings in git (applied through their APIs)
 #
 # Layout of that share (Radarr/Sonarr copy finished downloads into the
 # library; media-share.yaml explains why it's still one share):
@@ -37,7 +37,7 @@ resources:
   - prowlarr.yaml
   - jellyfin.yaml
   - jellyfin-secrets.sops.yaml
-  - media-glue.yaml
+  - arr-config.yaml
   - db-backup.yaml
 
 # The settings the cluster owns, applied through qBittorrent's Web API by the
@@ -50,8 +50,8 @@ configMapGenerator:
       - qbittorrent/categories.json
       - qbittorrent/configure.py
       - qbittorrent/seed-credentials.py
-  # media-glue's script and the arr settings it keeps in place.
-  - name: media-glue
+  # arr-config's script and the arr settings it keeps in place.
+  - name: arr-config
     files:
-      - glue/glue.py
-      - glue/desired.json
+      - arr-config/reconcile.py
+      - arr-config/desired.json

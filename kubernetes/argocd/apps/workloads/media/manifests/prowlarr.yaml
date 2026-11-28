@@ -6,7 +6,7 @@
 # SQLite on the NAS: the arrs are write-heavy, and SQLite over NFS is the
 # usual way their databases get corrupted. pg_dumpall backs them up nightly.
 # config.xml is overridden from the environment (PROWLARR__<SECTION>__<KEY>), so
-# the API key and database login come from arr-secrets. media-glue applies the
+# the API key and database login come from arr-secrets. arr-config applies the
 # rest (UI login, root folder, download client, naming) through the API.
 #
 # UI: https://prowlarr.border-enigmatic.ts.net (tailnet only).

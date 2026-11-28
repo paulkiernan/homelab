@@ -1,7 +1,8 @@
 ---
 # The qBittorrent UI: https://torrents.border-enigmatic.ts.net, tailnet only.
-# This is where to paste a magnet link or torrent URL. Pick category "movies"
-# or "tv" so it lands where Radarr/Sonarr look.
+# Radarr and Sonarr send it what they grab. To add a torrent by hand, pick
+# category "movies" or "tv"; if the title isn't in Radarr/Sonarr yet, finish it
+# there with Activity > Queue > Manual Import (it copies into the library).
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

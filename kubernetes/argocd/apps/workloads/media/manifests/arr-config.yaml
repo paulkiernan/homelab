@@ -1,28 +1,29 @@
 ---
-# media-glue (glue/glue.py): applies glue/desired.json to Radarr, Sonarr and
-# Prowlarr through their APIs every 10 min, and every 30 s adds the titles of
-# torrents pasted into qBittorrent (category "movies" or "tv") to Radarr or
-# Sonarr, so they import on their own. glue.py's docstring has the details.
-# Its log is the place to look when a pasted torrent doesn't show up:
-#   kubectl -n media logs deploy/media-glue
+# arr-config (arr-config/reconcile.py): keeps Radarr's, Sonarr's and Prowlarr's
+# settings in git by applying arr-config/desired.json through their APIs every
+# 10 minutes: UI login, root folders, the qBittorrent download client (copy,
+# never hardlink), naming, the Jellyfin connection, and Prowlarr's sync to
+# Radarr and Sonarr. It only writes what has drifted, so a quiet log is normal:
+#   kubectl -n media logs deploy/arr-config
+# If it's down or broken, the apps keep working with the settings they have.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: media-glue
+  name: arr-config
   namespace: media
   labels:
-    app: media-glue
+    app: arr-config
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: media-glue
+      app: arr-config
   template:
     metadata:
       labels:
-        app: media-glue
+        app: arr-config
     spec:
       enableServiceLinks: false
       securityContext:
@@ -32,9 +33,9 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: media-glue
+        - name: arr-config
           image: python:3.15.2-alpine3.24
-          command: [python3, -I, -u, /etc/media-glue/glue.py]
+          command: [python3, -I, -u, /etc/arr-config/reconcile.py]
           env:
             - name: QBT_USERNAME
               valueFrom:
@@ -78,18 +79,18 @@ spec:
               memory: 128Mi
           volumeMounts:
             - name: settings
-              mountPath: /etc/media-glue
+              mountPath: /etc/arr-config
               readOnly: true
             # JELLYFIN_API_KEY as a file, read on every pass. It was created in
             # Jellyfin after its first-run setup; until it exists, the Jellyfin
             # connection in Radarr/Sonarr is skipped.
             - name: jellyfin-api
-              mountPath: /etc/media-glue-secrets
+              mountPath: /etc/arr-config-secrets
               readOnly: true
       volumes:
         - name: settings
           configMap:
-            name: media-glue
+            name: arr-config
         - name: jellyfin-api
           secret:
             secretName: jellyfin-api
