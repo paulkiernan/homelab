@@ -34,8 +34,8 @@ def log(msg):
 
 class Client:
     def __init__(self):
-        jar = http.cookiejar.CookieJar()
-        self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+        self.jar = http.cookiejar.CookieJar()
+        self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.jar))
 
     def call(self, path, form=None):
         data = urllib.parse.urlencode(form).encode() if form is not None else None
@@ -43,12 +43,20 @@ class Client:
             return r.read().decode()
 
     def login(self):
-        body = self.call("auth/login", {
-            "username": os.environ["WEBUI_USERNAME"],
-            "password": os.environ["WEBUI_PASSWORD"],
-        }).strip()
-        if body != "Ok.":
-            raise LoginRefused(body)
+        # 5.3 answers 204 with no body on success and 401 on a wrong password;
+        # older versions answer 200 with "Ok." or "Fails.". Either way success
+        # is the SID session cookie.
+        try:
+            body = self.call("auth/login", {
+                "username": os.environ["WEBUI_USERNAME"],
+                "password": os.environ["WEBUI_PASSWORD"],
+            }).strip()
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403):
+                raise LoginRefused(f"HTTP {e.code}") from None
+            raise
+        if body not in ("", "Ok.") or not any(c.name == "SID" for c in self.jar):
+            raise LoginRefused(body or "no session cookie")
 
 
 def apply(client, prefs, categories, ignored):
