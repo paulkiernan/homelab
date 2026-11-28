@@ -1,23 +1,31 @@
 ---
-# Nightly snapshot of the media apps' state to the NAS, kept for 14 days. Named
-# db-backup like every other app's, so the HomelabDatabaseBackupStale alert
-# covers it. One job per namespace: as Radarr/Sonarr/Jellyfin arrive, each gets
-# a volume and a line in SOURCES below.
-#   <stamp>/qbittorrent/   qBittorrent.conf, categories.json, BT_backup/
-#                          (one .torrent + .fastresume per torrent), rss/
-# Skipped: logs.
+# Nightly snapshot of the media apps' own state to the NAS, kept for 14 days.
+# It's named db-backup like every other app's, so the HomelabDatabaseBackupStale
+# alert covers it.
+#   <stamp>/qbittorrent/  qBittorrent.conf, categories.json, BT_backup/ (one
+#                         .torrent and .fastresume per torrent), rss/
+#   <stamp>/jellyfin/     config/*.xml (server, network, encoding settings),
+#                         data/ with every SQLite database copied through the
+#                         online backup API and integrity-checked, and plugins/
+# Skipped as rebuildable: Jellyfin's metadata/, trickplay/ and keyframes/
+# (images and thumbnails it regenerates from the media), and all logs.
+# Radarr, Sonarr and Prowlarr live in Postgres, so the postgres namespace's
+# pg_dumpall covers them.
 #
-# qBittorrent writes each resume file atomically (write, then rename), so
-# copying the live directory gives a consistent file per torrent. A torrent
-# added mid-copy is simply in the next snapshot.
+# Runs on leader-01. jellyfin-config is a local volume there, and SQLite in WAL
+# mode needs every process that opens the database on one host (they share the
+# -shm index through mmap). The job runs as Jellyfin's user (1024:100) because
+# even a read-only connection to a WAL database writes that -shm file.
 #
-# The volume is inline NFS rather than a PVC, so pruning this app can't delete
-# its own backups. The NAS also holds the live data, so this covers corruption,
-# bad upgrades and accidental deletion, not loss of the NAS.
+# The backup volume is inline NFS rather than a PVC, so pruning this app can't
+# delete its own backups.
 #
-# Restore: scale qbittorrent to 0, copy a snapshot's qbittorrent/ over
-# /config/qBittorrent in the qbittorrent-config volume, scale back to 1.
-# Torrents added since the snapshot need re-adding; their data is still on disk.
+# Restore:
+#   qBittorrent: scale qbittorrent to 0, copy <stamp>/qbittorrent/ over
+#     /config/qBittorrent in qbittorrent-config, scale back to 1.
+#   Jellyfin: scale jellyfin to 0, copy <stamp>/jellyfin/ into jellyfin-config
+#     (delete any *-wal/*-shm there first), scale back to 1. It rebuilds
+#     images and thumbnails on its next scan.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -36,22 +44,39 @@ spec:
       template:
         spec:
           restartPolicy: Never
+          nodeSelector:
+            kubernetes.io/hostname: k8s-leader-01
+          tolerations:
+            - key: node-role.kubernetes.io/control-plane
+              operator: Exists
+              effect: NoSchedule
+          securityContext:
+            runAsUser: 1024
+            runAsGroup: 100
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: snapshot
               image: python:3.15.2-alpine3.24
               command: [python3, -I, -c]
               args:
                 - |
-                  import datetime, os, re, shutil, sys
+                  import datetime, os, re, shutil, sqlite3, sys
 
                   OUT = "/backups"
-                  # name=path, the file that proves the copy is real
+                  # name: (source dir, a file that proves the volume is real, dirs to skip)
                   SOURCES = {
-                      "qbittorrent": ("/sources/qbittorrent/qBittorrent", "qBittorrent.conf"),
+                      "qbittorrent": ("/sources/qbittorrent/qBittorrent", "qBittorrent.conf",
+                                      {"logs"}),
+                      "jellyfin": ("/sources/jellyfin", "config/system.xml",
+                                   {"log", "metadata", "cache", "transcodes",
+                                    "data/trickplay", "data/keyframes"}),
                   }
                   KEEP = datetime.timedelta(days=14)
                   SNAP = re.compile(r"\d{8}T\d{6}Z")
-                  SKIP_DIRS = {"logs"}
+                  SKIP_FILE = re.compile(r"(-wal|-shm|-journal|\.seed-tmp)$")
+                  MAGIC = b"SQLite format 3\x00"
                   UTC = datetime.timezone.utc
 
                   now = datetime.datetime.now(UTC)
@@ -60,26 +85,47 @@ spec:
                   os.mkdir(tmp)
 
                   summary = []
-                  for app, (src, must_have) in SOURCES.items():
+                  for app, (src, must_have, skip) in SOURCES.items():
                       if not os.path.exists(os.path.join(src, must_have)):
                           sys.exit(f"{app}: no {must_have} under {src}; is the volume mounted?")
-                      files = nbytes = 0
+                      dbs, files, nbytes = [], 0, 0
                       for root, dirs, names in os.walk(src):
                           rel = os.path.relpath(root, src)
-                          if rel == ".":
-                              dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+                          dirs[:] = [d for d in dirs
+                                     if os.path.normpath(os.path.join(rel, d)) not in skip]
                           dest = os.path.join(tmp, app, rel)
                           os.makedirs(dest, exist_ok=True)
                           for f in names:
-                              if f.endswith(".seed-tmp"):
+                              if SKIP_FILE.search(f):
                                   continue
+                              s, d = os.path.join(root, f), os.path.join(dest, f)
                               try:
-                                  shutil.copy2(os.path.join(root, f), os.path.join(dest, f))
-                              except FileNotFoundError:  # torrent removed mid-walk
+                                  with open(s, "rb") as fh:
+                                      head = fh.read(16)
+                              except FileNotFoundError:  # deleted mid-walk
                                   continue
+                              if head == MAGIC:
+                                  # A file copy of a live WAL database can be torn; the
+                                  # backup API takes a consistent snapshot while the
+                                  # server keeps writing.
+                                  con = sqlite3.connect(s, timeout=30)
+                                  out = sqlite3.connect(d, autocommit=True)
+                                  con.backup(out)
+                                  con.close()
+                                  out.execute("PRAGMA journal_mode=DELETE")
+                                  check = out.execute("PRAGMA integrity_check").fetchone()[0]
+                                  out.close()
+                                  if check != "ok":
+                                      sys.exit(f"{app}: integrity_check failed on the copy of {rel}/{f}: {check}")
+                                  dbs.append(os.path.normpath(os.path.join(rel, f)))
+                              else:
+                                  try:
+                                      shutil.copy2(s, d)
+                                  except FileNotFoundError:
+                                      continue
                               files += 1
-                              nbytes += os.path.getsize(os.path.join(dest, f))
-                      summary.append(f"{app}: {files} files, {nbytes / 1e6:.1f} MB")
+                              nbytes += os.path.getsize(d)
+                      summary.append(f"{app}: {files} files ({len(dbs)} databases), {nbytes / 1e6:.1f} MB")
                   os.rename(tmp, os.path.join(OUT, name))
 
                   # Prune by snapshot name, not mtime (copy2 keeps source mtimes).
@@ -103,11 +149,13 @@ spec:
                   cpu: 50m
                   memory: 64Mi
                 limits:
-                  memory: 256Mi
+                  memory: 512Mi
               volumeMounts:
                 - name: qbittorrent-config
                   mountPath: /sources/qbittorrent
                   readOnly: true
+                - name: jellyfin-config
+                  mountPath: /sources/jellyfin
                 - name: backups
                   mountPath: /backups
                   subPath: db-backups/media
@@ -115,6 +163,9 @@ spec:
             - name: qbittorrent-config
               persistentVolumeClaim:
                 claimName: qbittorrent-config
+            - name: jellyfin-config
+              persistentVolumeClaim:
+                claimName: jellyfin-config
             - name: backups
               nfs:
                 server: 192.168.1.2

@@ -1,0 +1,25 @@
+---
+# Sonarr keeps everything in Postgres: sonarr-main (config, history) and
+# sonarr-log (its log table). It won't create them itself. The nightly
+# pg_dumpall in db-backup.yaml covers both.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: sonarr-main
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres-homelab
+  name: sonarr-main
+  owner: sonarr
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: sonarr-log
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres-homelab
+  name: sonarr-log
+  owner: sonarr

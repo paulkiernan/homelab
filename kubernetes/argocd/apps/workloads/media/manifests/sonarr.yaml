@@ -1,0 +1,181 @@
+---
+# Sonarr. TV: watches the "tv" category in qBittorrent, copies finished
+# downloads into /media/tv/<Show>/Season NN, and tells Jellyfin.
+#
+# Settings live in Postgres (sonarr-main / sonarr-log on postgres-homelab), not in
+# SQLite on the NAS: the arrs are write-heavy, and SQLite over NFS is the
+# usual way their databases get corrupted. pg_dumpall backs them up nightly.
+# config.xml is overridden from the environment (SONARR__<SECTION>__<KEY>), so
+# the API key and database login come from arr-secrets. media-glue applies the
+# rest (UI login, root folder, download client, naming) through the API.
+#
+# UI: https://sonarr.border-enigmatic.ts.net (tailnet only).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sonarr-config
+  namespace: media
+  labels:
+    app: sonarr
+spec:
+  # config.xml, logs, the poster cache and the app's own weekly backups. The
+  # database is in Postgres.
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nas-nfs
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarr
+  namespace: media
+  labels:
+    app: sonarr
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: sonarr
+  template:
+    metadata:
+      labels:
+        app: sonarr
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  # Same as qBittorrent: leader-01 is kept for Jellyfin and the
+                  # control plane, and worker-04 has 4 GB.
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values:
+                      - k8s-leader-01
+                      - k8s-worker-04
+      containers:
+        - name: sonarr
+          image: lscr.io/linuxserver/sonarr:4.0.20
+          imagePullPolicy: IfNotPresent
+          env:
+            # Same ids the NAS squashes NFS clients to (see qbittorrent-deployment.yaml).
+            - name: PUID
+              value: "1024"
+            - name: PGID
+              value: "100"
+            - name: UMASK
+              value: "002"
+            - name: TZ
+              value: America/Los_Angeles
+            - name: SONARR__POSTGRES__HOST
+              value: postgres-homelab-rw.postgres.svc.cluster.local
+            - name: SONARR__POSTGRES__PORT
+              value: "5432"
+            - name: SONARR__POSTGRES__USER
+              value: sonarr
+            - name: SONARR__POSTGRES__MAINDB
+              value: sonarr-main
+            - name: SONARR__POSTGRES__LOGDB
+              value: sonarr-log
+            # A login is required for everyone. DisabledForLocalAddresses would
+            # wave through the whole tailnet: the Tailscale proxy reaches the
+            # app from a pod IP, which counts as local.
+            - name: SONARR__AUTH__METHOD
+              value: Forms
+            - name: SONARR__AUTH__REQUIRED
+              value: Enabled
+            - name: SONARR__LOG__ANALYTICSENABLED
+              value: "False"
+          envFrom:
+            # SONARR__AUTH__APIKEY and SONARR__POSTGRES__PASSWORD
+            - secretRef:
+                name: sonarr
+          ports:
+            - name: http
+              containerPort: 8989
+              protocol: TCP
+          # /ping needs no login. First boot creates the schema in Postgres,
+          # so give startup room.
+          startupProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: media
+              mountPath: /media
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: sonarr-config
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-share
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonarr
+  namespace: media
+  labels:
+    app: sonarr
+spec:
+  selector:
+    app: sonarr
+  ports:
+    - name: http
+      port: 8989
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sonarr-tailscale
+  namespace: media
+  labels:
+    app: sonarr
+  annotations:
+    tailscale.com/hostname: "sonarr"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: sonarr
+      port:
+        number: 8989
+  tls:
+    - hosts:
+        - sonarr

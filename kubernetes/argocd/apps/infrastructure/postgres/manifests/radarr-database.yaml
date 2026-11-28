@@ -1,0 +1,25 @@
+---
+# Radarr keeps everything in Postgres: radarr-main (config, history) and
+# radarr-log (its log table). It won't create them itself. The nightly
+# pg_dumpall in db-backup.yaml covers both.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: radarr-main
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres-homelab
+  name: radarr-main
+  owner: radarr
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: radarr-log
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres-homelab
+  name: radarr-log
+  owner: radarr

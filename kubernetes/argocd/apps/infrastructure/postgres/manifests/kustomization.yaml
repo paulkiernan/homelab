@@ -10,4 +10,10 @@ resources:
   - tidewood-database.yaml
   - paperless-db-user-secret.sops.yaml
   - paperless-database.yaml
+  - radarr-db-user-secret.sops.yaml
+  - radarr-database.yaml
+  - sonarr-db-user-secret.sops.yaml
+  - sonarr-database.yaml
+  - prowlarr-db-user-secret.sops.yaml
+  - prowlarr-database.yaml
   - backup-db-user-secret.sops.yaml

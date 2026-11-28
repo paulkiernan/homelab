@@ -1,0 +1,205 @@
+---
+# Jellyfin, the media server Infuse (Apple TV) and the Jellyfin apps play from.
+# Libraries: Movies = /media/movies, Shows = /media/tv, read-only. Jellyfin
+# never writes to the library, and nothing in its UI can delete from it.
+#
+#   LAN (Apple TV):  http://192.168.1.235:8096
+#   tailnet:         https://jellyfin.border-enigmatic.ts.net
+#
+# Pinned to k8s-leader-01, the only node with a GPU that does Quick Sync for
+# both H.264 and HEVC (i3-8109U, Iris Plus 655). Infuse direct-plays nearly
+# everything, so the GPU is for the other clients (browsers, phones) and for
+# trickplay thumbnails. It's granted through the Intel device plugin
+# (infrastructure/intel-gpu-plugin), not by running privileged.
+#
+# Server settings (admin user, libraries, transcoding) are made in Jellyfin
+# itself and live in /config, like Music Assistant's. db-backup.yaml snapshots
+# them nightly.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jellyfin-config
+  namespace: media
+  labels:
+    app: jellyfin
+spec:
+  # Local disk on leader-01, not NFS. The database and image cache take many
+  # small random reads, which are slow over NFS. Jellyfin is pinned to this
+  # node anyway, and db-backup copies the parts worth keeping to the NAS.
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jellyfin
+  namespace: media
+  labels:
+    app: jellyfin
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: jellyfin
+  template:
+    metadata:
+      labels:
+        app: jellyfin
+    spec:
+      enableServiceLinks: false
+      nodeSelector:
+        kubernetes.io/hostname: k8s-leader-01
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      securityContext:
+        runAsUser: 1024
+        runAsGroup: 100
+        runAsNonRoot: true
+        fsGroup: 100
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: jellyfin
+          # Read the release notes before a major bump. 12.0 migrated the
+          # database one way and turned off legacy client logins.
+          image: jellyfin/jellyfin:12.4
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TZ
+              value: America/Los_Angeles
+            # What Jellyfin tells clients that discover it on the LAN.
+            - name: JELLYFIN_PublishedServerUrl
+              value: http://192.168.1.235:8096
+          ports:
+            - name: http
+              containerPort: 8096
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 120
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # leader-01 is also the control plane (8 GB, about 4.5 GB in use), so
+          # the limit is there to keep a runaway scan or transcode from
+          # squeezing etcd and the API server. No CPU limit: a throttled
+          # transcode stutters.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 768Mi
+            limits:
+              memory: 3Gi
+              gpu.intel.com/i915: 1
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: cache
+              mountPath: /cache
+            - name: media
+              mountPath: /media
+              readOnly: true
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: jellyfin-config
+        # Transcode segments and the image cache: rebuildable, so node-local
+        # scratch that goes away with the pod.
+        - name: cache
+          emptyDir:
+            sizeLimit: 20Gi
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-share
+            readOnly: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jellyfin
+  namespace: media
+  labels:
+    app: jellyfin
+spec:
+  selector:
+    app: jellyfin
+  ports:
+    - name: http
+      port: 8096
+      targetPort: http
+      protocol: TCP
+---
+# LAN address for the Apple TV, which isn't on the tailnet. Plain HTTP on the
+# home LAN, not reachable from the internet (no port forward).
+#
+# externalTrafficPolicy: Cluster on purpose. leader-01 carries Talos's
+# node.kubernetes.io/exclude-from-external-load-balancers label, so MetalLB
+# never announces from it. With Local, the one endpoint would be on a node
+# that can't announce, and the IP would go dark. Cluster lets another node
+# answer and forward. Jellyfin then sees a node IP (192.168.1.20x), which is
+# still inside its LAN networks.
+apiVersion: v1
+kind: Service
+metadata:
+  name: jellyfin-lan
+  namespace: media
+  labels:
+    app: jellyfin
+  annotations:
+    metallb.io/loadBalancerIPs: 192.168.1.235
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  selector:
+    app: jellyfin
+  ports:
+    - name: http
+      port: 8096
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jellyfin-tailscale
+  namespace: media
+  labels:
+    app: jellyfin
+  annotations:
+    tailscale.com/hostname: "jellyfin"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: jellyfin
+      port:
+        number: 8096
+  tls:
+    - hosts:
+        - jellyfin

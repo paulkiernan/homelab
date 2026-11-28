@@ -1,0 +1,181 @@
+---
+# Radarr. Movies: watches the "movies" category in qBittorrent, copies finished
+# downloads into /media/movies under a clean name, and tells Jellyfin.
+#
+# Settings live in Postgres (radarr-main / radarr-log on postgres-homelab), not in
+# SQLite on the NAS: the arrs are write-heavy, and SQLite over NFS is the
+# usual way their databases get corrupted. pg_dumpall backs them up nightly.
+# config.xml is overridden from the environment (RADARR__<SECTION>__<KEY>), so
+# the API key and database login come from arr-secrets. media-glue applies the
+# rest (UI login, root folder, download client, naming) through the API.
+#
+# UI: https://radarr.border-enigmatic.ts.net (tailnet only).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: radarr-config
+  namespace: media
+  labels:
+    app: radarr
+spec:
+  # config.xml, logs, the poster cache and the app's own weekly backups. The
+  # database is in Postgres.
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nas-nfs
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: radarr
+  namespace: media
+  labels:
+    app: radarr
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: radarr
+  template:
+    metadata:
+      labels:
+        app: radarr
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  # Same as qBittorrent: leader-01 is kept for Jellyfin and the
+                  # control plane, and worker-04 has 4 GB.
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values:
+                      - k8s-leader-01
+                      - k8s-worker-04
+      containers:
+        - name: radarr
+          image: lscr.io/linuxserver/radarr:7.0.3
+          imagePullPolicy: IfNotPresent
+          env:
+            # Same ids the NAS squashes NFS clients to (see qbittorrent-deployment.yaml).
+            - name: PUID
+              value: "1024"
+            - name: PGID
+              value: "100"
+            - name: UMASK
+              value: "002"
+            - name: TZ
+              value: America/Los_Angeles
+            - name: RADARR__POSTGRES__HOST
+              value: postgres-homelab-rw.postgres.svc.cluster.local
+            - name: RADARR__POSTGRES__PORT
+              value: "5432"
+            - name: RADARR__POSTGRES__USER
+              value: radarr
+            - name: RADARR__POSTGRES__MAINDB
+              value: radarr-main
+            - name: RADARR__POSTGRES__LOGDB
+              value: radarr-log
+            # A login is required for everyone. DisabledForLocalAddresses would
+            # wave through the whole tailnet: the Tailscale proxy reaches the
+            # app from a pod IP, which counts as local.
+            - name: RADARR__AUTH__METHOD
+              value: Forms
+            - name: RADARR__AUTH__REQUIRED
+              value: Enabled
+            - name: RADARR__LOG__ANALYTICSENABLED
+              value: "False"
+          envFrom:
+            # RADARR__AUTH__APIKEY and RADARR__POSTGRES__PASSWORD
+            - secretRef:
+                name: radarr
+          ports:
+            - name: http
+              containerPort: 7878
+              protocol: TCP
+          # /ping needs no login. First boot creates the schema in Postgres,
+          # so give startup room.
+          startupProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: media
+              mountPath: /media
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: radarr-config
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-share
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: radarr
+  namespace: media
+  labels:
+    app: radarr
+spec:
+  selector:
+    app: radarr
+  ports:
+    - name: http
+      port: 7878
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: radarr-tailscale
+  namespace: media
+  labels:
+    app: radarr
+  annotations:
+    tailscale.com/hostname: "radarr"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: radarr
+      port:
+        number: 7878
+  tls:
+    - hosts:
+        - radarr

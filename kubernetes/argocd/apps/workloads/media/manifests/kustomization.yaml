@@ -1,6 +1,11 @@
 ---
-# The media stack: download client now, then Radarr/Sonarr and Jellyfin, all in
-# one namespace so they can share the one claim on the NAS `media` share.
+# The media stack, in one namespace so every app can share the one claim on the
+# NAS `media` share:
+#   qBittorrent  downloads (paste a magnet, or Radarr/Sonarr send one)
+#   Radarr/Sonarr  copy finished downloads into the library under clean names
+#   Prowlarr     private-tracker indexers, synced into Radarr/Sonarr
+#   Jellyfin     serves the library to Infuse on the Apple TV
+#   media-glue   applies the arrs' settings and adds pasted titles to them
 #
 # Layout of that share (Radarr/Sonarr copy finished downloads into the
 # library; media-share.yaml explains why it's still one share):
@@ -10,9 +15,11 @@
 # app (and in Finder) and no remote path mappings are needed. media-share.yaml
 # has the details.
 #
-# Private: the qBittorrent UI is tailnet-only (https://torrents.border-enigmatic.ts.net).
-# The only thing reachable from the internet is the BitTorrent peer port, through
-# a port forward on the UniFi gateway to qbittorrent-peers (192.168.1.234).
+# Private. Every UI is tailnet-only (https://{torrents,radarr,sonarr,prowlarr,
+# jellyfin}.border-enigmatic.ts.net). Jellyfin also has a LAN address for the
+# Apple TV (192.168.1.235:8096). The only thing reachable from the internet is
+# the BitTorrent peer port, through a port forward on the UniFi gateway to
+# qbittorrent-peers (192.168.1.234).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: media
@@ -24,6 +31,11 @@ resources:
   - qbittorrent-deployment.yaml
   - qbittorrent-service.yaml
   - qbittorrent-tailscale-ingress.yaml
+  - arr-secrets.sops.yaml
+  - radarr.yaml
+  - sonarr.yaml
+  - prowlarr.yaml
+  - jellyfin.yaml
   - db-backup.yaml
 
 # The settings the cluster owns, applied through qBittorrent's Web API by the

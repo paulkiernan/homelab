@@ -1,0 +1,15 @@
+---
+# Intel's GPU device plugin (https://github.com/intel/intel-device-plugins-for-kubernetes),
+# so a pod can ask for the iGPU instead of running privileged:
+#   resources: { limits: { gpu.intel.com/i915: 1 } }
+# The kubelet then adds /dev/dri/renderD128 (and card0) to that container and
+# allows it in the device cgroup. Jellyfin uses it for Quick Sync transcoding.
+#
+# The Talos nodes already load the GPU driver: the schematic carries the i915
+# and intel-ucode extensions.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: intel-gpu-plugin
+resources:
+  - namespace.yaml
+  - daemonset.yaml

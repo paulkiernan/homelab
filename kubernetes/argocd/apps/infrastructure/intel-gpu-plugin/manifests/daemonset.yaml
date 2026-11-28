@@ -1,0 +1,87 @@
+---
+# Upstream deployments/gpu_plugin/base/intel-gpu-plugin.yaml at v0.37.2,
+# vendored so Renovate tracks the image, with three changes:
+#  - runs only on k8s-leader-01. Its i3-8109U (Iris Plus 655, Gen 9.5) does
+#    Quick Sync for H.264 and HEVC 8/10-bit. worker-05's Haswell GPU has no
+#    HEVC, so it isn't offered.
+#  - seLinuxOptions dropped: container_device_plugin_t isn't a type in Talos's
+#    SELinux policy, and the container won't start with an unknown label.
+#  - tolerates the control-plane taint, in case leader-01 gets one again.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: intel-gpu-plugin
+  labels:
+    app: intel-gpu-plugin
+spec:
+  selector:
+    matchLabels:
+      app: intel-gpu-plugin
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: intel-gpu-plugin
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: k8s-leader-01
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: intel-gpu-plugin
+          image: intel/intel-gpu-plugin:0.37.2
+          imagePullPolicy: IfNotPresent
+          args:
+            - -prefix=/host
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              memory: "45Mi"
+              cpu: 40m
+            limits:
+              memory: "115Mi"
+              cpu: 100m
+          volumeMounts:
+            - name: devfs
+              mountPath: /host/dev
+              readOnly: true
+              recursiveReadOnly: IfPossible
+            - name: kubeletsockets
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: cdipath
+              mountPath: /var/run/cdi
+      volumes:
+        - name: devfs
+          hostPath:
+            path: /dev
+            type: Directory
+        - name: kubeletsockets
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: cdipath
+          hostPath:
+            path: /var/run/cdi
+            type: DirectoryOrCreate

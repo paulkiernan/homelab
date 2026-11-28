@@ -1,0 +1,25 @@
+---
+# Prowlarr keeps everything in Postgres: prowlarr-main (config, history) and
+# prowlarr-log (its log table). It won't create them itself. The nightly
+# pg_dumpall in db-backup.yaml covers both.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: prowlarr-main
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres-homelab
+  name: prowlarr-main
+  owner: prowlarr
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: prowlarr-log
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres-homelab
+  name: prowlarr-log
+  owner: prowlarr

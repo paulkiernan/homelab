@@ -62,6 +62,29 @@ spec:
         connectionLimit: -1
         passwordSecret:
           name: paperless-db-user
+      # Radarr, Sonarr and Prowlarr (media namespace). Each owns <app>-main
+      # and <app>-log, created by <app>-database.yaml.
+      - name: radarr
+        ensure: present
+        login: true
+        inherit: true
+        connectionLimit: -1
+        passwordSecret:
+          name: radarr-db-user
+      - name: sonarr
+        ensure: present
+        login: true
+        inherit: true
+        connectionLimit: -1
+        passwordSecret:
+          name: sonarr-db-user
+      - name: prowlarr
+        ensure: present
+        login: true
+        inherit: true
+        connectionLimit: -1
+        passwordSecret:
+          name: prowlarr-db-user
       # For db-backup.yaml; pg_dumpall needs superuser. The operator-generated
       # postgres password stopped matching after each Postgres restart, while
       # managed roles have held theirs through the same restarts.

@@ -1,0 +1,9 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: intel-gpu-plugin
+  labels:
+    # The plugin reads the host's /dev and writes to the kubelet's
+    # device-plugin socket directory, both hostPath mounts.
+    pod-security.kubernetes.io/enforce: privileged
