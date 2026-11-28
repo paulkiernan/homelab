@@ -20,6 +20,7 @@ This repository is a personal "homelab" setup that serves multiple objectives:
 
 ## Services Hosted
 - **Immich**: Photo management and backup server
+- **Media** (`workloads/media`): qBittorrent, Radarr, Sonarr, Prowlarr and Jellyfin on the NAS `media` share; arr-config keeps the arrs' settings in git
 - **Personal websites**: disconnect, paulynomial-index, gibson, taqueria-bonjour
 - **Dashboard**: Hajimari
 
