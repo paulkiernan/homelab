@@ -1,0 +1,151 @@
+{
+  "_doc": "What media-glue (glue.py) keeps in place in each app, through the app's own API. Only the keys listed are compared and set; everything else stays editable in the UI. \"$NAME\" values come from environment variables (secrets). Keys starting with _ are notes. Field names are the API's; check them against GET <api>/<kind>/schema when upgrading an app.",
+
+  "radarr": {
+    "url": "http://radarr.media.svc.cluster.local:7878",
+    "api": "/api/v3",
+    "api_key_env": "RADARR__AUTH__APIKEY",
+    "_quality_profile": "Profile given to movies media-glue adds for pasted torrents. 'Any' accepts whatever quality was pasted.",
+    "quality_profile": "Any",
+    "root_folders": ["/media/movies"],
+    "config": {
+      "_mediamanagement": "Copy, never hardlink: the library stays independent of what's seeding (your choice, 2026-11-28). Bring subtitles along.",
+      "config/mediamanagement": {
+        "copyUsingHardlinks": false,
+        "importExtraFiles": true,
+        "extraFileExtensions": "srt,ass,ssa,sub,idx",
+        "deleteEmptyFolders": true
+      },
+      "_naming": "Title (Year)/Title (Year).ext, the same names the archive was reorganized to, which Jellyfin matches directly.",
+      "config/naming": {
+        "renameMovies": true,
+        "replaceIllegalCharacters": true,
+        "colonReplacementFormat": "smart",
+        "standardMovieFormat": "{Movie Title} ({Release Year})",
+        "movieFolderFormat": "{Movie Title} ({Release Year})"
+      }
+    },
+    "providers": [
+      {
+        "_doc": "qBittorrent, category 'movies' (downloads land in /media/torrents/movies). Remove Completed only acts once qBittorrent stops a torrent at a share limit, which only happens when Prowlarr sets the tracker's seed goal on a grab, so pasted torrents keep seeding.",
+        "kind": "downloadclient",
+        "name": "qBittorrent",
+        "implementation": "QBittorrent",
+        "props": {"enable": true, "priority": 1, "removeCompletedDownloads": true, "removeFailedDownloads": true},
+        "fields": {
+          "host": "qbittorrent.media.svc.cluster.local",
+          "port": 8080,
+          "useSsl": false,
+          "username": "$QBT_USERNAME",
+          "password": "$QBT_PASSWORD",
+          "movieCategory": "movies"
+        }
+      },
+      {
+        "_doc": "Tell Jellyfin to rescan the folder after an import, rename or delete. NFS doesn't deliver file-change events across hosts, so without this new movies wait for Jellyfin's 12-hourly library scan. Skipped until the jellyfin-api secret exists.",
+        "kind": "notification",
+        "name": "Jellyfin",
+        "implementation": "MediaBrowser",
+        "skip_if_unset": true,
+        "props": {"onDownload": true, "onUpgrade": true, "onRename": true, "onMovieDelete": true, "onMovieFileDelete": true, "onMovieFileDeleteForUpgrade": true},
+        "fields": {
+          "host": "jellyfin.media.svc.cluster.local",
+          "port": 8096,
+          "useSsl": false,
+          "apiKey": "$JELLYFIN_API_KEY",
+          "notify": false,
+          "updateLibrary": true
+        }
+      }
+    ]
+  },
+
+  "sonarr": {
+    "url": "http://sonarr.media.svc.cluster.local:8989",
+    "api": "/api/v3",
+    "api_key_env": "SONARR__AUTH__APIKEY",
+    "quality_profile": "Any",
+    "root_folders": ["/media/tv"],
+    "config": {
+      "config/mediamanagement": {
+        "copyUsingHardlinks": false,
+        "importExtraFiles": true,
+        "extraFileExtensions": "srt,ass,ssa,sub,idx",
+        "deleteEmptyFolders": true
+      },
+      "_naming": "Show (Year)/Season 01/Show - S01E01 - Title.ext, Jellyfin's preferred layout. {Series TitleYear} adds the year only when the title doesn't already carry one. colonReplacementFormat 4 is 'smart'.",
+      "config/naming": {
+        "renameEpisodes": true,
+        "replaceIllegalCharacters": true,
+        "colonReplacementFormat": 4,
+        "standardEpisodeFormat": "{Series Title} - S{season:00}E{episode:00} - {Episode Title}",
+        "dailyEpisodeFormat": "{Series Title} - {Air-Date} - {Episode Title}",
+        "animeEpisodeFormat": "{Series Title} - S{season:00}E{episode:00} - {Episode Title}",
+        "seriesFolderFormat": "{Series TitleYear}",
+        "seasonFolderFormat": "Season {season:00}"
+      }
+    },
+    "providers": [
+      {
+        "kind": "downloadclient",
+        "name": "qBittorrent",
+        "implementation": "QBittorrent",
+        "props": {"enable": true, "priority": 1, "removeCompletedDownloads": true, "removeFailedDownloads": true},
+        "fields": {
+          "host": "qbittorrent.media.svc.cluster.local",
+          "port": 8080,
+          "useSsl": false,
+          "username": "$QBT_USERNAME",
+          "password": "$QBT_PASSWORD",
+          "tvCategory": "tv"
+        }
+      },
+      {
+        "kind": "notification",
+        "name": "Jellyfin",
+        "implementation": "MediaBrowser",
+        "skip_if_unset": true,
+        "props": {"onDownload": true, "onImportComplete": true, "onUpgrade": true, "onRename": true, "onSeriesDelete": true, "onEpisodeFileDelete": true, "onEpisodeFileDeleteForUpgrade": true},
+        "fields": {
+          "host": "jellyfin.media.svc.cluster.local",
+          "port": 8096,
+          "useSsl": false,
+          "apiKey": "$JELLYFIN_API_KEY",
+          "notify": false,
+          "updateLibrary": true
+        }
+      }
+    ]
+  },
+
+  "prowlarr": {
+    "url": "http://prowlarr.media.svc.cluster.local:9696",
+    "api": "/api/v1",
+    "api_key_env": "PROWLARR__AUTH__APIKEY",
+    "_providers": "Full sync: indexers added in Prowlarr (your private-tracker logins) appear in Radarr and Sonarr, and edits flow down.",
+    "providers": [
+      {
+        "kind": "applications",
+        "name": "Radarr",
+        "implementation": "Radarr",
+        "props": {"syncLevel": "fullSync"},
+        "fields": {
+          "prowlarrUrl": "http://prowlarr.media.svc.cluster.local:9696",
+          "baseUrl": "http://radarr.media.svc.cluster.local:7878",
+          "apiKey": "$RADARR__AUTH__APIKEY"
+        }
+      },
+      {
+        "kind": "applications",
+        "name": "Sonarr",
+        "implementation": "Sonarr",
+        "props": {"syncLevel": "fullSync"},
+        "fields": {
+          "prowlarrUrl": "http://prowlarr.media.svc.cluster.local:9696",
+          "baseUrl": "http://sonarr.media.svc.cluster.local:8989",
+          "apiKey": "$SONARR__AUTH__APIKEY"
+        }
+      }
+    ]
+  }
+}

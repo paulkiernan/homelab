@@ -36,6 +36,7 @@ resources:
   - sonarr.yaml
   - prowlarr.yaml
   - jellyfin.yaml
+  - media-glue.yaml
   - db-backup.yaml
 
 # The settings the cluster owns, applied through qBittorrent's Web API by the
@@ -48,3 +49,8 @@ configMapGenerator:
       - qbittorrent/categories.json
       - qbittorrent/configure.py
       - qbittorrent/seed-credentials.py
+  # media-glue's script and the arr settings it keeps in place.
+  - name: media-glue
+    files:
+      - glue/glue.py
+      - glue/desired.json
