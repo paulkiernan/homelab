@@ -2,8 +2,8 @@
 # The media stack: download client now, then Radarr/Sonarr and Jellyfin, all in
 # one namespace so they can share the one claim on the NAS `media` share.
 #
-# Layout of that share (one filesystem, so imports are hardlinks, and seeding
-# never doubles disk use or blocks a rename):
+# Layout of that share (Radarr/Sonarr copy finished downloads into the
+# library; media-share.yaml explains why it's still one share):
 #   /volume1/media/movies, /volume1/media/tv   the library (Radarr/Sonarr/Jellyfin)
 #   /volume1/media/torrents/{movies,tv}        qBittorrent downloads, by category
 # Every pod mounts the share at /media, so a path means the same thing in every

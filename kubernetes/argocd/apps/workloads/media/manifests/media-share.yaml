@@ -5,11 +5,15 @@
 #   /media/torrents/{movies,tv} qBittorrent downloads, by category
 # The path inside a pod is the path you see in Finder, so nothing needs mapping.
 #
-# Downloads and library share one Btrfs subvolume, so Radarr/Sonarr can
-# hardlink a finished download into the library while qBittorrent keeps seeding
-# the original: instant, and no extra space. Each Synology shared folder is its
-# own subvolume, so that only works within one share; link() across shares
-# fails with EXDEV and the arrs silently fall back to copying.
+# Radarr/Sonarr COPY a finished download into the library (hardlinks off, by
+# choice): the library never shares bytes with a seeding torrent, so editing a
+# file in place (mkvpropedit, taggers) can't corrupt what's being seeded. The
+# cost is double space while a title seeds, and a real copy over NFS on import.
+#
+# Downloads and library still share one share (one Btrfs subvolume) because
+# moves within it are instant renames, and it keeps hardlinks available:
+# each Synology shared folder is its own subvolume, and link() across shares
+# fails with EXDEV.
 #
 # Static PV for the same reason as paperless-scans and the music library: the
 # directory belongs to the NAS, its path must never change, and deleting the

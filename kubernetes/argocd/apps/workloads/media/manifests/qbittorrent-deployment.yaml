@@ -91,7 +91,7 @@ spec:
               value: "1024"
             - name: PGID
               value: "100"
-            # Group-writable, so Radarr/Sonarr (same ids) can hardlink and rename.
+            # Group-writable, so Radarr/Sonarr (same ids) can read, copy and clean up.
             - name: UMASK
               value: "002"
             - name: TZ
