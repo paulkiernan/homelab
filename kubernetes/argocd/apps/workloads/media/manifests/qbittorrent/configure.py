@@ -45,7 +45,7 @@ class Client:
     def login(self):
         # 5.3 answers 204 with no body on success and 401 on a wrong password;
         # older versions answer 200 with "Ok." or "Fails.". Either way success
-        # is the SID session cookie.
+        # is the session cookie: SID before 5.x, QBT_SID_<port> since.
         try:
             body = self.call("auth/login", {
                 "username": os.environ["WEBUI_USERNAME"],
@@ -55,7 +55,8 @@ class Client:
             if e.code in (401, 403):
                 raise LoginRefused(f"HTTP {e.code}") from None
             raise
-        if body not in ("", "Ok.") or not any(c.name == "SID" for c in self.jar):
+        if body not in ("", "Ok.") or not any(
+                c.name == "SID" or c.name.startswith("QBT_SID") for c in self.jar):
             raise LoginRefused(body or "no session cookie")
 
 
