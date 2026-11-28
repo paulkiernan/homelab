@@ -22,6 +22,10 @@ Two loops in one process, both stateless (state lives in the apps themselves):
      glue-known    it was already in the library (or the arr grabbed it)
      needs-import  couldn't match it confidently; use Wanted > Manual Import
                    (Radarr) or Activity > Queue (Sonarr) to finish it by hand
+   plus tmdb-<id> / tvdb-<id> naming the title. If the arr then won't import the
+   finished download by itself (it can't parse a name like "Sintel"; the queue
+   says importBlocked), this imports it through the arr's manual-import API,
+   copying, and tags it glue-imported.
 """
 
 import http.cookiejar
@@ -38,7 +42,7 @@ CONF = os.environ.get("CONF_DIR", "/etc/media-glue")
 CONFIG_INTERVAL = int(os.environ.get("CONFIG_INTERVAL", "600"))
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "30"))
 QBT = os.environ.get("QBT_URL", "http://qbittorrent.media.svc.cluster.local:8080")
-TAGS = ("glue-added", "glue-known", "needs-import")
+TAGS = ("glue-added", "glue-known", "needs-import")  # outcome of the first look
 
 
 def log(msg):
@@ -275,9 +279,11 @@ def pick(candidates, titles, year, title_keys):
 
 
 def add_movie(radarr, name, want):
+    """-> (outcome tag, what happened, id tag or None)"""
     parsed = radarr.get("parse", title=name)
     if parsed.get("movie"):
-        return "glue-known", parsed["movie"]["title"]
+        m = parsed["movie"]
+        return "glue-known", m["title"], f"tmdb-{m['tmdbId']}"
     info = parsed.get("parsedMovieInfo") or {}
     title = info.get("primaryMovieTitle") or info.get("movieTitle") or \
         (info.get("movieTitles") or [None])[0]
@@ -285,21 +291,23 @@ def add_movie(radarr, name, want):
     if not title:
         title, year = guess_title(name)
         if not title:
-            return "needs-import", "couldn't make a title out of the name"
+            return "needs-import", "couldn't make a title out of the name", None
     found = radarr.get("movie/lookup", term=f"{title} {year}" if year else title)
     movie = pick(found, [title], year, ("title", "originalTitle"))
     if movie is None:
-        return "needs-import", f"no single match for {title!r} ({year or 'no year'})"
+        return "needs-import", f"no single match for {title!r} ({year or 'no year'})", None
+    idtag = f"tmdb-{movie['tmdbId']}"
     if movie.get("id"):
-        return "glue-known", movie["title"]
+        return "glue-known", movie["title"], idtag
     radarr.post("movie", dict(movie, qualityProfileId=profile_id(radarr, want["quality_profile"]),
                               rootFolderPath=want["root_folders"][0], monitored=True,
                               minimumAvailability="released",
                               addOptions={"searchForMovie": False}))
-    return "glue-added", f"{movie['title']} ({movie.get('year')})"
+    return "glue-added", f"{movie['title']} ({movie.get('year')})", idtag
 
 
 def add_series(sonarr, name, want):
+    """-> (outcome tag, what happened, id tag or None)"""
     parsed = sonarr.get("parse", title=name)
     series = parsed.get("series")
     tag = "glue-known"
@@ -310,11 +318,11 @@ def add_series(sonarr, name, want):
         title = tinfo.get("titleWithoutYear") or tinfo.get("title") or info.get("seriesTitle")
         year = tinfo.get("year") or 0
         if not title:
-            return "needs-import", "Sonarr couldn't parse a series"
+            return "needs-import", "Sonarr couldn't parse a series", None
         show = pick(sonarr.get("series/lookup", term=title), [title, info.get("seriesTitle")],
                     year, ("title", "sortTitle"))
         if show is None:
-            return "needs-import", f"no single match for {title!r}"
+            return "needs-import", f"no single match for {title!r}", None
         if not show.get("id"):
             # monitor "none", then monitor just the episodes in this torrent, so
             # adding a show never makes Sonarr go after the rest of it.
@@ -329,7 +337,88 @@ def add_series(sonarr, name, want):
     ids = [e["id"] for e in parsed.get("episodes") or [] if not e.get("monitored")]
     if ids:
         sonarr.put("episode/monitor", {"episodeIds": ids, "monitored": True})
-    return tag, f"{series['title']} ({len(parsed.get('episodes') or [])} episodes)"
+    return tag, f"{series['title']} ({len(parsed.get('episodes') or [])} episodes)", \
+        f"tvdb-{series['tvdbId']}"
+
+
+PARSE_REJECTIONS = {"Unable to parse file"}
+
+
+def guess_quality(arr, owner, filename):
+    """The arr couldn't parse the file name, so it has no quality for it. Parse
+    the name again with the title and year in front, which the parser does
+    understand; quality tags in the name (1080p, WEB-DL) still count, and a bare
+    name comes back as 'Unknown'."""
+    p = arr.get("parse", title=f"{owner['title']} {owner.get('year') or ''} {filename}")
+    info = p.get("parsedMovieInfo") or p.get("parsedEpisodeInfo") or {}
+    unknown = {"quality": {"id": 0, "name": "Unknown"},
+               "revision": {"version": 1, "real": 0, "isRepack": False}}
+    return info.get("quality") or unknown, info.get("languages") or [{"id": 0, "name": "Unknown"}]
+
+
+def tagset(t):
+    return {x.strip() for x in (t.get("tags") or "").split(",") if x.strip()}
+
+
+def finish_blocked(qbt, arr, app, torrents):
+    """Import what the arr refuses to on its own.
+
+    Radarr/Sonarr match a finished download to a title by parsing its name. A
+    name like "Sintel" (no year) can't be parsed, so even with the movie in the
+    library the queue says "Unable to parse download" (importBlocked). For our
+    own torrents we know the title (the tmdb-/tvdb- tag), so do what the UI's
+    Manual Import button does: list the files the arr would accept and import
+    them, copying.
+    """
+    unknown = "includeUnknownMovieItems" if app == "radarr" else "includeUnknownSeriesItems"
+    queue = arr.get("queue", pageSize=200, **{unknown: "true"})
+    for rec in queue.get("records", []):
+        if rec.get("trackedDownloadState") != "importBlocked":
+            continue
+        t = torrents.get((rec.get("downloadId") or "").lower())
+        if t is None:
+            continue
+        tags = tagset(t)
+        idtag = next((x for x in tags if x.startswith(("tmdb-", "tvdb-"))), None)
+        if idtag is None or tags & {"glue-imported", "needs-import"}:
+            continue
+        ext_id = int(idtag.split("-", 1)[1])
+        if app == "radarr":
+            owner = (arr.get("movie", tmdbId=ext_id) or [None])[0]
+            key = "movieId"
+        else:
+            owner = (arr.get("series", tvdbId=ext_id) or [None])[0]
+            key = "seriesId"
+        if owner is None:
+            continue
+        items = arr.get("manualimport", folder=rec["outputPath"], downloadId=rec["downloadId"],
+                        filterExistingFiles="true", **{key: owner["id"]})
+        # The only rejection we override is the arr not being able to parse the
+        # file name; we know the title. Samples, non-upgrades, duplicates and
+        # the rest still stop the import.
+        files = [i for i in items
+                 if all(r.get("reason") in PARSE_REJECTIONS for r in i.get("rejections", []))]
+        if app == "radarr":
+            files = sorted(files, key=lambda i: i.get("size", 0), reverse=True)[:1]  # one movie file
+        else:
+            files = [i for i in files if i.get("episodes")]  # needs episode numbers to place it
+        for i in files:
+            if not i.get("quality"):
+                i["quality"], i["languages"] = guess_quality(arr, owner, i["name"])
+        if not files:
+            why = sorted({r.get("reason", "?") for i in items for r in i.get("rejections", [])})
+            qbt.call("torrents/addTags", {"hashes": t["hash"], "tags": "needs-import"})
+            log(f"{app}: {t['name']!r} -> needs-import: nothing importable ({'; '.join(why) or 'no files'})")
+            continue
+        body = [{"path": i["path"], key: owner["id"], "quality": i["quality"],
+                 "languages": i.get("languages", []), "releaseGroup": i.get("releaseGroup"),
+                 "downloadId": rec["downloadId"], "indexerFlags": i.get("indexerFlags", 0),
+                 **({"episodeIds": [e["id"] for e in i["episodes"]],
+                     "releaseType": i.get("releaseType", "unknown")} if app == "sonarr" else {})}
+                for i in files]
+        arr.post("command", {"name": "ManualImport", "importMode": "copy", "files": body})
+        qbt.call("torrents/addTags", {"hashes": t["hash"], "tags": "glue-imported"})
+        log(f"{app}: {t['name']!r} -> glue-imported: {len(body)} file(s) into {owner['title']}")
 
 
 def handle_pasted(qbt, arrs, desired):
@@ -337,21 +426,26 @@ def handle_pasted(qbt, arrs, desired):
     for category, (app, add) in routes.items():
         if app not in arrs:
             continue
+        torrents = {}
         for t in qbt.call("torrents/info", category=category):
-            tags = {x.strip() for x in (t.get("tags") or "").split(",") if x.strip()}
-            if tags & set(TAGS):
+            torrents[t["hash"].lower()] = t
+            if tagset(t) & set(TAGS):
                 continue
             if t["state"] in ("metaDL", "forcedMetaDL") or t["name"] == t["hash"]:
                 continue  # no real name until the magnet's metadata arrives
             try:
-                tag, what = add(arrs[app], t["name"], desired[app])
+                tag, what, idtag = add(arrs[app], t["name"], desired[app])
             except urllib.error.HTTPError as e:
-                tag, what = "needs-import", f"{app} said HTTP {e.code}: {e.read()[:200]!r}"
-            qbt.call("torrents/addTags", {"hashes": t["hash"], "tags": tag})
+                tag, what, idtag = "needs-import", f"{app} said HTTP {e.code}: {e.read()[:200]!r}", None
+            qbt.call("torrents/addTags", {"hashes": t["hash"],
+                                          "tags": ",".join(x for x in (tag, idtag) if x)})
+            t["tags"] = ",".join(x for x in (tag, idtag) if x)
             log(f"{category}: {t['name']!r} -> {tag}: {what}")
             if tag == "glue-added":
                 # Have the arr look at the queue now rather than in a minute.
                 arrs[app].post("command", {"name": "RefreshMonitoredDownloads"})
+        if torrents:
+            finish_blocked(qbt, arrs[app], app, torrents)
 
 
 # ------------------------------------------------------------------------ main
