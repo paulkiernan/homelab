@@ -25,7 +25,9 @@ Two loops in one process, both stateless (state lives in the apps themselves):
    plus tmdb-<id> / tvdb-<id> naming the title. If the arr then won't import the
    finished download by itself (it can't parse a name like "Sintel"; the queue
    says importBlocked), this imports it through the arr's manual-import API,
-   copying, and tags it glue-imported.
+   copying, and tags it glue-imported. After a TV import it also starts one
+   Jellyfin library scan (tag jellyfin-scanned), because Sonarr's Jellyfin
+   connection can't introduce a show Jellyfin doesn't have yet.
 """
 
 import http.cookiejar
@@ -337,7 +339,10 @@ def add_series(sonarr, name, want):
     ids = [e["id"] for e in parsed.get("episodes") or [] if not e.get("monitored")]
     if ids:
         sonarr.put("episode/monitor", {"episodeIds": ids, "monitored": True})
-    return tag, f"{series['title']} ({len(parsed.get('episodes') or [])} episodes)", \
+    n = len(parsed.get("episodes") or [])
+    # Right after adding a show, Sonarr may not have loaded its episode list yet;
+    # the import still works, those episodes just stay unmonitored.
+    return tag, f"{series['title']} ({n} episodes)" if n else series["title"], \
         f"tvdb-{series['tvdbId']}"
 
 
@@ -372,6 +377,7 @@ def finish_blocked(qbt, arr, app, torrents):
     """
     unknown = "includeUnknownMovieItems" if app == "radarr" else "includeUnknownSeriesItems"
     queue = arr.get("queue", pageSize=200, **{unknown: "true"})
+    queued = {(r.get("downloadId") or "").lower() for r in queue.get("records", [])}
     for rec in queue.get("records", []):
         if rec.get("trackedDownloadState") != "importBlocked":
             continue
@@ -419,6 +425,30 @@ def finish_blocked(qbt, arr, app, torrents):
         arr.post("command", {"name": "ManualImport", "importMode": "copy", "files": body})
         qbt.call("torrents/addTags", {"hashes": t["hash"], "tags": "glue-imported"})
         log(f"{app}: {t['name']!r} -> glue-imported: {len(body)} file(s) into {owner['title']}")
+    return queued
+
+
+JELLYFIN = os.environ.get("JELLYFIN_URL", "http://jellyfin.media.svc.cluster.local:8096")
+
+
+def scan_after_tv_import(qbt, torrents, queued):
+    """Sonarr's Jellyfin connection refreshes the show Jellyfin already has, so a
+    brand-new show's first episode doesn't appear until Jellyfin's 12-hourly
+    scan. Once a TV torrent has left Sonarr's queue (imported), start one full
+    library scan (about 10 s) and tag the torrent so it happens only once."""
+    done = [t for h, t in torrents.items()
+            if t["progress"] >= 1 and h not in queued
+            and tagset(t) & {"glue-added", "glue-known", "glue-imported"}
+            and not tagset(t) & {"jellyfin-scanned", "needs-import"}]
+    key = secret("JELLYFIN_API_KEY")
+    if not done or not key:
+        return
+    req = urllib.request.Request(JELLYFIN + "/Library/Refresh", data=b"", method="POST",
+                                 headers={"Authorization": f'MediaBrowser Token="{key}"'})
+    urllib.request.urlopen(req, timeout=30).read()
+    qbt.call("torrents/addTags", {"hashes": "|".join(t["hash"] for t in done),
+                                  "tags": "jellyfin-scanned"})
+    log(f"tv: started a Jellyfin library scan for {', '.join(repr(t['name']) for t in done)}")
 
 
 def handle_pasted(qbt, arrs, desired):
@@ -445,7 +475,9 @@ def handle_pasted(qbt, arrs, desired):
                 # Have the arr look at the queue now rather than in a minute.
                 arrs[app].post("command", {"name": "RefreshMonitoredDownloads"})
         if torrents:
-            finish_blocked(qbt, arrs[app], app, torrents)
+            queued = finish_blocked(qbt, arrs[app], app, torrents)
+            if app == "sonarr":
+                scan_after_tv_import(qbt, torrents, queued)
 
 
 # ------------------------------------------------------------------------ main
