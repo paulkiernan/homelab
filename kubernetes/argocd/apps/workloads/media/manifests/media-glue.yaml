@@ -61,14 +61,6 @@ spec:
                 secretKeyRef:
                   name: prowlarr
                   key: PROWLARR__AUTH__APIKEY
-            # Created in Jellyfin after its first-run setup. Until the secret
-            # exists, the Jellyfin connection in Radarr/Sonarr is skipped.
-            - name: JELLYFIN_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: jellyfin-api
-                  key: JELLYFIN_API_KEY
-                  optional: true
           envFrom:
             # ARR_UI_USERNAME / ARR_UI_PASSWORD
             - secretRef:
@@ -88,7 +80,17 @@ spec:
             - name: settings
               mountPath: /etc/media-glue
               readOnly: true
+            # JELLYFIN_API_KEY as a file, read on every pass. It was created in
+            # Jellyfin after its first-run setup; until it exists, the Jellyfin
+            # connection in Radarr/Sonarr is skipped.
+            - name: jellyfin-api
+              mountPath: /etc/media-glue-secrets
+              readOnly: true
       volumes:
         - name: settings
           configMap:
             name: media-glue
+        - name: jellyfin-api
+          secret:
+            secretName: jellyfin-api
+            optional: true

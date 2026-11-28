@@ -36,6 +36,7 @@ resources:
   - sonarr.yaml
   - prowlarr.yaml
   - jellyfin.yaml
+  - jellyfin-secrets.sops.yaml
   - media-glue.yaml
   - db-backup.yaml
 

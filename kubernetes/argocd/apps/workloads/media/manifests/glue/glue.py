@@ -45,10 +45,26 @@ def log(msg):
     print(time.strftime("%Y-%m-%dT%H:%M:%S"), msg, flush=True)
 
 
+SECRETS = os.environ.get("SECRETS_DIR", "/etc/media-glue-secrets")
+
+
+def secret(name):
+    """An environment variable, or else a file of that name in SECRETS_DIR. Files
+    come from secrets mounted as volumes, which the kubelet refreshes in place,
+    so a key created later (Jellyfin's) is picked up without a restart."""
+    if os.environ.get(name):
+        return os.environ[name]
+    try:
+        with open(os.path.join(SECRETS, name), encoding="utf-8") as fh:
+            return fh.read().strip()
+    except OSError:
+        return ""
+
+
 def expand(value):
-    """"$NAME" means the NAME environment variable (secrets stay out of git)."""
+    """"$NAME" means secret("NAME"), so secrets stay out of git."""
     if isinstance(value, str) and value.startswith("$"):
-        return os.environ.get(value[1:], "")
+        return secret(value[1:])
     if isinstance(value, dict):
         return {k: expand(v) for k, v in value.items()}
     if isinstance(value, list):
