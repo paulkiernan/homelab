@@ -1,0 +1,23 @@
+---
+# The qBittorrent UI: https://torrents.border-enigmatic.ts.net, tailnet only.
+# This is where to paste a magnet link or torrent URL. Pick category "movies"
+# or "tv" so it lands where Radarr/Sonarr look.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qbittorrent-tailscale
+  namespace: media
+  labels:
+    app: qbittorrent
+  annotations:
+    tailscale.com/hostname: "torrents"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: qbittorrent
+      port:
+        number: 8080
+  tls:
+    - hosts:
+        - torrents

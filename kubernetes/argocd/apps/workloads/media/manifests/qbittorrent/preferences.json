@@ -1,0 +1,61 @@
+{
+  "_doc": "qBittorrent Web API preference names, see https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-5.0)#set-application-preferences. configure.py applies these and puts them back if they're changed in the UI. Keys starting with _ are notes and are skipped. Anything not listed here stays editable in the UI.",
+
+  "_paths": "Downloads go straight to /media/torrents/<category>. There's no separate incomplete folder, so a finished torrent never moves and Radarr/Sonarr never race a rename. Keep the torrent's own folder layout; the arrs expect it.",
+  "save_path": "/media/torrents",
+  "temp_path_enabled": false,
+  "torrent_content_layout": "Original",
+  "preallocate_all": false,
+  "incomplete_files_ext": false,
+
+  "_tmm": "Automatic Torrent Management: the category picks the folder, and changing a torrent's category or a category's path moves the files.",
+  "auto_tmm_enabled": true,
+  "torrent_changed_tmm_enabled": true,
+  "save_path_changed_tmm_enabled": true,
+  "category_changed_tmm_enabled": true,
+
+  "_seeding": "No global ratio or seeding-time limits. Private trackers set their own minimums (hit-and-run rules), and Radarr/Sonarr remove a torrent per indexer once its tracker's goal is met.",
+  "max_ratio_enabled": false,
+  "max_seeding_time_enabled": false,
+  "max_inactive_seeding_time_enabled": false,
+
+  "_queue": "At most 5 downloads at once. Seeding is never queued: a queued torrent stops announcing, and the tracker counts that as not seeding.",
+  "queueing_enabled": true,
+  "max_active_downloads": 5,
+  "max_active_uploads": -1,
+  "max_active_torrents": -1,
+  "dont_count_slow_torrents": true,
+
+  "_network": "Fixed listen port, forwarded on the UniFi gateway to the qbittorrent-peers Service (192.168.1.234). UPnP and local peer discovery are off because neither works from inside a pod. DHT and PEX stay on for public torrents and magnets; qBittorrent already turns them off for private torrents. Anonymous mode stays off because trackers check the client's identity against their whitelist.",
+  "listen_port": 46281,
+  "random_port": false,
+  "upnp": false,
+  "lsd": false,
+  "dht": true,
+  "pex": true,
+  "anonymous_mode": false,
+  "encryption": 0,
+
+  "_speed": "Upload is capped at 3,750,000 bytes/s (about 75% of the ISP's 40 Mbit/s uplink), so the house keeps headroom.",
+  "up_limit": 3750000,
+
+  "_disk": "libtorrent 1.2 disk cache in MiB. Set explicitly because 'auto' sizes it from the node's RAM, not the pod's memory limit.",
+  "disk_cache": 128,
+
+  "_junk": "Never download executables or shortcuts, which sometimes come inside fake releases.",
+  "excluded_file_names_enabled": true,
+  "excluded_file_names": "*.exe\n*.bat\n*.cmd\n*.com\n*.scr\n*.pif\n*.lnk\n*.vbs\n*.js\n*.jar\n*.msi\n*.ps1\n*.hta\n*.wsf",
+
+  "_webui": "A login is always required, even from localhost. Host header validation lists every name the UI is reached by. Reverse-proxy mode stays off: it would make qBittorrent trust X-Forwarded-For from the Tailscale proxy, so a forged 127.0.0.1 there could pass as localhost.",
+  "bypass_local_auth": false,
+  "bypass_auth_subnet_whitelist_enabled": false,
+  "web_ui_upnp": false,
+  "web_ui_csrf_protection_enabled": true,
+  "web_ui_clickjacking_protection_enabled": true,
+  "web_ui_host_header_validation_enabled": true,
+  "web_ui_domain_list": "qbittorrent;qbittorrent.media;qbittorrent.media.svc;qbittorrent.media.svc.cluster.local;torrents.border-enigmatic.ts.net",
+  "web_ui_reverse_proxy_enabled": false,
+  "web_ui_session_timeout": 604800,
+  "web_ui_max_auth_fail_count": 5,
+  "web_ui_ban_duration": 3600
+}

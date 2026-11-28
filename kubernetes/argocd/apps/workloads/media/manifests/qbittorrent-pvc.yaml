@@ -1,0 +1,20 @@
+---
+# qBittorrent's own state: qBittorrent.conf, categories, and BT_backup/ (a
+# .torrent and .fastresume per torrent). Losing it means re-adding every
+# torrent and rechecking every byte, and private trackers count the gap as not
+# seeding. So it lives on the NAS, and db-backup.yaml snapshots it nightly.
+# ReadWriteOnce documents intent only (nas-nfs doesn't enforce it).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qbittorrent-config
+  namespace: media
+  labels:
+    app: qbittorrent
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nas-nfs
+  resources:
+    requests:
+      storage: 5Gi

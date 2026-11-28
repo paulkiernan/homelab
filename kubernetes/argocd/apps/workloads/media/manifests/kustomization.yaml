@@ -1,0 +1,38 @@
+---
+# The media stack: download client now, then Radarr/Sonarr and Jellyfin, all in
+# one namespace so they can share the one claim on the NAS `media` share.
+#
+# Layout of that share (one filesystem, so imports are hardlinks, and seeding
+# never doubles disk use or blocks a rename):
+#   /volume1/media/movies, /volume1/media/tv   the library (Radarr/Sonarr/Jellyfin)
+#   /volume1/media/torrents/{movies,tv}        qBittorrent downloads, by category
+# Every pod mounts the share at /media, so a path means the same thing in every
+# app (and in Finder) and no remote path mappings are needed. media-share.yaml
+# has the details.
+#
+# Private: the qBittorrent UI is tailnet-only (https://torrents.border-enigmatic.ts.net).
+# The only thing reachable from the internet is the BitTorrent peer port, through
+# a port forward on the UniFi gateway to qbittorrent-peers (192.168.1.234).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: media
+resources:
+  - namespace.yaml
+  - media-share.yaml
+  - qbittorrent-secret.sops.yaml
+  - qbittorrent-pvc.yaml
+  - qbittorrent-deployment.yaml
+  - qbittorrent-service.yaml
+  - qbittorrent-tailscale-ingress.yaml
+  - db-backup.yaml
+
+# The settings the cluster owns, applied through qBittorrent's Web API by the
+# `configure` sidecar (see qbittorrent-deployment.yaml). The name hash rolls the
+# pod whenever one of these files changes.
+configMapGenerator:
+  - name: qbittorrent-config
+    files:
+      - qbittorrent/preferences.json
+      - qbittorrent/categories.json
+      - qbittorrent/configure.py
+      - qbittorrent/seed-credentials.py

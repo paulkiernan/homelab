@@ -1,0 +1,181 @@
+---
+# qBittorrent, the download client for Radarr/Sonarr (and for pasting a magnet
+# by hand: pick category "movies" or "tv" and it lands in /media/torrents/<cat>).
+#
+# Three containers:
+#   seed-credentials (init)  writes the Web UI login from the qbittorrent secret
+#                            into qBittorrent.conf; the API can't set the first one
+#   qbittorrent              the client
+#   configure (sidecar)      applies qbittorrent/preferences.json and
+#                            categories.json through the Web API every 5 min
+# So the settings that matter live in git, and the UI can't drift them.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qbittorrent
+  namespace: media
+  labels:
+    app: qbittorrent
+spec:
+  # One writer for /config (resume data), and one owner of the peer port.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: qbittorrent
+  template:
+    metadata:
+      labels:
+        app: qbittorrent
+    spec:
+      enableServiceLinks: false
+      # Saving resume data for every torrent on shutdown takes a while with a
+      # few hundred seeds; killing it early means a full recheck on next start.
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  # leader-01 is kept for Jellyfin (the only Quick Sync GPU) and
+                  # the control plane; worker-04 has 4 GB. That leaves the 8 GB
+                  # Pis and worker-05. The image is multi-arch.
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values:
+                      - k8s-leader-01
+                      - k8s-worker-04
+      initContainers:
+        - name: seed-credentials
+          image: python:3.15.2-alpine3.24
+          command: [python3, -I, /etc/qbittorrent/seed-credentials.py]
+          envFrom:
+            - secretRef:
+                name: qbittorrent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: settings
+              mountPath: /etc/qbittorrent
+              readOnly: true
+      containers:
+        - name: qbittorrent
+          # libtorrent 1.2 build (the "-libtorrentv1" tag), not 2.x, for two reasons:
+          #  - private trackers whitelist qBittorrent with libtorrent 1.2 almost
+          #    universally; some have banned particular 2.x builds
+          #  - 2.x does disk I/O through mmap, which behaves badly on NFS (page
+          #    cache charged to the pod, stalls on a slow NAS moment); 1.2 uses
+          #    pread/pwrite with its own bounded cache (disk_cache in preferences.json)
+          # Check the trackers' client whitelists before a major version bump.
+          image: lscr.io/linuxserver/qbittorrent:5.3.1-libtorrentv1
+          imagePullPolicy: IfNotPresent
+          env:
+            # The NFS exports squash every client user to the NAS's admin
+            # (uid 1024, group users 100). Running as the same ids makes the
+            # image's startup chown of /config a no-op, not a stream of EPERM.
+            - name: PUID
+              value: "1024"
+            - name: PGID
+              value: "100"
+            # Group-writable, so Radarr/Sonarr (same ids) can hardlink and rename.
+            - name: UMASK
+              value: "002"
+            - name: TZ
+              value: America/Los_Angeles
+            - name: WEBUI_PORT
+              value: "8080"
+            # The image passes this as --torrenting-port on every start, so it
+            # has to agree with listen_port in preferences.json.
+            - name: TORRENTING_PORT
+              value: "46281"
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: peer-tcp
+              containerPort: 46281
+              protocol: TCP
+            - name: peer-udp
+              containerPort: 46281
+              protocol: UDP
+          # TCP, not HTTP: every API path needs a login, and the login page
+          # alone says nothing about the session. A wedged NFS mount shows up
+          # as the UI not answering, which this catches.
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # No CPU limit: hash checks are bursty and throttling only makes
+          # them slower. Memory is libtorrent's cache plus per-torrent state.
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: media
+              mountPath: /media
+        - name: configure
+          image: python:3.15.2-alpine3.24
+          command: [python3, -I, -u, /etc/qbittorrent/configure.py]
+          envFrom:
+            - secretRef:
+                name: qbittorrent
+          securityContext:
+            runAsUser: 65534
+            runAsGroup: 65534
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 5m
+              memory: 24Mi
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: settings
+              mountPath: /etc/qbittorrent
+              readOnly: true
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: qbittorrent-config
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-share
+        - name: settings
+          configMap:
+            name: qbittorrent-config

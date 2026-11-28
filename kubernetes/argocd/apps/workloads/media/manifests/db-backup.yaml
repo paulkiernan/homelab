@@ -1,0 +1,121 @@
+---
+# Nightly snapshot of the media apps' state to the NAS, kept for 14 days. Named
+# db-backup like every other app's, so the HomelabDatabaseBackupStale alert
+# covers it. One job per namespace: as Radarr/Sonarr/Jellyfin arrive, each gets
+# a volume and a line in SOURCES below.
+#   <stamp>/qbittorrent/   qBittorrent.conf, categories.json, BT_backup/
+#                          (one .torrent + .fastresume per torrent), rss/
+# Skipped: logs.
+#
+# qBittorrent writes each resume file atomically (write, then rename), so
+# copying the live directory gives a consistent file per torrent. A torrent
+# added mid-copy is simply in the next snapshot.
+#
+# The volume is inline NFS rather than a PVC, so pruning this app can't delete
+# its own backups. The NAS also holds the live data, so this covers corruption,
+# bad upgrades and accidental deletion, not loss of the NAS.
+#
+# Restore: scale qbittorrent to 0, copy a snapshot's qbittorrent/ over
+# /config/qBittorrent in the qbittorrent-config volume, scale back to 1.
+# Torrents added since the snapshot need re-adding; their data is still on disk.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup
+  namespace: media
+spec:
+  schedule: "15 5 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 3600
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: snapshot
+              image: python:3.15.2-alpine3.24
+              command: [python3, -I, -c]
+              args:
+                - |
+                  import datetime, os, re, shutil, sys
+
+                  OUT = "/backups"
+                  # name=path, the file that proves the copy is real
+                  SOURCES = {
+                      "qbittorrent": ("/sources/qbittorrent/qBittorrent", "qBittorrent.conf"),
+                  }
+                  KEEP = datetime.timedelta(days=14)
+                  SNAP = re.compile(r"\d{8}T\d{6}Z")
+                  SKIP_DIRS = {"logs"}
+                  UTC = datetime.timezone.utc
+
+                  now = datetime.datetime.now(UTC)
+                  name = now.strftime("%Y%m%dT%H%M%SZ")
+                  tmp = os.path.join(OUT, name + ".tmp")
+                  os.mkdir(tmp)
+
+                  summary = []
+                  for app, (src, must_have) in SOURCES.items():
+                      if not os.path.exists(os.path.join(src, must_have)):
+                          sys.exit(f"{app}: no {must_have} under {src}; is the volume mounted?")
+                      files = nbytes = 0
+                      for root, dirs, names in os.walk(src):
+                          rel = os.path.relpath(root, src)
+                          if rel == ".":
+                              dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+                          dest = os.path.join(tmp, app, rel)
+                          os.makedirs(dest, exist_ok=True)
+                          for f in names:
+                              if f.endswith(".seed-tmp"):
+                                  continue
+                              try:
+                                  shutil.copy2(os.path.join(root, f), os.path.join(dest, f))
+                              except FileNotFoundError:  # torrent removed mid-walk
+                                  continue
+                              files += 1
+                              nbytes += os.path.getsize(os.path.join(dest, f))
+                      summary.append(f"{app}: {files} files, {nbytes / 1e6:.1f} MB")
+                  os.rename(tmp, os.path.join(OUT, name))
+
+                  # Prune by snapshot name, not mtime (copy2 keeps source mtimes).
+                  for d in os.listdir(OUT):
+                      stamp = d.removesuffix(".tmp")
+                      if d == name or not SNAP.fullmatch(stamp):
+                          continue
+                      age = now - datetime.datetime.strptime(stamp, "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
+                      if age > KEEP or (d != stamp and age > datetime.timedelta(hours=12)):
+                          shutil.rmtree(os.path.join(OUT, d))
+                          print(f"pruned {d}")
+
+                  kept = sorted(d for d in os.listdir(OUT) if SNAP.fullmatch(d))
+                  print(f"{name}: {'; '.join(summary)}; {len(kept)} snapshots kept")
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              volumeMounts:
+                - name: qbittorrent-config
+                  mountPath: /sources/qbittorrent
+                  readOnly: true
+                - name: backups
+                  mountPath: /backups
+                  subPath: db-backups/media
+          volumes:
+            - name: qbittorrent-config
+              persistentVolumeClaim:
+                claimName: qbittorrent-config
+            - name: backups
+              nfs:
+                server: 192.168.1.2
+                path: /volume1/kubernetes-pvs

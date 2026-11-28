@@ -1,0 +1,10 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: media
+  labels:
+    # Nothing enforces Pod Security cluster-wide today (the Talos
+    # admissionControl default is removed); this records intent. Jellyfin's
+    # Quick Sync access (/dev/dri on leader-01) will need this revisited.
+    pod-security.kubernetes.io/enforce: baseline

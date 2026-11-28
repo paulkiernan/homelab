@@ -1,0 +1,52 @@
+---
+# Web UI and API, for the Tailscale Ingress and (later) Radarr/Sonarr at
+# qbittorrent.media.svc.cluster.local:8080. Never exposed on the LAN or internet.
+apiVersion: v1
+kind: Service
+metadata:
+  name: qbittorrent
+  namespace: media
+  labels:
+    app: qbittorrent
+spec:
+  selector:
+    app: qbittorrent
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+---
+# The BitTorrent peer port, the only part of the media stack reachable from the
+# internet: the UniFi gateway forwards TCP+UDP 46281 to 192.168.1.234:46281.
+# Being reachable ("connectable") is what lets other peers start connections to
+# us; private trackers rank and sometimes require it.
+#
+# externalTrafficPolicy: Local is required, not a tuning choice. With Cluster,
+# kube-proxy SNATs every incoming peer to the node's IP, and qBittorrent by
+# default accepts only one connection per IP address. Local keeps the real peer
+# address, and MetalLB then announces the IP from whichever node runs the pod.
+apiVersion: v1
+kind: Service
+metadata:
+  name: qbittorrent-peers
+  namespace: media
+  labels:
+    app: qbittorrent
+  annotations:
+    # Fixed so the router's port forward never goes stale.
+    metallb.io/loadBalancerIPs: 192.168.1.234
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    app: qbittorrent
+  ports:
+    - name: peer-tcp
+      port: 46281
+      targetPort: peer-tcp
+      protocol: TCP
+    - name: peer-udp
+      port: 46281
+      targetPort: peer-udp
+      protocol: UDP

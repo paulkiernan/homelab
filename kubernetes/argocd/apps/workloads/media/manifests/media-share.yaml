@@ -1,0 +1,59 @@
+---
+# The NAS `media` share, mounted at /media in every media pod:
+#   /media/movies               the movie library (Radarr, Jellyfin)
+#   /media/tv                   the TV library (Sonarr, Jellyfin)
+#   /media/torrents/{movies,tv} qBittorrent downloads, by category
+# The path inside a pod is the path you see in Finder, so nothing needs mapping.
+#
+# Downloads and library share one Btrfs subvolume, so Radarr/Sonarr can
+# hardlink a finished download into the library while qBittorrent keeps seeding
+# the original: instant, and no extra space. Each Synology shared folder is its
+# own subvolume, so that only works within one share; link() across shares
+# fails with EXDEV and the arrs silently fall back to copying.
+#
+# Static PV for the same reason as paperless-scans and the music library: the
+# directory belongs to the NAS, its path must never change, and deleting the
+# claim must never touch it.
+#
+# Requires an NFS permission rule on the `media` shared folder in DSM:
+#   Hostname/IP 192.168.1.200/29 (the k8s nodes only), Read/Write,
+#   Squash "Map all users to admin", Security sys, asynchronous.
+# NFS AUTH_SYS trusts any client that can reach it, so the rule is limited to
+# the nodes rather than the whole LAN; people use SMB.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: media-share
+  labels:
+    app.kubernetes.io/part-of: media
+spec:
+  capacity:
+    # Not enforced for NFS. It only has to match the claim below so the two bind.
+    storage: 10Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  # Empty (not absent) so the default nas-nfs class doesn't claim this.
+  storageClassName: ""
+  mountOptions:
+    - nfsvers=4.1
+    - hard
+  nfs:
+    server: 192.168.1.2
+    path: /volume1/media
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media-share
+  namespace: media
+  labels:
+    app.kubernetes.io/part-of: media
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: media-share
+  resources:
+    requests:
+      storage: 10Ti
