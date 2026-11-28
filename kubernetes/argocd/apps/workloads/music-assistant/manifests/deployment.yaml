@@ -45,7 +45,7 @@ spec:
           # Read the release notes before bumping: the database migrates forward
           # on start, and upstream warns never to move it between stable and
           # beta. Restore from db-backup if an upgrade goes wrong.
-          image: ghcr.io/music-assistant/server:2.10.13
+          image: ghcr.io/music-assistant/server:2.10.14
           imagePullPolicy: IfNotPresent
           # On the host network these are host ports, so the scheduler also
           # refuses a second copy on the node. They aren't the full list:
