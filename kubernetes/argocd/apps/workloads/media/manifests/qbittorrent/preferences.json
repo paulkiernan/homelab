@@ -36,8 +36,8 @@
   "anonymous_mode": false,
   "encryption": 0,
 
-  "_speed": "Upload is capped at 3,750,000 bytes/s (about 75% of the ISP's 40 Mbit/s uplink), so the house keeps headroom.",
-  "up_limit": 3750000,
+  "_speed": "Upload is capped at 3662 KiB/s (3,749,888 bytes/s; qBittorrent rounds to whole KiB), about 75% of the ISP's 40 Mbit/s uplink, so the house keeps headroom.",
+  "up_limit": 3749888,
 
   "_disk": "libtorrent 1.2 disk cache in MiB. Set explicitly because 'auto' sizes it from the node's RAM, not the pod's memory limit.",
   "disk_cache": 128,
