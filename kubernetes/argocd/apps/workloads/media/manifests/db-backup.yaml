@@ -62,7 +62,7 @@ spec:
               command: [python3, -I, -c]
               args:
                 - |
-                  import datetime, os, re, shutil, sqlite3, sys
+                  import datetime, os, re, shutil, sqlite3, stat, sys
 
                   OUT = "/backups"
                   # name: (source dir, a file that proves the volume is real, dirs to skip)
@@ -100,6 +100,10 @@ spec:
                                   continue
                               s, d = os.path.join(root, f), os.path.join(dest, f)
                               try:
+                                  # Regular files only: qBittorrent keeps a unix socket
+                                  # (ipc-socket) in its config dir, and open() on it fails.
+                                  if not stat.S_ISREG(os.lstat(s).st_mode):
+                                      continue
                                   with open(s, "rb") as fh:
                                       head = fh.read(16)
                               except FileNotFoundError:  # deleted mid-walk
